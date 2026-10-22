@@ -19,6 +19,27 @@ from src.worker.redaction import extract_identity_and_redact, redact_text
 from src.worker.sanitizer import sanitize_file
 
 
+async def _set_queue_status(cur, doc_id: uuid.UUID, status: str, error: str | None = None) -> None:
+    if error:
+        await cur.execute(
+            """
+            UPDATE jobs_queue
+            SET status = %s, error = %s
+            WHERE type = 'ingest_cv' AND payload->>'document_id' = %s AND status <> 'DONE'
+            """,
+            (status, error[:500], str(doc_id)),
+        )
+    else:
+        await cur.execute(
+            """
+            UPDATE jobs_queue
+            SET status = %s
+            WHERE type = 'ingest_cv' AND payload->>'document_id' = %s AND status <> 'DONE'
+            """,
+            (status, str(doc_id)),
+        )
+
+
 async def process_document(doc_id: uuid.UUID) -> dict[str, Any]:
     logger.info(f"Starting processing for document {doc_id}...")
     async with get_connection() as conn, conn.cursor() as cur:
@@ -36,17 +57,26 @@ async def process_document(doc_id: uuid.UUID) -> dict[str, Any]:
             logger.error(f"Document {doc_id} not found")
             return {"status": "NOT_FOUND"}
 
-        if doc["status"] in ("READY", "REJECTED", "DUPLICATE"):
-            logger.info(f"Document {doc_id} already in terminal state {doc['status']}, skipping.")
+        if doc["status"] in ("READY", "REJECTED", "DUPLICATE", "PROCESSING"):
+            logger.info(f"Document {doc_id} already in state {doc['status']}, skipping.")
             return {"status": doc["status"]}
+
+        # Mark document as PROCESSING and transition pending jobs_queue to RUNNING
+        await cur.execute(
+            "UPDATE documents SET status = 'PROCESSING', updated_at = now() WHERE id = %s",
+            (doc_id,),
+        )
+        await _set_queue_status(cur, doc_id, "RUNNING")
+        await conn.commit()
 
         vault_file = Path(settings.STORAGE_VAULT_PATH) / str(doc["tenant_id"]) / doc["storage_key"]
         if not vault_file.exists():
             logger.error(f"Vault file {vault_file} missing on disk")
             await cur.execute(
-                "UPDATE documents SET status = 'REJECTED', reasons = ARRAY['File missing in storage'] WHERE id = %s",
+                "UPDATE documents SET status = 'REJECTED', reasons = ARRAY['File missing in storage'], updated_at = now() WHERE id = %s",
                 (doc_id,),
             )
+            await _set_queue_status(cur, doc_id, "FAILED", error="File missing in storage")
             await conn.commit()
             return {"status": "REJECTED", "error": "file_missing"}
 
@@ -60,11 +90,12 @@ async def process_document(doc_id: uuid.UUID) -> dict[str, Any]:
                 await cur.execute(
                     """
                     UPDATE documents
-                    SET status = 'REJECTED', reasons = %s, flags = %s
+                    SET status = 'REJECTED', reasons = %s, flags = %s, updated_at = now()
                     WHERE id = %s
                     """,
                     (san.reasons, san.flags, doc_id),
                 )
+                await _set_queue_status(cur, doc_id, "DONE")
                 await conn.commit()
                 logger.info(f"Document {filename} REJECTED: {san.reasons}")
                 return {"status": "REJECTED", "reasons": san.reasons}
@@ -85,11 +116,12 @@ async def process_document(doc_id: uuid.UUID) -> dict[str, Any]:
                 await cur.execute(
                     """
                     UPDATE documents
-                    SET status = 'DUPLICATE', duplicate_of = %s
+                    SET status = 'DUPLICATE', duplicate_of = %s, updated_at = now()
                     WHERE id = %s
                     """,
                     (dup_row["id"], doc_id),
                 )
+                await _set_queue_status(cur, doc_id, "DONE")
                 await conn.commit()
                 logger.info(f"Document {filename} marked as DUPLICATE of {dup_row['original_filename']}")
                 return {"status": "DUPLICATE", "duplicate_of": dup_row["original_filename"]}
@@ -99,11 +131,12 @@ async def process_document(doc_id: uuid.UUID) -> dict[str, Any]:
                 await cur.execute(
                     """
                     UPDATE documents
-                    SET status = 'NEEDS_REVIEW', reasons = %s, flags = %s
+                    SET status = 'NEEDS_REVIEW', reasons = %s, flags = %s, updated_at = now()
                     WHERE id = %s
                     """,
                     (san.reasons, san.flags, doc_id),
                 )
+                await _set_queue_status(cur, doc_id, "DONE")
                 await conn.commit()
                 logger.info(f"Document {filename} marked as NEEDS_REVIEW: {san.reasons}")
                 return {"status": "NEEDS_REVIEW", "reasons": san.reasons}
@@ -336,11 +369,12 @@ async def process_document(doc_id: uuid.UUID) -> dict[str, Any]:
             await cur.execute(
                 """
                 UPDATE documents
-                SET status = %s, candidate_id = %s, flags = %s, reasons = '{}'::text[]
+                SET status = %s, candidate_id = %s, flags = %s, reasons = '{}'::text[], updated_at = now()
                 WHERE id = %s
                 """,
                 (doc_status, candidate_id, quality_flags, doc_id),
             )
+            await _set_queue_status(cur, doc_id, "DONE")
             await conn.commit()
             logger.info(f"Successfully ingested and processed document {filename} (status: {doc_status})")
             return {"status": doc_status, "profile_id": str(profile_id), "candidate_code": candidate_code}
@@ -352,11 +386,12 @@ async def process_document(doc_id: uuid.UUID) -> dict[str, Any]:
                     await err_cur.execute(
                         """
                         UPDATE documents
-                        SET status = 'NEEDS_REVIEW', reasons = array_append(reasons, 'PROCESSING_ERROR: ' || %s)
+                        SET status = 'NEEDS_REVIEW', reasons = array_append(reasons, 'PROCESSING_ERROR: ' || %s), updated_at = now()
                         WHERE id = %s
                         """,
                         (str(e)[:150], doc_id),
                     )
+                    await _set_queue_status(err_cur, doc_id, "FAILED", error=str(e))
                     await conn.commit()
             except Exception as rollback_err:
                 logger.error(f"Failed to record processing error for document {doc_id}: {rollback_err}")

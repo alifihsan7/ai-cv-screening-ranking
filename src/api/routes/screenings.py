@@ -170,7 +170,7 @@ async def get_latest_screening(
                        '{}'::text[]
                    ) as eligibility_reasons
             FROM candidate_scores cs
-            JOIN documents d ON cs.document_id = d.id AND d.tenant_id = cs.tenant_id
+            LEFT JOIN documents d ON cs.document_id = d.id AND d.tenant_id = cs.tenant_id
             LEFT JOIN req_summary rs ON rs.candidate_id = cs.candidate_id
             LEFT JOIN candidate_eligibility ce ON ce.candidate_id = cs.candidate_id AND ce.run_id = cs.run_id AND ce.tenant_id = cs.tenant_id
             WHERE cs.run_id = %s AND cs.tenant_id = %s
@@ -253,7 +253,7 @@ async def get_rankings(
                        '{}'::text[]
                    ) as eligibility_reasons
             FROM candidate_scores cs
-            JOIN documents d ON cs.document_id = d.id AND d.tenant_id = cs.tenant_id
+            LEFT JOIN documents d ON cs.document_id = d.id AND d.tenant_id = cs.tenant_id
             LEFT JOIN req_summary rs ON rs.candidate_id = cs.candidate_id
             LEFT JOIN candidate_eligibility ce ON ce.candidate_id = cs.candidate_id AND ce.run_id = cs.run_id AND ce.tenant_id = cs.tenant_id
             WHERE cs.run_id = %s AND cs.tenant_id = %s
@@ -302,7 +302,7 @@ async def get_candidate_detail(
             SELECT cs.rank, cs.final_score, cs.raw_score, cs.band, cs.recommendation,
                    cs.category_scores as category_breakdown, cs.flags, d.original_filename as file_name
             FROM candidate_scores cs
-            JOIN documents d ON cs.document_id = d.id AND d.tenant_id = cs.tenant_id
+            LEFT JOIN documents d ON cs.document_id = d.id AND d.tenant_id = cs.tenant_id
             WHERE cs.run_id = %s AND cs.candidate_id = %s AND cs.tenant_id = %s
             """,
             (run_id, cv_id, current_user.tenant_id),
@@ -482,7 +482,7 @@ async def export_for_evaluator(
                    cs.recommendation, cs.category_scores as category_breakdown, cs.flags,
                    d.original_filename as file_name, d.status as quality_status, d.reasons
             FROM candidate_scores cs
-            JOIN documents d ON cs.document_id = d.id AND d.tenant_id = cs.tenant_id
+            LEFT JOIN documents d ON cs.document_id = d.id AND d.tenant_id = cs.tenant_id
             WHERE cs.run_id = %s AND cs.tenant_id = %s
             ORDER BY cs.rank ASC NULLS LAST
             """,

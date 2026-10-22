@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import re
 import uuid
 from typing import Any
@@ -46,7 +47,7 @@ async def retrieve_evidence(
     query_text = " ".join(terms) if terms else desc
 
     # Vector embedding for requirement
-    req_emb = embed_texts([desc])[0] if desc else []
+    req_emb = (await asyncio.to_thread(embed_texts, [desc]))[0] if desc else []
 
     async with get_connection() as conn, conn.cursor() as cur:
         # 1. Vector Search

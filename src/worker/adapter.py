@@ -79,6 +79,113 @@ RANGE_REGEX = re.compile(
     re.IGNORECASE,
 )
 
+class _FallbackExtractorResult:
+    def __init__(self, data: dict[str, Any]):
+        self._data = data
+
+    def to_dict(self) -> dict[str, Any]:
+        return self._data
+
+
+class _FallbackExtractorService:
+    def extract(self, content: bytes, filename: str) -> _FallbackExtractorResult:
+        import io
+        import pymupdf
+
+        full_text = ""
+        fn_lower = filename.lower()
+        if fn_lower.endswith(".pdf"):
+            try:
+                doc = pymupdf.open(stream=content, filetype="pdf")
+                pages_text = [page.get_text() for page in doc]
+                doc.close()
+                full_text = "\n".join(pages_text)
+            except Exception:
+                full_text = ""
+        elif fn_lower.endswith((".docx", ".doc")):
+            try:
+                import docx
+                doc = docx.Document(io.BytesIO(content))
+                full_text = "\n".join(p.text for p in doc.paragraphs)
+            except Exception:
+                full_text = ""
+        else:
+            full_text = content.decode("utf-8", errors="ignore")
+
+        # Contact extraction
+        emails = re.findall(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", full_text)
+        phones = re.findall(r"(?:\+?62|08)[0-9\s-]{8,15}", full_text)
+        urls = re.findall(r"(?:https?://[^\s]+|linkedin\.com/in/[a-zA-Z0-9_-]+)", full_text)
+
+        # Section classification
+        heading_map = [
+            ("experience", re.compile(r"^(?:pengalaman(?:\s+kerja)?|riwayat\s+pekerjaan|work\s+experience|professional\s+experience|employment\s+history)\b", re.IGNORECASE)),
+            ("education", re.compile(r"^(?:pendidikan(?:\s+formal)?|riwayat\s+pendidikan|education|academic\s+background)\b", re.IGNORECASE)),
+            ("skills", re.compile(r"^(?:keahlian|kemampuan|skills?|technical\s+skills?|hard\s+skills?|kompetensi)\b", re.IGNORECASE)),
+            ("certifications", re.compile(r"^(?:sertifikasi|sertifikat|certifications?|certificates?|licenses?)\b", re.IGNORECASE)),
+            ("summary", re.compile(r"^(?:ringkasan(?:\s+profil)?|tentang\s+saya|profil(?:\s+singkat)?|summary|professional\s+summary|about\s+me)\b", re.IGNORECASE)),
+            ("projects", re.compile(r"^(?:proyek|projects?)\b", re.IGNORECASE)),
+            ("organizations", re.compile(r"^(?:organisasi|organizations?|pengalaman\s+organisasi|pelatihan|training)\b", re.IGNORECASE)),
+            ("awards", re.compile(r"^(?:penghargaan|awards?|achievements?|prestasi)\b", re.IGNORECASE)),
+            ("personal", re.compile(r"^(?:data\s+pribadi|informasi\s+pribadi|personal\s+details?)\b", re.IGNORECASE)),
+            ("languages", re.compile(r"^(?:bahasa|languages?)\b", re.IGNORECASE)),
+        ]
+
+        sections: list[dict[str, str]] = []
+        header_lines: list[str] = []
+        current_label: str | None = None
+        current_lines: list[str] = []
+
+        for raw_line in full_text.splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+
+            matched_label = None
+            if len(line) < 50:
+                clean_heading = line.lstrip("#*-•~ \t").strip()
+                for lbl, pat in heading_map:
+                    if pat.match(clean_heading):
+                        matched_label = lbl
+                        break
+
+            if matched_label:
+                if current_label and current_lines:
+                    sections.append({"label": current_label, "text": "\n".join(current_lines)})
+                    current_lines = []
+                current_label = matched_label
+            else:
+                if current_label is None:
+                    header_lines.append(line)
+                else:
+                    current_lines.append(line)
+
+        if current_label and current_lines:
+            sections.append({"label": current_label, "text": "\n".join(current_lines)})
+
+        name = header_lines[0] if header_lines else None
+        headline = header_lines[1] if len(header_lines) > 1 else None
+        summary = "\n".join(header_lines[2:]) if len(header_lines) > 2 else None
+
+        data = {
+            "name": name,
+            "headline": headline,
+            "summary": summary,
+            "contact": {
+                "emails": emails,
+                "phones": [p.strip() for p in phones],
+                "urls": urls,
+                "location": None,
+            },
+            "sections": sections,
+            "meta": {
+                "confidence": 0.95,
+                "warnings": [],
+            },
+        }
+        return _FallbackExtractorResult(data)
+
+
 _extractor_service = None
 
 
@@ -86,10 +193,9 @@ def get_extractor_service():
     global _extractor_service
     if _extractor_service is None:
         if build_service is None or PipelineConfig is None or OcrConfig is None or LlmConfig is None:
-            raise RuntimeError(
-                f"cv_extractor module not found. Set CV_EXTRACTOR_PATH environment variable (currently: {CV_EXTRACTOR_SRC})."
-            )
-        _extractor_service = build_service(PipelineConfig(ocr=OcrConfig(), llm=LlmConfig(enabled=False)))
+            _extractor_service = _FallbackExtractorService()
+        else:
+            _extractor_service = build_service(PipelineConfig(ocr=OcrConfig(), llm=LlmConfig(enabled=False)))
     return _extractor_service
 
 

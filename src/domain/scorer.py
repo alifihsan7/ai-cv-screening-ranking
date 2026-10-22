@@ -71,9 +71,9 @@ def score(states: dict[str, str], requirement_set: dict[str, Any]) -> ScoreResul
     # Two-layer normalization using category_weights if provided
     raw_cat_weights = requirement_set.get("category_weights") or {}
     active_weights = {cat: float(w) for cat, w in raw_cat_weights.items() if cat in cat_den and cat_den[cat] > 0}
+    total_active_weight = sum(active_weights.values())
 
-    if active_weights:
-        total_active_weight = sum(active_weights.values())
+    if active_weights and total_active_weight > 0:
         raw_val = sum(cat_scores[c] * (w / total_active_weight) for c, w in active_weights.items())
         raw = round(raw_val, 1)
     else:

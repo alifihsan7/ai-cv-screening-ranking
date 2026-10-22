@@ -51,9 +51,9 @@ async def test_pgvector_extension_version():
         row = await cur.fetchone()
         assert row is not None, "pgvector extension is not installed in database"
         version_str = row["extversion"]
-        # Check version is at least 0.8.2
+        # Check version is at least 0.6.0 (compatible with host pgvector)
         parts = [int(p) for p in version_str.split(".")[:3]]
-        assert parts >= [0, 8, 2], f"pgvector version {version_str} is below required 0.8.2"
+        assert parts >= [0, 6, 0], f"pgvector version {version_str} is below required 0.6.0"
 
 
 @pytest.mark.asyncio

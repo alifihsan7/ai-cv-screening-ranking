@@ -28,6 +28,21 @@ from src.infrastructure.logging import logger
 
 async def execute_screening_run(run_id: uuid.UUID) -> dict[str, Any]:
     """Executes an immutable screening run asynchronously over all ready CVs for the job."""
+    try:
+        return await _execute_screening_run_internal(run_id)
+    except Exception as e:
+        logger.exception(f"Screening run {run_id} failed: {e}")
+        with contextlib.suppress(Exception):
+            async with get_connection() as err_conn, err_conn.cursor() as err_cur:
+                await err_cur.execute(
+                    "UPDATE screening_runs SET status = 'FAILED', finished_at = now() WHERE id = %s",
+                    (run_id,),
+                )
+                await err_conn.commit()
+        raise
+
+
+async def _execute_screening_run_internal(run_id: uuid.UUID) -> dict[str, Any]:
     async with get_connection() as conn, conn.cursor() as cur:
         await cur.execute(
             """
@@ -94,10 +109,16 @@ async def execute_screening_run(run_id: uuid.UUID) -> dict[str, Any]:
             FROM documents d
             LEFT JOIN candidate_profiles cp ON cp.document_id = d.id AND cp.tenant_id = d.tenant_id
             WHERE d.job_id = %s AND d.tenant_id = %s
+            ORDER BY d.created_at ASC, d.id ASC
             """,
             (job_id, tenant_id),
         )
-        cv_rows = await cur.fetchall()
+        raw_cv_rows = await cur.fetchall()
+        # Only evaluate documents with terminal quality status or READY, never un-ingested RECEIVED/PROCESSING
+        cv_rows = [
+            cv for cv in raw_cv_rows
+            if cv["quality_status"] in ("READY", "REJECTED", "NEEDS_REVIEW", "DUPLICATE")
+        ]
         total_docs = len(cv_rows)
 
         # Update initial progress
@@ -134,6 +155,9 @@ async def execute_screening_run(run_id: uuid.UUID) -> dict[str, Any]:
                     "reasons": reasons,
                     "score_res": None,
                 }
+                continue
+
+            if cv["quality_status"] != "READY":
                 continue
 
             states_map: dict[str, str] = {}

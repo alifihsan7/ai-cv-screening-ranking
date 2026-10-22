@@ -76,12 +76,14 @@ async def close_db_pool() -> None:
 @contextlib.asynccontextmanager
 async def get_connection() -> AsyncGenerator[Any, None]:
     pool = await get_db_pool()
+    yielded = False
     try:
         async with pool.connection() as conn:
             conn.row_factory = dict_row  # type: ignore[assignment]
+            yielded = True
             yield conn
     except Exception as e:
-        if "closed" in str(e).lower() or "pool" in str(e).lower():
+        if not yielded and ("closed" in str(e).lower() or "pool" in str(e).lower()):
             await close_db_pool()
             pool = await get_db_pool()
             async with pool.connection() as conn:

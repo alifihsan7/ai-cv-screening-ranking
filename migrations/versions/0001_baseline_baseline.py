@@ -18,6 +18,8 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 BASELINE_SQL = """
+CREATE EXTENSION IF NOT EXISTS vector;
+
 -- ---------------------------------------------------------------- akses
 CREATE TABLE IF NOT EXISTS users (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
