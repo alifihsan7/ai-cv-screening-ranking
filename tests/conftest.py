@@ -34,6 +34,7 @@ os.environ.setdefault("METRICS_TOKEN", secrets.token_hex(32))
 os.environ.setdefault("PII_ENCRYPTION_KEY", secrets.token_hex(32))
 os.environ.setdefault("ALLOW_RELIGION_CRITERIA", "false")
 os.environ.setdefault("ALLOW_GENDER_CRITERIA", "false")
+os.environ.setdefault("LLM_DATA_POLICY", "paid_or_local_only")
 
 from collections.abc import AsyncGenerator
 

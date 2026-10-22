@@ -86,6 +86,10 @@ async def test_batch_upload_and_edge_cases(client: httpx.AsyncClient, recruiter_
     assert "HIDDEN_TEXT" in docs["E3_hidden_prompt_injection.pdf"]["flags"]
 
 
+import src.worker.adapter as adapter
+
+
+@pytest.mark.skipif(getattr(adapter, "build_service", None) is None, reason="cv-extractor service not available in local environment")
 @pytest.mark.asyncio
 async def test_extraction_export_matches_evaluator(client: httpx.AsyncClient, recruiter_token: str):
     headers = {"Authorization": f"Bearer {recruiter_token}"}

@@ -11,6 +11,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from src.worker.pdf_inspector import normalize_canonical_text
+
 logger = logging.getLogger("cv_screening.docling")
 
 _docling_converter = None
@@ -84,6 +86,7 @@ def parse_with_docling(content: bytes, filename: str) -> dict[str, Any] | None:
         return {
             "status": "SUCCESS",
             "markdown": markdown_text,
+            "canonical_text": normalize_canonical_text(markdown_text),
             "sections": sections,
             "engine": "docling_ibm",
         }

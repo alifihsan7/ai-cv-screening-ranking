@@ -6,11 +6,7 @@
 
 from __future__ import annotations
 
-import pytest
-
 from src.worker.anchor import (
-    extract_email_name_tokens,
-    extract_filename_anchor,
     is_blacklisted_as_name,
     resolve_candidate_name_consensus,
 )

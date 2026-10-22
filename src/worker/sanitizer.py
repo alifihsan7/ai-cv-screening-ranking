@@ -7,8 +7,15 @@ import io
 import re
 import zipfile
 from dataclasses import dataclass, field
+from typing import Any
 
 import pymupdf
+
+from src.worker.pdf_inspector import (
+    ZERO_WIDTH_PATTERN,
+    inspect_pdf_adversarial,
+    normalize_canonical_text,
+)
 
 INJECTION_PATTERNS = [
     re.compile(r"ignore\s+all\s+(?:previous|prior)\s+instructions", re.IGNORECASE),
@@ -39,10 +46,12 @@ class SanitizeResult:
     reasons: list[str] = field(default_factory=list)
     flags: list[str] = field(default_factory=list)
     extracted_text: str = ""
+    canonical_text: str = ""
     is_encrypted: bool = False
     has_hidden_text: bool = False
     has_injection: bool = False
     page_count: int = 1
+    hidden_text_findings: list[dict[str, Any]] = field(default_factory=list)
 
 
 def sanitize_file(content: bytes, filename: str) -> SanitizeResult:
@@ -100,15 +109,20 @@ def sanitize_file(content: bytes, filename: str) -> SanitizeResult:
                 reasons=["ENCRYPTED_FILE"],
             )
 
+        # Deep anti-adversarial PDF inspection
+        inspection = inspect_pdf_adversarial(content)
+        hidden_text_findings = [f.to_dict() for f in inspection.findings]
+        has_hidden_text = inspection.has_hidden_text
+
         full_text_parts = []
-        has_hidden_text = False
         has_injection = False
         total_images = 0
         flags = []
 
         for page_idx in range(len(doc)):
             page = doc[page_idx]
-            full_text_parts.append(page.get_text())
+            page_text = page.get_text()
+            full_text_parts.append(page_text if isinstance(page_text, str) else str(page_text))
             total_images += len(page.get_images())
 
             # Inspect text spans for tiny fonts or white text
@@ -134,6 +148,7 @@ def sanitize_file(content: bytes, filename: str) -> SanitizeResult:
         page_count = len(doc)
         doc.close()
         full_text = "\n".join(full_text_parts).strip()
+        canonical_text = inspection.canonical_text or normalize_canonical_text(full_text)
 
         # Check injection across full text
         for pat in INJECTION_PATTERNS:
@@ -170,6 +185,10 @@ def sanitize_file(content: bytes, filename: str) -> SanitizeResult:
                 reasons=reasons,
                 flags=flags + class_res.flags,
                 extracted_text=full_text,
+                canonical_text=canonical_text,
+                has_hidden_text=has_hidden_text,
+                has_injection=has_injection,
+                hidden_text_findings=hidden_text_findings,
                 page_count=page_count,
             )
 
@@ -180,8 +199,10 @@ def sanitize_file(content: bytes, filename: str) -> SanitizeResult:
             file_type="pdf",
             flags=flags,
             extracted_text=full_text,
+            canonical_text=canonical_text,
             has_hidden_text=has_hidden_text,
             has_injection=has_injection,
+            hidden_text_findings=hidden_text_findings,
             page_count=page_count,
         )
 
@@ -201,6 +222,19 @@ def sanitize_file(content: bytes, filename: str) -> SanitizeResult:
                 xml_content = z.read("word/document.xml").decode("utf-8", errors="ignore")
                 text = re.sub(r"<[^>]+>", " ", xml_content)
                 text = re.sub(r"\s+", " ", text).strip()
+                canonical_text = normalize_canonical_text(text)
+                docx_flags: list[str] = []
+                docx_findings: list[dict[str, Any]] = []
+                has_hidden = False
+                if ZERO_WIDTH_PATTERN.search(text):
+                    has_hidden = True
+                    docx_flags.append("HIDDEN_TEXT")
+                    docx_findings.append({
+                        "page_number": 1,
+                        "finding_type": "ZERO_WIDTH_UNICODE",
+                        "detail": "Zero-width unicode detected in DOCX body",
+                        "sample_text": "[ZERO_WIDTH_CHARS]",
+                    })
                 if len(text) < 80:
                     return SanitizeResult(
                         is_valid=True,
@@ -209,6 +243,10 @@ def sanitize_file(content: bytes, filename: str) -> SanitizeResult:
                         file_type="docx",
                         reasons=["INSUFFICIENT_CONTENT", "EMPTY_DOCUMENT"],
                         extracted_text=text,
+                        canonical_text=canonical_text,
+                        flags=docx_flags,
+                        has_hidden_text=has_hidden,
+                        hidden_text_findings=docx_findings,
                     )
                 return SanitizeResult(
                     is_valid=True,
@@ -216,6 +254,10 @@ def sanitize_file(content: bytes, filename: str) -> SanitizeResult:
                     sha256=sha256,
                     file_type="docx",
                     extracted_text=text,
+                    canonical_text=canonical_text,
+                    flags=docx_flags,
+                    has_hidden_text=has_hidden,
+                    hidden_text_findings=docx_findings,
                 )
         except Exception:
             return SanitizeResult(

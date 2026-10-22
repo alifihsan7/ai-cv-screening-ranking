@@ -41,7 +41,7 @@ async def test_processor_error_sets_needs_review_and_rolls_back():
         await cur.execute(
             """
             INSERT INTO documents (id, tenant_id, job_id, original_filename, size_bytes, sha256, storage_key, status)
-            VALUES (%s, %s, %s, 'corrupt.pdf', 20, 'sha256dummy', %s, 'PROCESSING')
+            VALUES (%s, %s, %s, 'corrupt.pdf', 20, 'sha256dummy', %s, 'RECEIVED')
             """,
             (doc_id, test_tenant, job_id, storage_key),
         )
@@ -93,14 +93,14 @@ async def test_processor_deduplicates_candidate_by_email():
         await cur.execute(
             """
             INSERT INTO documents (id, tenant_id, job_id, original_filename, size_bytes, sha256, storage_key, status)
-            VALUES (%s, %s, %s, 'doc1.pdf', 10, 'sha1', %s, 'PROCESSING')
+            VALUES (%s, %s, %s, 'doc1.pdf', 10, 'sha1', %s, 'RECEIVED')
             """,
             (doc1_id, test_tenant, job_id, k1),
         )
         await cur.execute(
             """
             INSERT INTO documents (id, tenant_id, job_id, original_filename, size_bytes, sha256, storage_key, status)
-            VALUES (%s, %s, %s, 'doc2.pdf', 10, 'sha2', %s, 'PROCESSING')
+            VALUES (%s, %s, %s, 'doc2.pdf', 10, 'sha2', %s, 'RECEIVED')
             """,
             (doc2_id, test_tenant, job_id, k2),
         )

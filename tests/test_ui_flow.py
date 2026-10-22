@@ -10,6 +10,8 @@ import urllib.request
 from pathlib import Path
 
 import pytest
+
+playwright = pytest.importorskip("playwright", reason="playwright is not installed (e2e frontend test)")
 from playwright.sync_api import sync_playwright
 
 DIST_DIR = Path("frontend/dist").resolve()

@@ -90,6 +90,7 @@ class _FallbackExtractorResult:
 class _FallbackExtractorService:
     def extract(self, content: bytes, filename: str) -> _FallbackExtractorResult:
         import io
+
         import pymupdf
 
         full_text = ""

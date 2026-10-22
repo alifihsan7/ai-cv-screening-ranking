@@ -9,7 +9,7 @@ MYPY = $(VENV)/bin/mypy
 ALEMBIC = $(VENV)/bin/alembic
 
 TEST_DB_NAME ?= cv_screening_test
-TEST_DATABASE_URL ?= $(shell grep '^DATABASE_URL=' .env 2>/dev/null | cut -d= -f2- | sed 's|/cv_screening$$|/cv_screening_test|')
+TEST_DATABASE_URL ?= $(shell grep '^DATABASE_URL=' .env 2>/dev/null | cut -d= -f2- | sed 's|/cv_screening?|/cv_screening_test?|; s|/cv_screening$$$$|/cv_screening_test|')
 
 migrate:
 	$(ALEMBIC) upgrade head

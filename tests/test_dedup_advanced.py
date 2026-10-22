@@ -32,14 +32,14 @@ async def test_duplicate_text_content_marks_duplicate():
         await cur.execute(
             """
             INSERT INTO documents (id, tenant_id, job_id, original_filename, size_bytes, sha256, storage_key, status)
-            VALUES (%s, %s, %s, 'cv_v1.pdf', 100, 'sha_unique_1', %s, 'PROCESSING')
+            VALUES (%s, %s, %s, 'cv_v1.pdf', 100, 'sha_unique_1', %s, 'RECEIVED')
             """,
             (doc1_id, test_tenant, job_id, k1),
         )
         await cur.execute(
             """
             INSERT INTO documents (id, tenant_id, job_id, original_filename, size_bytes, sha256, storage_key, status)
-            VALUES (%s, %s, %s, 'cv_v2.pdf', 150, 'sha_unique_2', %s, 'PROCESSING')
+            VALUES (%s, %s, %s, 'cv_v2.pdf', 150, 'sha_unique_2', %s, 'RECEIVED')
             """,
             (doc2_id, test_tenant, job_id, k2),
         )
@@ -105,14 +105,14 @@ async def test_different_cv_same_candidate_gets_possible_duplicate_flag():
         await cur.execute(
             """
             INSERT INTO documents (id, tenant_id, job_id, original_filename, size_bytes, sha256, storage_key, status)
-            VALUES (%s, %s, %s, 'cv_early.pdf', 100, 'sha_A', %s, 'PROCESSING')
+            VALUES (%s, %s, %s, 'cv_early.pdf', 100, 'sha_A', %s, 'RECEIVED')
             """,
             (doc1_id, test_tenant, job_id, k1),
         )
         await cur.execute(
             """
             INSERT INTO documents (id, tenant_id, job_id, original_filename, size_bytes, sha256, storage_key, status)
-            VALUES (%s, %s, %s, 'cv_later.pdf', 120, 'sha_B', %s, 'PROCESSING')
+            VALUES (%s, %s, %s, 'cv_later.pdf', 120, 'sha_B', %s, 'RECEIVED')
             """,
             (doc2_id, test_tenant, job_id, k2),
         )

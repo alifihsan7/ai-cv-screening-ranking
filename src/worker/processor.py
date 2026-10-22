@@ -326,7 +326,11 @@ async def process_document(doc_id: uuid.UUID) -> dict[str, Any]:
                     json.dumps(matching_profile),
                     full_text_redacted,
                     f"cv-extractor-{settings.EXTRACTOR_VERSION}",
-                    json.dumps({"flags": quality_flags, "confidence": san.is_valid}),
+                    json.dumps({
+                        "flags": quality_flags,
+                        "confidence": san.is_valid,
+                        "hidden_text_findings": getattr(san, "hidden_text_findings", []),
+                    }),
                 ),
             )
             prof_row = await cur.fetchone()
