@@ -7,10 +7,12 @@ from pathlib import Path
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=str(Path(__file__).resolve().parent.parent.parent / ".env"),
+        env_file=str(_REPO_ROOT / ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -30,7 +32,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
 
     # Storage
-    STORAGE_VAULT_PATH: str = "/srv/hermes-control/services/cv-screening/data/cv-vault"
+    STORAGE_VAULT_PATH: str = str(_REPO_ROOT / "data" / "cv-vault")
     MAX_UPLOAD_SIZE_MB: int = 10
 
     # LLM Data Policy
@@ -50,7 +52,7 @@ class Settings(BaseSettings):
     ALLOW_GENDER_CRITERIA: bool = True
 
     # Taxonomy & Domain Configuration
-    TAXONOMY_DIR: str = "config/taxonomy"
+    TAXONOMY_DIR: str = str(_REPO_ROOT / "config" / "taxonomy")
 
     # Hybrid Retrieval & Scoring Mode (FX-32)
     SCORING_MODE: str = "rules"  # "rules" | "hybrid"

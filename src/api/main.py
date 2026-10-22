@@ -57,11 +57,13 @@ app.include_router(candidates.router)
 app.include_router(eligibility.router)
 app.include_router(metrics.router)
 
-frontend_dist = Path("/srv/hermes-control/services/cv-screening/frontend/dist")
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+
+frontend_dist = _REPO_ROOT / "frontend" / "dist"
 if frontend_dist.exists() and (frontend_dist / "assets").exists():
     app.mount("/assets", StaticFiles(directory=str(frontend_dist / "assets")), name="assets")
 
-audit_files_dir = Path("/srv/hermes-control/services/cv-screening/data/audit_public")
+audit_files_dir = _REPO_ROOT / "data" / "audit_public"
 if audit_files_dir.exists():
     app.mount("/audit-files", StaticFiles(directory=str(audit_files_dir)), name="audit-files")
 

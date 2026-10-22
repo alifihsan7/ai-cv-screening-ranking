@@ -13,6 +13,8 @@ from pydantic import BaseModel, Field
 from src.infrastructure.config import settings
 from src.infrastructure.logging import logger
 
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+
 
 class RoleFamilyEntry(BaseModel):
     titles: list[str] = Field(default_factory=list)
@@ -59,7 +61,7 @@ def get_taxonomy(tax_dir: str | None = None) -> Taxonomy:
     """Loads and compiles taxonomy from YAML configuration directory with fail-fast regex check."""
     root_path = Path(tax_dir or settings.TAXONOMY_DIR)
     if not root_path.is_absolute():
-        root_path = Path("/srv/hermes-control/services/cv-screening") / root_path
+        root_path = _REPO_ROOT / root_path
 
     logger.info(f"Loading taxonomy from {root_path}...")
 

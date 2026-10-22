@@ -2,18 +2,27 @@
 
 from __future__ import annotations
 
+import os
 import re
 import sys
 from pathlib import Path
 from typing import Any
 
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+
 # Ensure cv_extractor is accessible
-CV_EXTRACTOR_SRC = Path("/srv/hermes-control/services/cv-extractor/src")
+CV_EXTRACTOR_SRC = Path(os.getenv("CV_EXTRACTOR_PATH") or (_REPO_ROOT.parent / "cv-extractor" / "src"))
 if str(CV_EXTRACTOR_SRC) not in sys.path:
     sys.path.insert(0, str(CV_EXTRACTOR_SRC))
 
-from cv_extractor.application.config import LlmConfig, OcrConfig, PipelineConfig
-from cv_extractor.bootstrap import build_service
+try:
+    from cv_extractor.application.config import LlmConfig, OcrConfig, PipelineConfig
+    from cv_extractor.bootstrap import build_service
+except ImportError:
+    LlmConfig = None  # type: ignore[assignment, misc]
+    OcrConfig = None  # type: ignore[assignment, misc]
+    PipelineConfig = None  # type: ignore[assignment, misc]
+    build_service = None  # type: ignore[assignment]
 
 from src.worker.anchor import resolve_candidate_name_consensus
 from src.worker.boundary import isolate_document_boundaries
@@ -76,6 +85,10 @@ _extractor_service = None
 def get_extractor_service():
     global _extractor_service
     if _extractor_service is None:
+        if build_service is None or PipelineConfig is None or OcrConfig is None or LlmConfig is None:
+            raise RuntimeError(
+                f"cv_extractor module not found. Set CV_EXTRACTOR_PATH environment variable (currently: {CV_EXTRACTOR_SRC})."
+            )
         _extractor_service = build_service(PipelineConfig(ocr=OcrConfig(), llm=LlmConfig(enabled=False)))
     return _extractor_service
 
