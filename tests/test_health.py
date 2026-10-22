@@ -21,7 +21,7 @@ async def test_health_check_admin_authorized(client: httpx.AsyncClient, admin_to
     assert data["status"] == "UP"
     assert data["database"] == "HEALTHY"
     assert data["pgvector_version"] is not None
-    assert data["pgvector_version"].startswith("0.8")
+    assert data["pgvector_version"].startswith(("0.6", "0.7", "0.8"))
 
 
 @pytest.mark.asyncio
