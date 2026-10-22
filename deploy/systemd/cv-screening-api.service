@@ -1,22 +1,22 @@
 [Unit]
-Description=CV Screening & Ranking Platform - FastAPI REST Backend (Port 8110)
-After=network.target postgresql-kms.service
-Wants=postgresql-kms.service
+Description=CV Screening & Ranking Platform - FastAPI REST Backend & Frontend (Port 8110)
+After=network.target postgresql.service
 
 [Service]
 Type=simple
-WorkingDirectory=/srv/hermes-control/services/cv-screening
-Environment=PATH=/srv/hermes-control/services/cv-screening/.venv/bin:/usr/local/bin:/usr/bin:/bin
-EnvironmentFile=/srv/hermes-control/services/cv-screening/.env
-ExecStart=/srv/hermes-control/services/cv-screening/.venv/bin/uvicorn src.api.main:app --host 127.0.0.1 --port 8110 --workers 2 --proxy-headers --forwarded-allow-ips="127.0.0.1" --access-log
+User=alifihsan
+Group=alifihsan
+WorkingDirectory=/home/alifihsan/agentic-cv-screener
+Environment=PATH=/home/alifihsan/agentic-cv-screener/.venv/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONPATH=/home/alifihsan/agentic-cv-screener
+EnvironmentFile=/home/alifihsan/agentic-cv-screener/.env
+ExecStart=/home/alifihsan/agentic-cv-screener/.venv/bin/uvicorn src.api.main:app --host 127.0.0.1 --port 8110 --workers 2 --proxy-headers --forwarded-allow-ips="127.0.0.1" --access-log
 Restart=always
 RestartSec=5s
 
-# Resource & Security Constraints
-MemoryMax=1.5G
-TasksMax=100
+# Resource Constraints
 LimitNOFILE=65536
 PrivateTmp=true
 
 [Install]
-WantedBy=default.target
+WantedBy=multi-user.target

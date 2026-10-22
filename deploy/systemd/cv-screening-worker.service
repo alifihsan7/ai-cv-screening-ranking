@@ -1,22 +1,22 @@
 [Unit]
 Description=CV Screening & Ranking Platform - Async Queue Worker
-After=network.target
-
+After=network.target postgresql.service
 
 [Service]
 Type=simple
-WorkingDirectory=/srv/hermes-control/services/cv-screening
-Environment=PATH=/srv/hermes-control/services/cv-screening/.venv/bin:/usr/local/bin:/usr/bin:/bin
-EnvironmentFile=/srv/hermes-control/services/cv-screening/.env
-ExecStart=/srv/hermes-control/services/cv-screening/.venv/bin/python -m src.worker.main
+User=alifihsan
+Group=alifihsan
+WorkingDirectory=/home/alifihsan/agentic-cv-screener
+Environment=PATH=/home/alifihsan/agentic-cv-screener/.venv/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONPATH=/home/alifihsan/agentic-cv-screener
+EnvironmentFile=/home/alifihsan/agentic-cv-screener/.env
+ExecStart=/home/alifihsan/agentic-cv-screener/.venv/bin/python -m src.worker.main
 Restart=always
 RestartSec=5s
 
 # Resource Constraints
-MemoryMax=2.0G
-TasksMax=50
 LimitNOFILE=65536
 PrivateTmp=true
 
 [Install]
-WantedBy=default.target
+WantedBy=multi-user.target
