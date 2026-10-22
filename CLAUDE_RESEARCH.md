@@ -1,9 +1,9 @@
-# CLAUDE_RESEARCH.md — Deep Research & Architectural Specification: Typesafe Autonomous AI Agent for CV Screening
+# CLAUDE_RESEARCH.md — Deep Research & Architectural Specification: Typesafe Autonomous AI Agent & Jev (TypeSafe) Verifier
 
 > **Dokumen Riset Mendalam & Panduan Eksekusi untuk Claude Code / Anthropic Claude**  
 > **Repository:** `alifihsan7/agentic-cv-screener` (Private)  
 > **Author & Sovereign Maintainer:** Alif Ihsan (`49711087+alifihsan7@users.noreply.github.com`)  
-> **Target:** Transformasi total dari *Deterministic Procedural Pipeline* ke *Fully Autonomous Typesafe AI Agent Pipeline*.
+> **Target:** Transformasi total dari *Deterministic Procedural Pipeline* ke *Fully Autonomous Typesafe AI Agent Pipeline*, mengintegrasikan **Jev (TypeSafe)** sebagai dedicated verifier engine.
 
 ---
 
@@ -21,7 +21,8 @@ Membangun **Autonomous AI Agent** yang bertindak sebagai *Senior Technical Recru
 * **Tujuan (Goal-Oriented):** Menguji kelayakan kandidat secara adil, berbasis bukti nyata (*evidence-based*), tanpa bias identitas (*blind screening*), dan tahan terhadap manipulasi teks (*anti-prompt injection*).
 * **Otonom & Adaptif:** Jika bukti ambigu, agen secara cerdas merencanakan aksi alternatif (misal: mencari variasi sinonim dalam ontologi taksonomi, membaca ulang seksi pengalaman kerja terkait, atau memvalidasi konteks proyek).
 * **Typesafe End-to-End:** Seluruh perpindahan status, pemanggilan alat (*tool calling*), state internal, dan respons API dibungkus oleh model **Pydantic v2** yang ketat tanpa celah `dict[str, Any]` atau `tuple` tanpa tipe.
-* **Non-Hallucinatory Mathematical Rigor:** LLM **dilarang menghitung angka skor**. Skor dihitung 100% oleh formula matematika deterministik dengan pembuktian kutipan verbatim di level kode Python.
+* **Integrasi Dedicated Verifier Jev (TypeSafe):** Menguji dan mengimplementasikan provider verifikasi khusus dari TypeSafe (**Jev**) yang mengkhususkan diri pada klasifikasi pilihan tertutup (*closed choices*) berprobabilitas tinggi untuk membasmi halusinasi kutipan.
+* **Non-Hallucinatory Mathematical Rigor:** LLM / Model **dilarang menghitung angka skor**. Skor dihitung 100% oleh formula matematika deterministik dengan pembuktian kutipan verbatim di level kode Python.
 
 ---
 
@@ -57,7 +58,9 @@ Agen dirancang menggunakan pola **Goal-Driven ReAct (Reason + Act) State Machine
 └──────────────┬───────────────┘              │ 1. Reason (Evaluate missing) │
                │                              │ 2. Tool Call (Vector/FTS)    │
                │                              │ 3. Reflect (Taxonomy Syns)   │
-               │                              │ 4. Verifier Gate (Verbatim)  │
+               │                              │ 4. Grounded Verifier Gate:   │
+               │                              │    • Jev (TypeSafe) Provider │
+               │                              │    • LLM Gateway Fallback    │
                │                              └──────────────┬───────────────┘
                │                                             │
                └──────────────────────┬──────────────────────┘
@@ -143,7 +146,7 @@ class EvaluationResult(BaseModel):
     metrics: dict[str, Any] = Field(default_factory=dict)
     evidences: list[EvidenceCitation] = Field(default_factory=list)
     flags: list[str] = Field(default_factory=list, description="Audit warnings e.g. SEMANTIC_MATCH, LOW_CONFIDENCE")
-    evaluation_method: Literal["DETERMINISTIC_RULE", "HYBRID_SEMANTIC", "LLM_VERIFIED", "HUMAN_OVERRIDE"]
+    evaluation_method: Literal["DETERMINISTIC_RULE", "HYBRID_SEMANTIC", "JEV_TYPESAFE", "LLM_VERIFIED", "HUMAN_OVERRIDE"]
 ```
 
 ### 3.3 Stateful Reasoning Trajectory (Agent State)
@@ -172,7 +175,7 @@ class ScreeningAgentState(BaseModel):
 
 ---
 
-## 4. STANDARISASI INTERFACE TOOLS (@agent_tool)
+## 4. STANDARISASI INTERFACE TOOLS & DEDICATED VERIFIERS
 
 Agen tidak boleh memanggil fungsi database atau LLM secara langsung di tengah alur logika. Seluruh aksi eksternal wajib diabstraksikan sebagai tool dengan skema Pydantic:
 
@@ -194,17 +197,40 @@ Agen tidak boleh memanggil fungsi database atau LLM secara langsung di tengah al
 * **Output Schema:** `{ canonical_name: str, synonyms: list[str], parents: list[str], children: list[str] }`
 * **Fungsi:** Mengambil relasi taksonomi dari `config/taxonomy/` untuk mengekspansi query saat pencarian awal tidak menemukan bukti (*reflection loop*).
 
-### 4. `GroundedVerifierTool`
-* **Input Schema:** `{ criterion_description: str, candidate_chunks: list[str], raw_full_cv: str }`
-* **Output Schema:** `{ status: Literal["STRONG", "PARTIAL", "NOT_DEMONSTRATED"], quote: str, justification: str }`
-* **Strict Guard:**
-  ```python
-  def verify_grounding(quote: str, raw_cv_text: str) -> bool:
-      if len(quote.strip()) < 5:
-          return False
-      return quote.strip().lower() in raw_cv_text.lower()
-  ```
-  Jika `verify_grounding == False`, output LLM **dianulir seketika**, di-fallback ke `rule_state` dengan flag `GROUNDING_FAIL`.
+### 4. `GroundedVerifierTool` & Jev (TypeSafe) Provider
+Sesuai dokumen spesifikasi `docs/spec/02_SCORING_RUBRIC_SPEC.md` (bagian 8):
+> *"Provider verifier bisa diganti lewat model gateway (LLM lokal, API, atau Jev dari TypeSafe sebagai eksperimen; Jev cocok karena outputnya pilihan tertutup + probabilitas, tapi tidak memberi kutipan, jadi evidence_id dipilih kode dari kandidat bukti teratas)."*
+
+#### Arsitektur Verifier Provider Pattern:
+```python
+class VerifierDecision(BaseModel):
+    state: Literal["STRONG", "PARTIAL", "NOT_DEMONSTRATED"]
+    confidence: float = Field(ge=0.0, le=1.0)
+    evidence_id: str | None = None
+    quote: str | None = None
+    provider_name: str
+
+class JevTypeSafeVerifierProvider:
+    """Provider verifikasi berbasis Jev dari TypeSafe."""
+    def __init__(self, endpoint_url: str | None = None, api_key: str | None = None):
+        self.endpoint_url = endpoint_url
+        self.api_key = api_key
+
+    async def verify(self, criterion: RequirementItem, candidate_chunks: list[RetrievedChunk]) -> VerifierDecision:
+        # Jev mengevaluasi kecocokan bukti terhadap aturan tertutup
+        # Jev mengembalikan status + probabilitas
+        # Kode Python memilih kutipan verbatim dari candidate_chunks[0] untuk menjamin zero hallucination
+        ...
+```
+
+#### Strict Grounding Invariant:
+```python
+def verify_grounding(quote: str, raw_cv_text: str) -> bool:
+    if len(quote.strip()) < 5:
+        return False
+    return quote.strip().lower() in raw_cv_text.lower()
+```
+Jika `verify_grounding == False`, output verifier **dianulir seketika**, di-fallback ke `rule_state` dengan flag `GROUNDING_FAIL`.
 
 ---
 
@@ -240,22 +266,27 @@ Jika dua kandidat memiliki skor numerik identik, urutan ranking ditentukan oleh:
 
 ## 6. PERTANYAAN RISET MENDALAM (DEEP RESEARCH INQUIRIES FOR CLAUDE)
 
-Claude Code diharapkan melakukan investigasi terhadap 7 area riset ini sebelum dan selama implementasi:
+Claude Code diharapkan melakukan investigasi terhadap 8 area riset ini sebelum dan selama implementasi:
 
-1. **State Engine Selection:**  
+1. **Eksperimen & Arsitektur Integrasi Jev (TypeSafe) vs LLM Verifier:**  
+   Bagaimana implementasi terbaik Jev dari TypeSafe sebagai provider verifikasi bukti?
+   * Evaluasi karakteristik output Jev (probabilitas terkalibrasi + pilihan tertutup).
+   * Bandingkan akurasi klasifikasi status (`STRONG`/`PARTIAL`/`NOT_DEMONSTRATED`) antara Jev vs LLM (Gemini-3.8-Flash) pada 24 CV di Golden Dataset.
+   * Ukur penurunan latensi dan risiko halusinasi kutipan dengan pendekatan deterministik Jev.
+2. **State Engine Selection:**  
    *Apakah lebih optimal membangun custom Pydantic-based state runner ringan (100% no-dependency overhead), atau mengadopsi LangGraph / PydanticAI?*  
    *Catatan:* Codebase ini mengutamakan low-latency execution, determinisme tinggi, dan integrasi erat dengan connection pool `psycopg 3` dan tabel PostgreSQL `jobs_queue`.
-2. **Handling OCR Bounding-Box vs Verbatim Matching:**  
+3. **Handling OCR Bounding-Box vs Verbatim Matching:**  
    Bagaimana strategi terbaik menangani typo minor OCR (misal ligatur `fi` atau spasi ganda) pada PDF tanpa merusak *strict verbatim grounding invariant*? Apakah perlu normalisasi whitespace deterministik sebelum komparasi substring?
-3. **Multi-Pass Query Reflection Budget:**  
+4. **Multi-Pass Query Reflection Budget:**  
    Berapa batas *reflection loop* maksimal agar agen tidak terjebak dalam *infinite loop* saat mencari skill langka, sekaligus menjaga batas latency inferensi tetap di bawah 15 detik per CV?
-4. **9Router Concurrency & Rate Limiting:**  
+5. **9Router Concurrency & Rate Limiting:**  
    Bagaimana mengoptimalkan `asyncio.Semaphore(5)` pada `gateway.py` agar sinkron dengan throughput 9Router lokal (`http://127.0.0.1:20128/v1`) saat mengevaluasi 50 CV secara paralel?
-5. **PII Masking Sanitization Leakage:**  
+6. **PII Masking Sanitization Leakage:**  
    Bagaimana memastikan nama universitas atau nama perusahaan ternama tidak ikut terhapus saat modul redaction menyamarkan nama entitas personal?
-6. **Zero-Downtime Database Migration:**  
+7. **Zero-Downtime Database Migration:**  
    Bagaimana merancang migrasi Alembic untuk kolom baru `reasoning_trajectory` (JSONB) dan `agent_version` (VARCHAR) tanpa mengunci tabel `screenings` yang sedang aktif?
-7. **Golden Dataset Regression Test:**  
+8. **Golden Dataset Regression Test:**  
    Bagaimana memastikan akurasi scoring tetap $\ge 95\%$ pada 24 CV sintetis di `docs/spec/golden_dataset/evaluate.py` setelah seluruh pipeline diubah menjadi agentic?
 
 ---
@@ -280,12 +311,12 @@ Claude disarankan bekerja dengan urutan iteratif berikut:
 * Refactor `src/domain/kind_rules.py` untuk mengembalikan `EvaluationResult` (hapus 5-tuple).
 * Ubah `ScoreResult` di `src/domain/scorer.py` menjadi Pydantic v2 `BaseModel`.
 
-### Langkah 3: Tool Interface Implementation
+### Langkah 3: Tool Interface & Jev Verifier Implementation
 * Buat modul `src/domain/tools/` yang membungkus:
   * `parser.py` (Docling & Sanitizer).
   * `retrieval.py` (Hybrid Search).
   * `reflector.py` (Taxonomy Resolver).
-  * `verifier.py` (Grounded Verifier).
+  * `verifier.py` (Provider Pattern: Jev TypeSafe + LLM Gateway).
 
 ### Langkah 4: Agent Orchestrator & State Machine
 * Bangun `src/domain/agent.py` yang menjalankan ReAct loop stateful.

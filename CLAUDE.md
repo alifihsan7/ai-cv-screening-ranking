@@ -1,4 +1,4 @@
-# CLAUDE.md — Agentic CV Screener
+# CLAUDE.md — Agentic CV Screener (Typesafe AI Agent & Jev Verifier)
 
 > **Panduan Riset, Arsitektur, dan Eksekusi untuk Claude Code**  
 > Repository: `alifihsan7/agentic-cv-screener` (Private)  
@@ -9,7 +9,7 @@
 
 ## 1. MISI & VISI PROYEK
 
-Proyek ini bertujuan mentransformasi sistem evaluasi CV (*CV screening and ranking engine*) yang awalnya bersifat **procedural pipeline & deterministic rules-based** menjadi sebuah **Fully Autonomous Typesafe AI Agent Pipeline**.
+Proyek ini bertujuan mentransformasi sistem evaluasi CV (*CV screening and ranking engine*) yang awalnya bersifat **procedural pipeline & deterministic rules-based** menjadi sebuah **Fully Autonomous Typesafe AI Agent Pipeline**, dengan integrasi khusus mesin verifikasi terkalibrasi **Jev (TypeSafe)** berdampingan dengan LLM gateway.
 
 Sistem ini dirancang untuk recruiter perusahaan:
 1. Recruiter memasukkan deskripsi lowongan (*Job Description*).
@@ -23,14 +23,14 @@ Sistem ini dirancang untuk recruiter perusahaan:
 
 Dalam mengembangkan sistem ini, ada 8 aturan fundamental dari PRD yang **TIDAK BOLEH DILANGGAR**:
 
-1. **LLM Tidak Pernah Menghitung Skor Angka:**  
-   Skor numerik dihitung 100% oleh kode matematika deterministik (`scorer.py`) berbasis bobot kriteria dan status tertutup (`STRONG`, `PARTIAL`, `NOT_DEMONSTRATED`, `UNKNOWN`). LLM dilarang keras menghasilkan skor angka langsung.
+1. **LLM / Verifier Tidak Pernah Menghitung Skor Angka:**  
+   Skor numerik dihitung 100% oleh kode matematika deterministik (`scorer.py`) berbasis bobot kriteria dan status tertutup (`STRONG`, `PARTIAL`, `NOT_DEMONSTRATED`, `UNKNOWN`). Model/verifier dilarang keras menghasilkan skor angka langsung.
 2. **Code-Level Verbatim Grounding:**  
    Setiap klaim kualifikasi wajib memiliki kutipan teks (`quote`) dari CV. Kode Python memvalidasi bahwa kutipan tersebut **benar-benar ada secara verbatim (panjang $\ge$ 5 karakter)** di teks asli CV. Jika tidak ditemukan, klaim otomatis dianulir (`GROUNDING_FAIL`).
 3. **Teks CV Adalah Data, Bukan Instruksi (Anti-Prompt Injection):**  
    Teks CV tidak pernah digabungkan langsung ke instruksi prompt LLM tanpa sanitasi. CV diperlakukan sebagai dokumen pasif untuk mencegah serangan *prompt injection* yang diselundupkan oleh kandidat.
 4. **Pemisahan Fisik PII & Blind Screening:**  
-   Nama, foto, kontak, tanggal lahir, gender, agama, dan alamat lengkap kandidat **wajib dipisahkan dan dienkripsi** (`pgp_sym_encrypt`) sebelum masuk ke embedding, prompt LLM, atau penilaian kompetensi. Penilaian kompetensi murni anonim (*blind*).
+   Nama, foto, kontak, tanggal lahir, gender, agama, dan alamat lengkap kandidat **wajib dipisahkan dan dienkripsi** (`pgp_sym_encrypt`) sebelum masuk ke embedding, verifier, atau penilaian kompetensi. Penilaian kompetensi murni anonim (*blind*).
 5. **Kriteria Administratif Dipisah (Eligibility Gate):**  
    Kriteria demografis (usia, gender) tidak boleh mencemari skor teknis. Kriteria ini dievaluasi terpisah di *Eligibility Gate* dengan mekanisme persetujuan ganda (*four-eyes approval*).
 6. **Tidak Ada Penolakan Otomatis (No Automated Rejection):**  
@@ -53,6 +53,9 @@ agentic-cv-screener/
 |   `-- taxonomy/                 # Kamus ontologi domain (skills, certs, role_families)
 |-- docs/
 |   |-- spec/                     # Spesifikasi lengkap (PRD, Rubrik Skor, API Contract)
+|   |   |-- 02_SCORING_RUBRIC_SPEC.md   # [PENTING] Memuat spesifikasi Jev (TypeSafe) & LLM Verifier
+|   |   |-- 07_IMPLEMENTATION_PLAN.md   # Eksperimen Jev (TypeSafe) vs Golden Dataset
+|   |   `-- 09_QUESTIONS_FOR_AGENT.md   # Konfigurasi akses & gateway model
 |   `-- DEPLOYMENT_AND_RUNBOOK.md # Dokumentasi deployment & operasional
 |-- src/
 |   |-- api/                      # REST Interface (FastAPI)
@@ -62,7 +65,7 @@ agentic-cv-screener/
 |   |-- domain/                   # Business & Algorithmic Core
 |   |   |-- kind_rules.py         # Evaluasi aturan per kriteria (EXPERIENCE, SKILL, EDU, CERT)
 |   |   |-- scorer.py             # Mesin skoring 2 lapis, band capping, ranking tie-break
-|   |   |-- verifier.py           # LLM-based verification dengan verbatim grounding
+|   |   |-- verifier.py           # Verification engine (LLM Gateway / Jev TypeSafe Provider)
 |   |   |-- retrieval.py          # Hybrid search (pgvector HNSW cosine + FTS via RRF k=60)
 |   |   |-- jd_compiler.py        # Ekstraksi requirement dari teks Job Description
 |   |   |-- eligibility.py        # Pemeriksaan administratif terpisah (usia, gender)
@@ -73,7 +76,7 @@ agentic-cv-screener/
 |   |-- infrastructure/           # Drivers & Technical Adapters
 |   |   |-- config.py             # Pydantic BaseSettings
 |   |   |-- database.py           # Connection pool PostgreSQL via psycopg 3
-|   |   |-- gateway.py            # HTTP client ke 9Router LLM (port 20128)
+|   |   |-- gateway.py            # HTTP client ke 9Router LLM & Verifier Provider
 |   |   `-- logging.py            # Structured JSON logger
 |   `-- worker/                   # Asynchronous Job Execution (jobs_queue)
 |       |-- main.py               # Daemon polling loop (FOR UPDATE SKIP LOCKED)
@@ -167,16 +170,30 @@ class ScreeningAgentState(BaseModel):
 Bungkus kapabilitas sistem menjadi interface tool terstandarisasi:
 - `DocumentParserTool`: Parse PDF/DOCX via Docling TableFormer / PyPDF.
 - `HybridRetrievalTool`: Query pgvector HNSW cosine + Postgres FTS via RRF k=60.
-- `GroundedVerifierTool`: Validasi kutipan LLM dengan kode Python verbatim checker.
+- `GroundedVerifierTool`: Validasi bukti dengan provider tertutup (LLM / Jev).
 - `PolicyLinterTool`: Audit kriteria SARA dan diskriminasi.
 
-### 4. Adaptive ReAct / Plan-and-Solve Loop
-Gantikan for-loop kaku dengan alur evaluasi adaptif:
-1. **Plan:** Analisis kualifikasi yang dibutuhkan vs profil kandidat.
-2. **Execute:** Jalankan aturan deterministik untuk kriteria mudah (pendidikan, tahun pengalaman).
-3. **Reflect & Search:** Jika kriteria skill berstatus `NOT_DEMONSTRATED`, agen memanggil `HybridRetrievalTool` dengan variasi sinonim dari taksonomi.
-4. **Verify:** Panggil `GroundedVerifierTool` jika terdapat bukti ambigu, pastikan lolos validasi verbatim.
-5. **Synthesize:** Scorer menghitung Band dan skor akhir matematis.
+### 4. Integrasi Jev (TypeSafe) sebagai Dedicated Verifier Provider
+Sesuai dokumen spesifikasi `docs/spec/02_SCORING_RUBRIC_SPEC.md` dan `07_IMPLEMENTATION_PLAN.md`:
+* **Karakteristik Jev (TypeSafe):** Jev dirancang khusus untuk verifikasi tertutup dengan mengembalikan probabilitas/status:
+  ```json
+  {"state": "PARTIAL", "confidence": 0.82}
+  ```
+* **Keunggulan Jev:** Berbeda dengan LLM generatif yang berisiko mengarang teks kutipan, Jev fokus murni pada klasifikasi kepatuhan bukti (*closed choices*).
+* **Mekanisme Grounding dengan Jev:** Karena Jev tidak mengembalikan teks kutipan, `evidence_id` dan kutipan verbatim **dipilih langsung oleh kode Python dari potongan teks bukti teratas hasil hybrid retrieval**. Ini menghasilkan jaminan 0% halusinasi kutipan.
+* **Provider Abstraction di `src/domain/verifier.py`:**
+  ```python
+  class VerifierProvider(Protocol):
+      async def verify(self, criterion: RequirementItem, chunks: list[str]) -> VerifierDecision: ...
+
+  class JevTypeSafeVerifier(VerifierProvider):
+      """Eksperimen verifier Jev TypeSafe berbasis klasifikasi tertutup & probabilitas."""
+      ...
+
+  class LLMVerifier(VerifierProvider):
+      """Fallback verifier via 9Router LLM Gateway."""
+      ...
+  ```
 
 ---
 
@@ -201,11 +218,11 @@ Claude Code disarankan mengeksekusi refactoring dengan tahapan berikut:
 4. Pasang `response_model` pada seluruh routes di `src/api/routes/`.
 5. Perbarui `pyproject.toml` dengan mode MyPy yang lebih ketat (`disallow_untyped_defs = true`) dan tuntaskan semua error typing.
 
-### Phase 3: Agentic State Machine & Tool Registry (Prioritas Sedang)
+### Phase 3: Agentic State Machine, Tool Registry & Jev Integration (Prioritas Sedang)
 1. Implementasikan `ScreeningAgentState` dan `ReasoningStep`.
 2. Daftarkan tools sistem ke dalam registry terstandarisasi.
-3. Rancang loop orkestrasi otonom yang adaptif di `src/domain/screening_service.py`.
-4. Dokumentasikan setiap reasoning step ke dalam laporan dossier kandidat.
+3. Bangun provider interface di `src/domain/verifier.py` yang mendukung **Jev (TypeSafe)** dan LLM Gateway.
+4. Rancang loop orkestrasi otonom yang adaptif di `src/domain/screening_service.py`.
 
 ### Phase 4: Observability & Verifikasi Golden Dataset (Prioritas Sedang)
 1. Jalankan `pytest` untuk memastikan tidak ada regresi pada tes yang sudah ada.
@@ -213,7 +230,7 @@ Claude Code disarankan mengeksekusi refactoring dengan tahapan berikut:
    ```bash
    python docs/spec/golden_dataset/evaluate.py
    ```
-   Pastikan akurasi evaluasi tetap mencapai passing criteria PRD.
+3. **Bandingkan akurasi verifier:** Ukur performa Jev (TypeSafe) vs LLM Verifier pada 24 CV golden dataset (akurasi status, false positive rate, latency, dan token cost).
 
 ---
 
@@ -234,10 +251,10 @@ cp .env.example .env
 # Sesuaikan DATABASE_URL dan JWT_SECRET di .env
 ```
 
-### LLM Gateway (9Router)
-Sistem menggunakan 9Router lokal di port `20128`:
-- `LLM_GATEWAY_URL=http://127.0.0.1:20128/v1`
+### LLM Gateway & Verifier Config
+- `LLM_GATEWAY_URL=http://127.0.0.1:20128/v1` (9Router lokal)
 - Model default: `ag/gemini-3.8-flash-high`
+- Verifier provider: `rules`, `llm_gateway`, atau `jev_typesafe`
 
 ### Testing, Linting & Type Checking
 ```bash
@@ -250,6 +267,9 @@ ruff format --check src/ tests/
 
 # Type checking statis
 mypy src/
+
+# Evaluasi Golden Dataset
+python docs/spec/golden_dataset/evaluate.py
 ```
 
 ### Menjalankan Service
