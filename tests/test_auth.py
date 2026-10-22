@@ -9,7 +9,7 @@ import pytest
 @pytest.mark.asyncio
 async def test_login_success(client: httpx.AsyncClient):
     payload = {
-        "email": "recruiter@rifqisetiawan.my.id",
+        "email": "recruiter@alifihsan.my.id",
         "password": "RecruiterPassword2026!",
     }
     response = await client.post("/api/v1/auth/login", json=payload)
@@ -17,7 +17,7 @@ async def test_login_success(client: httpx.AsyncClient):
     data = response.json()
     assert "access_token" in data
     assert data["token_type"] == "bearer"
-    assert data["user"]["email"] == "recruiter@rifqisetiawan.my.id"
+    assert data["user"]["email"] == "recruiter@alifihsan.my.id"
     assert data["user"]["role"] == "recruiter"
 
 

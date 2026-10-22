@@ -61,7 +61,7 @@ def admin_token() -> str:
         {
             "sub": "adbbfe35-43d1-40ef-a02b-10c975110219",
             "tenant_id": DEMO_TENANT_ID,
-            "email": "admin@rifqisetiawan.my.id",
+            "email": "admin@alifihsan.my.id",
             "role": UserRole.ADMIN.value,
         }
     )
@@ -73,7 +73,7 @@ def recruiter_token() -> str:
         {
             "sub": "ce12fcef-601b-4fb8-b8ed-f3eab5e8de6c",
             "tenant_id": DEMO_TENANT_ID,
-            "email": "recruiter@rifqisetiawan.my.id",
+            "email": "recruiter@alifihsan.my.id",
             "role": UserRole.RECRUITER.value,
         }
     )
@@ -85,7 +85,7 @@ def hiring_manager_token() -> str:
         {
             "sub": "fffb4b73-f806-46df-89b4-3318143ece4a",
             "tenant_id": DEMO_TENANT_ID,
-            "email": "manager@rifqisetiawan.my.id",
+            "email": "manager@alifihsan.my.id",
             "role": UserRole.HIRING_MANAGER.value,
         }
     )

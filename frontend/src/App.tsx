@@ -150,7 +150,7 @@ Kualifikasi:
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: 'recruiter@rifqisetiawan.my.id',
+          email: 'recruiter@alifihsan.my.id',
           password: 'RecruiterPassword2026!',
         }),
       })

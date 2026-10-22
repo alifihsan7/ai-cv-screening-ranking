@@ -14,19 +14,19 @@ DEMO_TENANT_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
 INITIAL_USERS = [
     {
         "id": uuid.UUID("adbbfe35-43d1-40ef-a02b-10c975110219"),
-        "email": "admin@rifqisetiawan.my.id",
+        "email": "admin@alifihsan.my.id",
         "password": "AdminSecurePassword2026!",
         "role": UserRole.ADMIN,
     },
     {
         "id": uuid.UUID("ce12fcef-601b-4fb8-b8ed-f3eab5e8de6c"),
-        "email": "recruiter@rifqisetiawan.my.id",
+        "email": "recruiter@alifihsan.my.id",
         "password": "RecruiterPassword2026!",
         "role": UserRole.RECRUITER,
     },
     {
         "id": uuid.UUID("fffb4b73-f806-46df-89b4-3318143ece4a"),
-        "email": "manager@rifqisetiawan.my.id",
+        "email": "manager@alifihsan.my.id",
         "password": "ManagerPassword2026!",
         "role": UserRole.HIRING_MANAGER,
     },
