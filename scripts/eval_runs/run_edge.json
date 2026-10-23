@@ -53,7 +53,7 @@
       },
       "flags": [],
       "reasons": [],
-      "rank": 14
+      "rank": 12
     },
     {
       "file": "I3_graphic_designer_two_column_en.pdf",
@@ -107,7 +107,7 @@
       },
       "flags": [],
       "reasons": [],
-      "rank": 15
+      "rank": 13
     },
     {
       "file": "I5_nurse_scan_id.pdf",
@@ -133,7 +133,7 @@
       },
       "flags": [],
       "reasons": [],
-      "rank": 16
+      "rank": 14
     },
     {
       "file": "M1_nodejs_backend_two_column.pdf",
@@ -162,14 +162,14 @@
         "KEYWORD_STUFFING"
       ],
       "reasons": [],
-      "rank": 8
+      "rank": 3
     },
     {
       "file": "M2_data_analyst_id.pdf",
       "status": "SCORED",
       "band": "B",
-      "score": 40.5,
-      "raw_score": 40.5,
+      "score": 49.5,
+      "raw_score": 49.5,
       "recommendation": "REVIEW",
       "requirement_states": {
         "R1": "NOT_DEMONSTRATED",
@@ -178,9 +178,9 @@
         "R4": "STRONG",
         "R5": "NOT_DEMONSTRATED",
         "R6": "STRONG",
-        "R7": "PARTIAL",
+        "R7": "STRONG",
         "R8": "NOT_DEMONSTRATED",
-        "R9": "PARTIAL",
+        "R9": "STRONG",
         "R10": "NOT_DEMONSTRATED"
       },
       "metrics": {
@@ -190,52 +190,52 @@
         "KEYWORD_STUFFING"
       ],
       "reasons": [],
-      "rank": 11
+      "rank": 7
     },
     {
       "file": "M3_fresh_graduate_scan_id.pdf",
       "status": "SCORED",
-      "band": "B",
-      "score": 58.5,
-      "raw_score": 58.5,
-      "recommendation": "REVIEW",
+      "band": "C",
+      "score": 0.0,
+      "raw_score": 0.0,
+      "recommendation": "LOW_PRIORITY",
       "requirement_states": {
-        "R1": "PARTIAL",
-        "R2": "PARTIAL",
-        "R3": "STRONG",
-        "R4": "STRONG",
-        "R5": "PARTIAL",
+        "R1": "NOT_DEMONSTRATED",
+        "R2": "NOT_DEMONSTRATED",
+        "R3": "NOT_DEMONSTRATED",
+        "R4": "NOT_DEMONSTRATED",
+        "R5": "NOT_DEMONSTRATED",
         "R6": "NOT_DEMONSTRATED",
-        "R7": "STRONG",
+        "R7": "NOT_DEMONSTRATED",
         "R8": "NOT_DEMONSTRATED",
-        "R9": "PARTIAL",
-        "R10": "PARTIAL"
+        "R9": "NOT_DEMONSTRATED",
+        "R10": "NOT_DEMONSTRATED"
       },
       "metrics": {
-        "backend_months": 3.0
+        "backend_months": 0.0
       },
       "flags": [],
       "reasons": [],
-      "rank": 9
+      "rank": 15
     },
     {
       "file": "M4_qa_automation_en.docx",
       "status": "SCORED",
-      "band": "B",
-      "score": 49.0,
-      "raw_score": 49.0,
-      "recommendation": "REVIEW",
+      "band": "C",
+      "score": 22.0,
+      "raw_score": 22.0,
+      "recommendation": "LOW_PRIORITY",
       "requirement_states": {
         "R1": "NOT_DEMONSTRATED",
-        "R2": "PARTIAL",
-        "R3": "STRONG",
-        "R4": "STRONG",
-        "R5": "STRONG",
+        "R2": "NOT_DEMONSTRATED",
+        "R3": "PARTIAL",
+        "R4": "PARTIAL",
+        "R5": "PARTIAL",
         "R6": "NOT_DEMONSTRATED",
         "R7": "STRONG",
         "R8": "NOT_DEMONSTRATED",
-        "R9": "PARTIAL",
-        "R10": "PARTIAL"
+        "R9": "NOT_DEMONSTRATED",
+        "R10": "NOT_DEMONSTRATED"
       },
       "metrics": {
         "backend_months": 0.0
@@ -270,7 +270,7 @@
         "HIDDEN_TEXT"
       ],
       "reasons": [],
-      "rank": 12
+      "rank": 8
     },
     {
       "file": "S1_senior_backend_id.pdf",
@@ -319,37 +319,37 @@
     {
       "file": "S3_backend_mixed_lang.pdf",
       "status": "SCORED",
-      "band": "A",
-      "score": 75.0,
-      "raw_score": 75.0,
-      "recommendation": "SHORTLIST",
+      "band": "B",
+      "score": 59.0,
+      "raw_score": 59.0,
+      "recommendation": "REVIEW",
       "requirement_states": {
-        "R1": "STRONG",
-        "R2": "STRONG",
+        "R1": "PARTIAL",
+        "R2": "PARTIAL",
         "R3": "STRONG",
         "R4": "STRONG",
         "R5": "PARTIAL",
         "R6": "NOT_DEMONSTRATED",
         "R7": "STRONG",
         "R8": "NOT_DEMONSTRATED",
-        "R9": "PARTIAL",
+        "R9": "STRONG",
         "R10": "NOT_DEMONSTRATED"
       },
       "metrics": {
-        "backend_months": 47.5
+        "backend_months": 25.5
       },
       "flags": [
         "KEYWORD_STUFFING"
       ],
       "reasons": [],
-      "rank": 7
+      "rank": 6
     },
     {
       "file": "S4_lead_backend_two_column.pdf",
       "status": "SCORED",
       "band": "A",
-      "score": 95.0,
-      "raw_score": 95.0,
+      "score": 100.0,
+      "raw_score": 100.0,
       "recommendation": "SHORTLIST",
       "requirement_states": {
         "R1": "STRONG",
@@ -358,7 +358,7 @@
         "R4": "STRONG",
         "R5": "STRONG",
         "R6": "STRONG",
-        "R7": "PARTIAL",
+        "R7": "STRONG",
         "R8": "STRONG",
         "R9": "STRONG",
         "R10": "STRONG"
@@ -376,28 +376,28 @@
     {
       "file": "S5_backend_healthtech_id.docx",
       "status": "SCORED",
-      "band": "A",
-      "score": 87.5,
-      "raw_score": 87.5,
-      "recommendation": "SHORTLIST",
+      "band": "C",
+      "score": 36.5,
+      "raw_score": 36.5,
+      "recommendation": "LOW_PRIORITY",
       "requirement_states": {
-        "R1": "STRONG",
-        "R2": "STRONG",
-        "R3": "STRONG",
-        "R4": "STRONG",
-        "R5": "STRONG",
-        "R6": "STRONG",
+        "R1": "NOT_DEMONSTRATED",
+        "R2": "NOT_DEMONSTRATED",
+        "R3": "PARTIAL",
+        "R4": "PARTIAL",
+        "R5": "PARTIAL",
+        "R6": "PARTIAL",
         "R7": "STRONG",
         "R8": "NOT_DEMONSTRATED",
-        "R9": "PARTIAL",
+        "R9": "STRONG",
         "R10": "PARTIAL"
       },
       "metrics": {
-        "backend_months": 76.0
+        "backend_months": 0.0
       },
       "flags": [],
       "reasons": [],
-      "rank": 4
+      "rank": 9
     },
     {
       "file": "E1_empty_cv.pdf",
@@ -409,7 +409,9 @@
       "recommendation": "MANUAL_CHECK",
       "requirement_states": {},
       "metrics": {},
-      "flags": [],
+      "flags": [
+        "EMPTY_OR_INSUFFICIENT_CONTENT"
+      ],
       "reasons": [
         "INSUFFICIENT_CONTENT",
         "EMPTY_DOCUMENT"
@@ -419,28 +421,28 @@
     {
       "file": "E2_scan_of_S2.pdf",
       "status": "SCORED",
-      "band": "A",
-      "score": 88.0,
-      "raw_score": 88.0,
-      "recommendation": "SHORTLIST",
+      "band": "C",
+      "score": 0.0,
+      "raw_score": 0.0,
+      "recommendation": "LOW_PRIORITY",
       "requirement_states": {
-        "R1": "STRONG",
-        "R2": "STRONG",
-        "R3": "STRONG",
-        "R4": "STRONG",
-        "R5": "STRONG",
-        "R6": "STRONG",
-        "R7": "STRONG",
+        "R1": "NOT_DEMONSTRATED",
+        "R2": "NOT_DEMONSTRATED",
+        "R3": "NOT_DEMONSTRATED",
+        "R4": "NOT_DEMONSTRATED",
+        "R5": "NOT_DEMONSTRATED",
+        "R6": "NOT_DEMONSTRATED",
+        "R7": "NOT_DEMONSTRATED",
         "R8": "NOT_DEMONSTRATED",
-        "R9": "STRONG",
+        "R9": "NOT_DEMONSTRATED",
         "R10": "NOT_DEMONSTRATED"
       },
       "metrics": {
-        "backend_months": 70.0
+        "backend_months": 0.0
       },
       "flags": [],
       "reasons": [],
-      "rank": 3
+      "rank": 16
     },
     {
       "file": "E3_hidden_prompt_injection.pdf",
@@ -497,63 +499,63 @@
         "KEYWORD_STUFFING"
       ],
       "reasons": [],
-      "rank": 13
+      "rank": 11
     },
     {
       "file": "E5a_counterfactual_A.pdf",
       "status": "SCORED",
-      "band": "A",
-      "score": 75.0,
-      "raw_score": 75.0,
-      "recommendation": "SHORTLIST",
+      "band": "B",
+      "score": 59.0,
+      "raw_score": 59.0,
+      "recommendation": "REVIEW",
       "requirement_states": {
-        "R1": "STRONG",
-        "R2": "STRONG",
+        "R1": "PARTIAL",
+        "R2": "PARTIAL",
         "R3": "STRONG",
         "R4": "STRONG",
         "R5": "PARTIAL",
         "R6": "NOT_DEMONSTRATED",
         "R7": "STRONG",
         "R8": "NOT_DEMONSTRATED",
-        "R9": "PARTIAL",
+        "R9": "STRONG",
         "R10": "NOT_DEMONSTRATED"
       },
       "metrics": {
-        "backend_months": 47.5
+        "backend_months": 25.5
+      },
+      "flags": [
+        "KEYWORD_STUFFING"
+      ],
+      "reasons": [],
+      "rank": 4
+    },
+    {
+      "file": "E5b_counterfactual_B.pdf",
+      "status": "SCORED",
+      "band": "B",
+      "score": 59.0,
+      "raw_score": 59.0,
+      "recommendation": "REVIEW",
+      "requirement_states": {
+        "R1": "PARTIAL",
+        "R2": "PARTIAL",
+        "R3": "STRONG",
+        "R4": "STRONG",
+        "R5": "PARTIAL",
+        "R6": "NOT_DEMONSTRATED",
+        "R7": "STRONG",
+        "R8": "NOT_DEMONSTRATED",
+        "R9": "STRONG",
+        "R10": "NOT_DEMONSTRATED"
+      },
+      "metrics": {
+        "backend_months": 25.5
       },
       "flags": [
         "KEYWORD_STUFFING"
       ],
       "reasons": [],
       "rank": 5
-    },
-    {
-      "file": "E5b_counterfactual_B.pdf",
-      "status": "SCORED",
-      "band": "A",
-      "score": 75.0,
-      "raw_score": 75.0,
-      "recommendation": "SHORTLIST",
-      "requirement_states": {
-        "R1": "STRONG",
-        "R2": "STRONG",
-        "R3": "STRONG",
-        "R4": "STRONG",
-        "R5": "PARTIAL",
-        "R6": "NOT_DEMONSTRATED",
-        "R7": "STRONG",
-        "R8": "NOT_DEMONSTRATED",
-        "R9": "PARTIAL",
-        "R10": "NOT_DEMONSTRATED"
-      },
-      "metrics": {
-        "backend_months": 47.5
-      },
-      "flags": [
-        "KEYWORD_STUFFING"
-      ],
-      "reasons": [],
-      "rank": 6
     },
     {
       "file": "E6_password_protected.pdf",
@@ -581,10 +583,14 @@
       "recommendation": "MANUAL_CHECK",
       "requirement_states": {},
       "metrics": {},
-      "flags": [],
+      "flags": [
+        "NOT_A_CV",
+        "COVER_LETTER_ONLY"
+      ],
       "reasons": [
         "NOT_A_CV",
-        "INSUFFICIENT_CONTENT"
+        "NOT_A_CV_COVER_LETTER_ONLY",
+        "Dokumen hanya berupa surat lamaran / cover letter pengantar tanpa ringkasan CV."
       ],
       "duplicate_of": null
     },

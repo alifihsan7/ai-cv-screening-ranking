@@ -108,8 +108,9 @@ async def _execute_screening_run_internal(
             """,
             (req_set_id, tenant_id),
         )
-        requirements = [dict(r) for r in await cur.fetchall()]
-        req_set_dict = {
+        raw_reqs = await cur.fetchall()
+        requirements: list[dict[str, Any]] = [dict(r) for r in raw_reqs]
+        req_set_dict: dict[str, Any] = {
             "category_weights": cat_weights,
             "requirements": requirements,
         }
@@ -187,7 +188,7 @@ async def _execute_screening_run_internal(
                     agent_state = await run_screening_agent(
                         job_id=str(job_id),
                         candidate_id=str(cand_id),
-                        requirements=req_set_dict["requirements"],
+                        requirements=requirements,
                         profile=matching_prof,
                         raw_cv_text=full_text,
                         as_of=effective_as_of,

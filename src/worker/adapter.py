@@ -97,17 +97,26 @@ class _FallbackExtractorService:
         fn_lower = filename.lower()
         if fn_lower.endswith(".pdf"):
             try:
-                doc = pymupdf.open(stream=content, filetype="pdf")
-                pages_text = [page.get_text() for page in doc]
-                doc.close()
+                pdf_doc = pymupdf.open(stream=content, filetype="pdf")
+                pages_text: list[str] = []
+                for i in range(len(pdf_doc)):
+                    p_txt = pdf_doc[i].get_text()
+                    if not p_txt.strip():
+                        try:
+                            tp = pdf_doc[i].get_textpage_ocr()
+                            p_txt = pdf_doc[i].get_text(textpage=tp)
+                        except Exception:
+                            pass
+                    pages_text.append(p_txt)
+                pdf_doc.close()
                 full_text = "\n".join(pages_text)
             except Exception:
                 full_text = ""
         elif fn_lower.endswith((".docx", ".doc")):
             try:
                 import docx
-                doc = docx.Document(io.BytesIO(content))
-                full_text = "\n".join(p.text for p in doc.paragraphs)
+                docx_doc = docx.Document(io.BytesIO(content))
+                full_text = "\n".join(p.text for p in docx_doc.paragraphs)
             except Exception:
                 full_text = ""
         else:

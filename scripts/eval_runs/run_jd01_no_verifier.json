@@ -1,6 +1,6 @@
 {
   "job_id": "JD-01",
-  "run_id": "run_jd01_no_verifier",
+  "run_id": "run_jd01",
   "as_of": "2026-10-01",
   "results": [
     {
@@ -53,7 +53,7 @@
       },
       "flags": [],
       "reasons": [],
-      "rank": 11
+      "rank": 10
     },
     {
       "file": "I3_graphic_designer_two_column_en.pdf",
@@ -107,7 +107,7 @@
       },
       "flags": [],
       "reasons": [],
-      "rank": 12
+      "rank": 11
     },
     {
       "file": "I5_nurse_scan_id.pdf",
@@ -133,7 +133,7 @@
       },
       "flags": [],
       "reasons": [],
-      "rank": 13
+      "rank": 12
     },
     {
       "file": "M1_nodejs_backend_two_column.pdf",
@@ -162,14 +162,14 @@
         "KEYWORD_STUFFING"
       ],
       "reasons": [],
-      "rank": 6
+      "rank": 4
     },
     {
       "file": "M2_data_analyst_id.pdf",
       "status": "SCORED",
       "band": "B",
-      "score": 40.5,
-      "raw_score": 40.5,
+      "score": 49.5,
+      "raw_score": 49.5,
       "recommendation": "REVIEW",
       "requirement_states": {
         "R1": "NOT_DEMONSTRATED",
@@ -178,9 +178,9 @@
         "R4": "STRONG",
         "R5": "NOT_DEMONSTRATED",
         "R6": "STRONG",
-        "R7": "PARTIAL",
+        "R7": "STRONG",
         "R8": "NOT_DEMONSTRATED",
-        "R9": "PARTIAL",
+        "R9": "STRONG",
         "R10": "NOT_DEMONSTRATED"
       },
       "metrics": {
@@ -190,59 +190,59 @@
         "KEYWORD_STUFFING"
       ],
       "reasons": [],
-      "rank": 9
+      "rank": 6
     },
     {
       "file": "M3_fresh_graduate_scan_id.pdf",
       "status": "SCORED",
-      "band": "B",
-      "score": 58.5,
-      "raw_score": 58.5,
-      "recommendation": "REVIEW",
-      "requirement_states": {
-        "R1": "PARTIAL",
-        "R2": "PARTIAL",
-        "R3": "STRONG",
-        "R4": "STRONG",
-        "R5": "PARTIAL",
-        "R6": "NOT_DEMONSTRATED",
-        "R7": "STRONG",
-        "R8": "NOT_DEMONSTRATED",
-        "R9": "PARTIAL",
-        "R10": "PARTIAL"
-      },
-      "metrics": {
-        "backend_months": 3.0
-      },
-      "flags": [],
-      "reasons": [],
-      "rank": 7
-    },
-    {
-      "file": "M4_qa_automation_en.docx",
-      "status": "SCORED",
-      "band": "B",
-      "score": 49.0,
-      "raw_score": 49.0,
-      "recommendation": "REVIEW",
+      "band": "C",
+      "score": 0.0,
+      "raw_score": 0.0,
+      "recommendation": "LOW_PRIORITY",
       "requirement_states": {
         "R1": "NOT_DEMONSTRATED",
-        "R2": "PARTIAL",
-        "R3": "STRONG",
-        "R4": "STRONG",
-        "R5": "STRONG",
+        "R2": "NOT_DEMONSTRATED",
+        "R3": "NOT_DEMONSTRATED",
+        "R4": "NOT_DEMONSTRATED",
+        "R5": "NOT_DEMONSTRATED",
         "R6": "NOT_DEMONSTRATED",
-        "R7": "STRONG",
+        "R7": "NOT_DEMONSTRATED",
         "R8": "NOT_DEMONSTRATED",
-        "R9": "PARTIAL",
-        "R10": "PARTIAL"
+        "R9": "NOT_DEMONSTRATED",
+        "R10": "NOT_DEMONSTRATED"
       },
       "metrics": {
         "backend_months": 0.0
       },
       "flags": [],
       "reasons": [],
-      "rank": 8
+      "rank": 13
+    },
+    {
+      "file": "M4_qa_automation_en.docx",
+      "status": "SCORED",
+      "band": "C",
+      "score": 22.0,
+      "raw_score": 22.0,
+      "recommendation": "LOW_PRIORITY",
+      "requirement_states": {
+        "R1": "NOT_DEMONSTRATED",
+        "R2": "NOT_DEMONSTRATED",
+        "R3": "PARTIAL",
+        "R4": "PARTIAL",
+        "R5": "PARTIAL",
+        "R6": "NOT_DEMONSTRATED",
+        "R7": "STRONG",
+        "R8": "NOT_DEMONSTRATED",
+        "R9": "NOT_DEMONSTRATED",
+        "R10": "NOT_DEMONSTRATED"
+      },
+      "metrics": {
+        "backend_months": 0.0
+      },
+      "flags": [],
+      "reasons": [],
+      "rank": 9
     },
     {
       "file": "M5_php_fullstack_two_column_id.pdf",
@@ -270,7 +270,7 @@
         "HIDDEN_TEXT"
       ],
       "reasons": [],
-      "rank": 10
+      "rank": 7
     },
     {
       "file": "S1_senior_backend_id.pdf",
@@ -298,7 +298,7 @@
         "KEYWORD_STUFFING"
       ],
       "reasons": [],
-      "rank": 1
+      "rank": 2
     },
     {
       "file": "S2_backend_fintech_en.pdf",
@@ -331,24 +331,24 @@
     {
       "file": "S3_backend_mixed_lang.pdf",
       "status": "SCORED",
-      "band": "A",
-      "score": 75.0,
-      "raw_score": 75.0,
-      "recommendation": "SHORTLIST",
+      "band": "B",
+      "score": 59.0,
+      "raw_score": 59.0,
+      "recommendation": "REVIEW",
       "requirement_states": {
-        "R1": "STRONG",
-        "R2": "STRONG",
+        "R1": "PARTIAL",
+        "R2": "PARTIAL",
         "R3": "STRONG",
         "R4": "STRONG",
         "R5": "PARTIAL",
         "R6": "NOT_DEMONSTRATED",
         "R7": "STRONG",
         "R8": "NOT_DEMONSTRATED",
-        "R9": "PARTIAL",
+        "R9": "STRONG",
         "R10": "NOT_DEMONSTRATED"
       },
       "metrics": {
-        "backend_months": 47.5
+        "backend_months": 25.5
       },
       "flags": [
         "KEYWORD_STUFFING"
@@ -360,8 +360,8 @@
       "file": "S4_lead_backend_two_column.pdf",
       "status": "SCORED",
       "band": "A",
-      "score": 95.0,
-      "raw_score": 95.0,
+      "score": 100.0,
+      "raw_score": 100.0,
       "recommendation": "SHORTLIST",
       "requirement_states": {
         "R1": "STRONG",
@@ -370,7 +370,7 @@
         "R4": "STRONG",
         "R5": "STRONG",
         "R6": "STRONG",
-        "R7": "PARTIAL",
+        "R7": "STRONG",
         "R8": "STRONG",
         "R9": "STRONG",
         "R10": "STRONG"
@@ -383,33 +383,33 @@
         "KEYWORD_STUFFING"
       ],
       "reasons": [],
-      "rank": 2
+      "rank": 1
     },
     {
       "file": "S5_backend_healthtech_id.docx",
       "status": "SCORED",
-      "band": "A",
-      "score": 87.5,
-      "raw_score": 87.5,
-      "recommendation": "SHORTLIST",
+      "band": "C",
+      "score": 36.5,
+      "raw_score": 36.5,
+      "recommendation": "LOW_PRIORITY",
       "requirement_states": {
-        "R1": "STRONG",
-        "R2": "STRONG",
-        "R3": "STRONG",
-        "R4": "STRONG",
-        "R5": "STRONG",
-        "R6": "STRONG",
+        "R1": "NOT_DEMONSTRATED",
+        "R2": "NOT_DEMONSTRATED",
+        "R3": "PARTIAL",
+        "R4": "PARTIAL",
+        "R5": "PARTIAL",
+        "R6": "PARTIAL",
         "R7": "STRONG",
         "R8": "NOT_DEMONSTRATED",
-        "R9": "PARTIAL",
+        "R9": "STRONG",
         "R10": "PARTIAL"
       },
       "metrics": {
-        "backend_months": 76.0
+        "backend_months": 0.0
       },
       "flags": [],
       "reasons": [],
-      "rank": 4
+      "rank": 8
     }
   ]
 }

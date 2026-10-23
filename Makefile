@@ -53,8 +53,10 @@ seed:
 CV_EXTRACTOR_PATH ?= /srv/hermes-control/services/cv-extractor/src
 
 eval:
-	cd docs/spec/golden_dataset && $(PYTHON) evaluate.py --self-test
-	PYTHONPATH=$(CV_EXTRACTOR_PATH) $(PYTHON) scripts/m0_test_adapter.py
+	$(PYTHON) docs/spec/golden_dataset/evaluate.py --self-test
+	@if [ -d "$(CV_EXTRACTOR_PATH)" ]; then \
+		PYTHONPATH=$(CV_EXTRACTOR_PATH) $(PYTHON) scripts/m0_test_adapter.py; \
+	fi
 	$(PYTHON) docs/spec/golden_dataset/evaluate.py --extraction scripts/pred_extraction.json
 
 clean:

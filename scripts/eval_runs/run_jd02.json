@@ -20,7 +20,7 @@
         "R7": "STRONG"
       },
       "metrics": {
-        "backend_months": 58.0
+        "backend_months": 76.0
       },
       "flags": [],
       "reasons": [],
@@ -47,7 +47,7 @@
       },
       "flags": [],
       "reasons": [],
-      "rank": 14
+      "rank": 12
     },
     {
       "file": "I3_graphic_designer_two_column_en.pdf",
@@ -72,7 +72,7 @@
         "HIDDEN_TEXT"
       ],
       "reasons": [],
-      "rank": 13
+      "rank": 11
     },
     {
       "file": "I4_sales_executive_id.pdf",
@@ -95,7 +95,7 @@
       },
       "flags": [],
       "reasons": [],
-      "rank": 7
+      "rank": 8
     },
     {
       "file": "I5_nurse_scan_id.pdf",
@@ -144,14 +144,14 @@
         "KEYWORD_STUFFING"
       ],
       "reasons": [],
-      "rank": 5
+      "rank": 6
     },
     {
       "file": "M2_data_analyst_id.pdf",
       "status": "SCORED",
       "band": "C",
-      "score": 5.0,
-      "raw_score": 5.0,
+      "score": 20.0,
+      "raw_score": 20.0,
       "recommendation": "LOW_PRIORITY",
       "requirement_states": {
         "R1": "NOT_DEMONSTRATED",
@@ -160,7 +160,7 @@
         "R4": "NOT_DEMONSTRATED",
         "R5": "NOT_DEMONSTRATED",
         "R6": "NOT_DEMONSTRATED",
-        "R7": "NOT_DEMONSTRATED"
+        "R7": "STRONG"
       },
       "metrics": {
         "backend_months": 0.0
@@ -169,18 +169,18 @@
         "KEYWORD_STUFFING"
       ],
       "reasons": [],
-      "rank": 10
+      "rank": 3
     },
     {
       "file": "M3_fresh_graduate_scan_id.pdf",
       "status": "SCORED",
       "band": "C",
-      "score": 5.0,
-      "raw_score": 5.0,
+      "score": 0.0,
+      "raw_score": 0.0,
       "recommendation": "LOW_PRIORITY",
       "requirement_states": {
         "R1": "NOT_DEMONSTRATED",
-        "R2": "PARTIAL",
+        "R2": "NOT_DEMONSTRATED",
         "R3": "NOT_DEMONSTRATED",
         "R4": "NOT_DEMONSTRATED",
         "R5": "NOT_DEMONSTRATED",
@@ -192,18 +192,18 @@
       },
       "flags": [],
       "reasons": [],
-      "rank": 12
+      "rank": 14
     },
     {
       "file": "M4_qa_automation_en.docx",
       "status": "SCORED",
       "band": "C",
-      "score": 5.0,
-      "raw_score": 5.0,
+      "score": 0.0,
+      "raw_score": 0.0,
       "recommendation": "LOW_PRIORITY",
       "requirement_states": {
         "R1": "NOT_DEMONSTRATED",
-        "R2": "PARTIAL",
+        "R2": "NOT_DEMONSTRATED",
         "R3": "NOT_DEMONSTRATED",
         "R4": "NOT_DEMONSTRATED",
         "R5": "NOT_DEMONSTRATED",
@@ -215,7 +215,7 @@
       },
       "flags": [],
       "reasons": [],
-      "rank": 11
+      "rank": 13
     },
     {
       "file": "M5_php_fullstack_two_column_id.pdf",
@@ -240,7 +240,7 @@
         "HIDDEN_TEXT"
       ],
       "reasons": [],
-      "rank": 9
+      "rank": 10
     },
     {
       "file": "S1_senior_backend_id.pdf",
@@ -265,7 +265,7 @@
         "KEYWORD_STUFFING"
       ],
       "reasons": [],
-      "rank": 6
+      "rank": 7
     },
     {
       "file": "S2_backend_fintech_en.pdf",
@@ -290,23 +290,23 @@
         "KEYWORD_STUFFING"
       ],
       "reasons": [],
-      "rank": 8
+      "rank": 9
     },
     {
       "file": "S3_backend_mixed_lang.pdf",
       "status": "SCORED",
       "band": "C",
-      "score": 10.0,
-      "raw_score": 10.0,
+      "score": 20.0,
+      "raw_score": 20.0,
       "recommendation": "LOW_PRIORITY",
       "requirement_states": {
         "R1": "NOT_DEMONSTRATED",
-        "R2": "STRONG",
+        "R2": "PARTIAL",
         "R3": "NOT_DEMONSTRATED",
         "R4": "NOT_DEMONSTRATED",
         "R5": "NOT_DEMONSTRATED",
         "R6": "NOT_DEMONSTRATED",
-        "R7": "NOT_DEMONSTRATED"
+        "R7": "STRONG"
       },
       "metrics": {
         "backend_months": 0.0
@@ -315,7 +315,7 @@
         "KEYWORD_STUFFING"
       ],
       "reasons": [],
-      "rank": 3
+      "rank": 2
     },
     {
       "file": "S4_lead_backend_two_column.pdf",
@@ -341,30 +341,30 @@
         "KEYWORD_STUFFING"
       ],
       "reasons": [],
-      "rank": 4
+      "rank": 5
     },
     {
       "file": "S5_backend_healthtech_id.docx",
       "status": "SCORED",
       "band": "C",
-      "score": 10.0,
-      "raw_score": 10.0,
+      "score": 15.0,
+      "raw_score": 15.0,
       "recommendation": "LOW_PRIORITY",
       "requirement_states": {
         "R1": "NOT_DEMONSTRATED",
-        "R2": "STRONG",
+        "R2": "NOT_DEMONSTRATED",
         "R3": "NOT_DEMONSTRATED",
         "R4": "NOT_DEMONSTRATED",
         "R5": "NOT_DEMONSTRATED",
         "R6": "NOT_DEMONSTRATED",
-        "R7": "NOT_DEMONSTRATED"
+        "R7": "STRONG"
       },
       "metrics": {
         "backend_months": 0.0
       },
       "flags": [],
       "reasons": [],
-      "rank": 2
+      "rank": 4
     }
   ]
 }

@@ -1,9 +1,16 @@
 """Generates golden dataset evaluation runs for evaluate.py (--jd01, --jd02, --edge, --repeat)."""
 from __future__ import annotations
 
+import asyncio
+import hashlib
 import json
+import sys
 from pathlib import Path
 from typing import Any
+
+ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from src.domain.kind_rules import (
     eval_achievement,
@@ -14,23 +21,24 @@ from src.domain.kind_rules import (
     eval_responsibility,
     eval_skill,
 )
-from src.domain.scorer import score, rank
-from src.domain.verifier import verify_requirement_with_llm
+from src.domain.scorer import rank, score
+from src.domain.verifier import BaseVerifierProvider, JevTypeSafeVerifierProvider
 from src.worker.adapter import extract_candidate_profile
 from src.worker.redaction import extract_identity_and_redact
 from src.worker.sanitizer import sanitize_file
 
-CORE_DIR = Path("docs/spec/golden_dataset/cvs/core")
-EDGE_DIR = Path("docs/spec/golden_dataset/cvs/edge")
-JD1_PATH = Path("docs/spec/golden_dataset/job_descriptions/JD-01_requirements.approved.json")
-JD2_PATH = Path("docs/spec/golden_dataset/job_descriptions/JD-02_requirements.approved.json")
+CORE_DIR = ROOT / "docs/spec/golden_dataset/cvs/core"
+EDGE_DIR = ROOT / "docs/spec/golden_dataset/cvs/edge"
+JD1_PATH = ROOT / "docs/spec/golden_dataset/job_descriptions/JD-01_requirements.approved.json"
+JD2_PATH = ROOT / "docs/spec/golden_dataset/job_descriptions/JD-02_requirements.approved.json"
 
 
-def evaluate_cv(
+async def evaluate_cv(
     file_path: Path,
     req_set: dict[str, Any],
     as_of: str = "2026-10-01",
     use_verifier: bool = False,
+    verifier_provider: BaseVerifierProvider | None = None,
     existing_hashes: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     file_bytes = file_path.read_bytes()
@@ -39,7 +47,6 @@ def evaluate_cv(
     # 1. Sanitize
     san_res = sanitize_file(file_bytes, file_name)
 
-    import hashlib
     file_hash = hashlib.sha256(file_bytes).hexdigest()
 
     flags = list(san_res.flags)
@@ -100,13 +107,19 @@ def evaluate_cv(
 
         flags.extend(flgs)
 
-        # Optional LLM verifier via 9Router for ambiguous criteria
+        # Optional verifier via Jev (TypeSafe) or LLM Gateway for ambiguous criteria
         if use_verifier and kind in ("RESPONSIBILITY", "ACHIEVEMENT", "LEADERSHIP") and st in ("PARTIAL", "STRONG") and evs:
-            v_st, v_quote, v_flgs = verify_requirement_with_llm(
-                full_text, r, st, [e.get("quote", "") for e in evs]
+            provider = verifier_provider or JevTypeSafeVerifierProvider()
+            decision = await provider.verify(
+                criterion_id=rid,
+                criterion_description=str(r.get("description", "")),
+                candidate_chunks=[str(e.get("quote", "")) for e in evs if e.get("quote")],
+                cv_full_text=full_text,
+                rule_state=st,
+                kind=kind,
             )
-            st = v_st
-            flags.extend(v_flgs)
+            st = decision.state.value
+            flags.extend(decision.flags)
 
         states_map[rid] = st
         ev_map[rid] = evs
@@ -130,20 +143,28 @@ def evaluate_cv(
     }
 
 
-def build_run(
+async def build_run(
     files: list[Path],
     req_set_path: Path,
     job_code: str,
     run_id: str,
     as_of: str = "2026-10-01",
     use_verifier: bool = False,
+    verifier_provider: BaseVerifierProvider | None = None,
     existing_hashes: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     req_set = json.loads(req_set_path.read_text())
     evaluated = []
 
     for f in sorted(files):
-        item = evaluate_cv(f, req_set, as_of=as_of, use_verifier=use_verifier, existing_hashes=existing_hashes)
+        item = await evaluate_cv(
+            f,
+            req_set,
+            as_of=as_of,
+            use_verifier=use_verifier,
+            verifier_provider=verifier_provider,
+            existing_hashes=existing_hashes,
+        )
         evaluated.append(item)
 
     # Rank scored items
@@ -177,47 +198,57 @@ def build_run(
     }
 
 
-def main():
+async def main() -> None:
     core_files = sorted(list(CORE_DIR.glob("*.pdf")) + list(CORE_DIR.glob("*.docx")))
     edge_files = sorted(list(EDGE_DIR.glob("*.pdf")) + list(EDGE_DIR.glob("*.docx")))
 
     # Existing hashes for duplicate detection (S1 hash mapped to S1 filename)
     s1_file = CORE_DIR / "S1_senior_backend_id.pdf"
-    import hashlib
     s1_hash = hashlib.sha256(s1_file.read_bytes()).hexdigest()
     hashes = {s1_hash: "S1_senior_backend_id.pdf"}
 
-    out_dir = Path("scripts/eval_runs")
+    out_dir = ROOT / "scripts/eval_runs"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # 1. JD-01 without verifier
-    print("Generating JD-01 run without verifier...")
-    run_jd01_no_ver = build_run(core_files, JD1_PATH, "JD-01", "run_jd01_no_verifier", use_verifier=False)
-    (out_dir / "run_jd01_no_verifier.json").write_text(json.dumps(run_jd01_no_ver, indent=2))
+    # 1. JD-01 (Backend Engineer)
+    print("Generating JD-01 run (run_jd01.json)...")
+    run_jd01 = await build_run(core_files, JD1_PATH, "JD-01", "run_jd01", use_verifier=False)
+    (out_dir / "run_jd01.json").write_text(json.dumps(run_jd01, indent=2))
+    (out_dir / "run_jd01_no_verifier.json").write_text(json.dumps(run_jd01, indent=2))
 
-    # 2. JD-01 with verifier (9Router)
-    print("Generating JD-01 run with verifier (9Router)...")
-    run_jd01_ver = build_run(core_files, JD1_PATH, "JD-01", "run_jd01_verifier", use_verifier=True)
-    (out_dir / "run_jd01_verifier.json").write_text(json.dumps(run_jd01_ver, indent=2))
+    # 2. JD-01 with Jev TypeSafe Verifier
+    print("Generating JD-01 run with Jev TypeSafe verifier (run_jd01_verifier.json)...")
+    run_jd01_jev = await build_run(
+        core_files,
+        JD1_PATH,
+        "JD-01",
+        "run_jd01_verifier",
+        use_verifier=True,
+        verifier_provider=JevTypeSafeVerifierProvider(),
+    )
+    (out_dir / "run_jd01_verifier.json").write_text(json.dumps(run_jd01_jev, indent=2))
 
-    # 3. JD-01 repeat
-    print("Generating JD-01 repeat run...")
-    run_jd01_rep = build_run(core_files, JD1_PATH, "JD-01", "run_jd01_no_verifier_repeat", use_verifier=False)
-    (out_dir / "run_jd01_repeat.json").write_text(json.dumps(run_jd01_rep, indent=2))
-
-    # 4. JD-02
-    print("Generating JD-02 run...")
-    run_jd02 = build_run(core_files, JD2_PATH, "JD-02", "run_jd02", use_verifier=False)
+    # 3. JD-02 (HR Generalist control test)
+    print("Generating JD-02 run (run_jd02.json)...")
+    run_jd02 = await build_run(core_files, JD2_PATH, "JD-02", "run_jd02", use_verifier=False)
     (out_dir / "run_jd02.json").write_text(json.dumps(run_jd02, indent=2))
 
-    # 5. Edge cases (core + edge)
-    print("Generating Edge cases run...")
+    # 4. Edge cases (core + edge)
+    print("Generating Edge cases run (run_edge.json)...")
     all_files = core_files + edge_files
-    run_edge = build_run(all_files, JD1_PATH, "JD-01", "run_edge", existing_hashes=hashes)
+    run_edge = await build_run(all_files, JD1_PATH, "JD-01", "run_edge", existing_hashes=hashes)
     (out_dir / "run_edge.json").write_text(json.dumps(run_edge, indent=2))
+
+    # 5. Repeat runs (stochastic stability verification)
+    print("Generating Repeat runs (run_repeat_a.json & run_repeat_b.json)...")
+    run_repeat_a = await build_run(core_files, JD1_PATH, "JD-01", "run_repeat_a", use_verifier=False)
+    run_repeat_b = await build_run(core_files, JD1_PATH, "JD-01", "run_repeat_b", use_verifier=False)
+    (out_dir / "run_repeat_a.json").write_text(json.dumps(run_repeat_a, indent=2))
+    (out_dir / "run_repeat_b.json").write_text(json.dumps(run_repeat_b, indent=2))
+    (out_dir / "run_jd01_repeat.json").write_text(json.dumps(run_repeat_b, indent=2))
 
     print("All evaluation runs generated in scripts/eval_runs/")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
