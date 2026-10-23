@@ -12,18 +12,51 @@ import { ForensicAuditDrawer } from './components/ForensicAuditDrawer'
 import { UploadModal } from './components/UploadModal'
 
 export default function App() {
-  // Navigation & 4-Step Workflow state
-  const [currentStep, setCurrentStep] = useState<WorkflowStep>('setup')
+  // Navigation & 4-Step Workflow state (with URL hash & localStorage persistence)
+  const getInitialStep = (): WorkflowStep => {
+    try {
+      const hash = window.location.hash.replace(/^#/, '') as WorkflowStep
+      if (['setup', 'criteria', 'upload', 'workbench'].includes(hash)) {
+        return hash
+      }
+      const saved = localStorage.getItem('cv_screening_step') as WorkflowStep
+      if (['setup', 'criteria', 'upload', 'workbench'].includes(saved)) {
+        return saved
+      }
+    } catch {}
+    return 'setup'
+  }
+
+  const [currentStep, setCurrentStepState] = useState<WorkflowStep>(getInitialStep)
+
+  const setCurrentStep = useCallback((step: WorkflowStep) => {
+    setCurrentStepState(step)
+    try {
+      localStorage.setItem('cv_screening_step', step)
+      if (window.location.hash !== `#${step}`) {
+        window.history.replaceState(null, '', `#${step}`)
+      }
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace(/^#/, '') as WorkflowStep
+      if (['setup', 'criteria', 'upload', 'workbench'].includes(hash)) {
+        setCurrentStepState(hash)
+      }
+    }
+    window.addEventListener('hashchange', handleHashChange)
+    return () => window.removeEventListener('hashchange', handleHashChange)
+  }, [])
+
   const [blindMode, setBlindMode] = useState<boolean>(true)
   const [isUploadModalOpen, setIsUploadModalOpen] = useState<boolean>(false)
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false)
+  const [isJobLoading, setIsJobLoading] = useState<boolean>(false)
 
-  // Job Setup state
-  const [jobTitle, setJobTitle] = useState('Senior Backend Engineer')
-  const [jobLocation, setJobLocation] = useState('Jakarta / Hybrid')
-  const [jobType, setJobType] = useState('Penuh Waktu (Full-time)')
-  const [jobDescription, setJobDescription] = useState(
-    `Kami mencari Senior Backend Engineer untuk bergabung dengan tim platform core kami.
+  // Job Setup state with instant localStorage cache fallback
+  const DEFAULT_JD = `Kami mencari Senior Backend Engineer untuk bergabung dengan tim platform core kami.
 Tanggung Jawab:
 - Membangun RESTful API dan arsitektur microservices yang berjalan di production berskala besar.
 - Merancang, memelihara, dan mengoptimalkan basis data PostgreSQL.
@@ -37,7 +70,46 @@ Kualifikasi:
 - Berpengalaman dengan container Docker dan Kubernetes/cloud.
 - Pendidikan S1 Teknik Informatika, Ilmu Komputer, atau setara.
 - Memiliki sertifikasi cloud arsitek merupakan nilai tambah.`
+
+  const [jobTitle, setJobTitleState] = useState(
+    () => localStorage.getItem('cv_screening_job_title') || 'Senior Backend Engineer'
   )
+  const setJobTitle = useCallback((val: string) => {
+    setJobTitleState(val)
+    try {
+      localStorage.setItem('cv_screening_job_title', val)
+    } catch {}
+  }, [])
+
+  const [jobLocation, setJobLocationState] = useState(
+    () => localStorage.getItem('cv_screening_job_location') || 'Jakarta / Hybrid'
+  )
+  const setJobLocation = useCallback((val: string) => {
+    setJobLocationState(val)
+    try {
+      localStorage.setItem('cv_screening_job_location', val)
+    } catch {}
+  }, [])
+
+  const [jobType, setJobTypeState] = useState(
+    () => localStorage.getItem('cv_screening_job_type') || 'Penuh Waktu (Full-time)'
+  )
+  const setJobType = useCallback((val: string) => {
+    setJobTypeState(val)
+    try {
+      localStorage.setItem('cv_screening_job_type', val)
+    } catch {}
+  }, [])
+
+  const [jobDescription, setJobDescriptionState] = useState(
+    () => localStorage.getItem('cv_screening_job_description') || DEFAULT_JD
+  )
+  const setJobDescription = useCallback((val: string) => {
+    setJobDescriptionState(val)
+    try {
+      localStorage.setItem('cv_screening_job_description', val)
+    } catch {}
+  }, [])
 
   // Requirements & Studio state
   const [requirements, setRequirements] = useState<Requirement[]>(INITIAL_REQUIREMENTS)
@@ -51,18 +123,56 @@ Kualifikasi:
   const [criteriaVersion, setCriteriaVersion] = useState<number>(1)
   const [isCompiling, setIsCompiling] = useState<boolean>(false)
 
-  // Auth & Backend Jobs state
-  const [authToken, setAuthToken] = useState<string | null>(() =>
+  // Auth & Backend Jobs state with instant stale-while-revalidate cache
+  const [authToken, setAuthTokenState] = useState<string | null>(() =>
     localStorage.getItem('cv_screening_token')
   )
-  const [currentJobId, setCurrentJobId] = useState<string | null>(() =>
+  const setAuthToken = useCallback((tok: string | null) => {
+    setAuthTokenState(tok)
+    try {
+      if (tok) {
+        localStorage.setItem('cv_screening_token', tok)
+      } else {
+        localStorage.removeItem('cv_screening_token')
+      }
+    } catch {}
+  }, [])
+
+  const [currentJobId, setCurrentJobIdState] = useState<string | null>(() =>
     localStorage.getItem('cv_screening_job_id')
   )
-  const [currentJobTitle, setCurrentJobTitle] = useState<string>('')
+  const setCurrentJobId = useCallback((id: string | null) => {
+    setCurrentJobIdState(id)
+    try {
+      if (id) {
+        localStorage.setItem('cv_screening_job_id', id)
+      } else {
+        localStorage.removeItem('cv_screening_job_id')
+      }
+    } catch {}
+  }, [])
+
+  const [currentJobTitle, setCurrentJobTitleState] = useState<string>(() =>
+    localStorage.getItem('cv_screening_job_title') || ''
+  )
+  const setCurrentJobTitle = useCallback((title: string) => {
+    setCurrentJobTitleState(title)
+    try {
+      localStorage.setItem('cv_screening_job_title', title)
+    } catch {}
+  }, [])
+
   const [currentRunId, setCurrentRunId] = useState<string | null>(null)
   const [availableJobs, setAvailableJobs] = useState<
     Array<{ id: string; title: string; cv_count: number }>
-  >([])
+  >(() => {
+    try {
+      const saved = localStorage.getItem('cv_screening_available_jobs')
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  })
 
   // Upload & Screening execution state
   const [isUploading, setIsUploading] = useState<boolean>(false)
@@ -236,7 +346,7 @@ Kualifikasi:
   }, [currentJobId, getAuthHeaders])
 
   const fetchLatestLeaderboard = useCallback(
-    async (jId?: string, maxAttempts = 4) => {
+    async (jId?: string, maxAttempts = 1) => {
       try {
         const targetJobId = jId || (await ensureJobExists())
         if (!targetJobId) return
@@ -310,17 +420,22 @@ Kualifikasi:
 
   const selectJob = useCallback(
     async (jId: string, title?: string) => {
+      setIsJobLoading(true)
       setCurrentJobId(jId)
-      localStorage.setItem('cv_screening_job_id', jId)
       if (title) {
         setJobTitle(title)
         setCurrentJobTitle(title)
       }
 
       try {
-        const res = await fetch(`/api/v1/jobs/${jId}`, { headers: { ...getAuthHeaders() } })
-        if (res.ok) {
-          const data = await res.json()
+        const headers = { ...getAuthHeaders() }
+        const [resJob, resReq] = await Promise.all([
+          fetch(`/api/v1/jobs/${jId}`, { headers }),
+          fetch(`/api/v1/jobs/${jId}/requirements`, { headers }),
+        ])
+
+        if (resJob.ok) {
+          const data = await resJob.json()
           if (data.title) {
             setJobTitle(data.title)
             setCurrentJobTitle(data.title)
@@ -330,9 +445,6 @@ Kualifikasi:
           if (data.employment_type) setJobType(data.employment_type)
         }
 
-        const resReq = await fetch(`/api/v1/jobs/${jId}/requirements`, {
-          headers: { ...getAuthHeaders() },
-        })
         if (resReq.ok) {
           const reqList = await resReq.json()
           const catWeightsHdr = resReq.headers.get('X-Category-Weights')
@@ -357,46 +469,77 @@ Kualifikasi:
         }
       } catch (e) {
         console.warn('Error fetching job details:', e)
+      } finally {
+        setIsJobLoading(false)
       }
 
-      await fetchJobCvsStatus(jId)
-      await fetchLatestLeaderboard(jId)
+      // Concurrently poll CVs status and initial leaderboard without blocking delays
+      await Promise.all([
+        fetchJobCvsStatus(jId),
+        fetchLatestLeaderboard(jId, 1),
+      ])
     },
-    [fetchJobCvsStatus, fetchLatestLeaderboard, getAuthHeaders]
+    [
+      fetchJobCvsStatus,
+      fetchLatestLeaderboard,
+      getAuthHeaders,
+      setCurrentJobId,
+      setCurrentJobTitle,
+      setJobDescription,
+      setJobLocation,
+      setJobTitle,
+      setJobType,
+    ]
   )
 
-  const fetchJobsList = useCallback(async () => {
-    try {
-      const res = await fetch('/api/v1/jobs', { headers: { ...getAuthHeaders() } })
-      if (res.ok) {
-        const jobs = await res.json()
-        if (Array.isArray(jobs) && jobs.length > 0) {
-          setAvailableJobs(
-            jobs.map((j: any) => ({
+  const fetchJobsList = useCallback(
+    async (tokenOverride?: string) => {
+      try {
+        const headers = tokenOverride
+          ? { Authorization: `Bearer ${tokenOverride}` }
+          : { ...getAuthHeaders() }
+        let res = await fetch('/api/v1/jobs', { headers })
+        if (res.status === 401) {
+          const freshToken = await loginRecruiter()
+          if (freshToken) {
+            res = await fetch('/api/v1/jobs', {
+              headers: { Authorization: `Bearer ${freshToken}` },
+            })
+          }
+        }
+        if (res.ok) {
+          const jobs = await res.json()
+          if (Array.isArray(jobs) && jobs.length > 0) {
+            const mapped = jobs.map((j: any) => ({
               id: j.id,
               title: j.title,
               cv_count: j.cv_count || 0,
             }))
-          )
+            setAvailableJobs(mapped)
+            try {
+              localStorage.setItem('cv_screening_available_jobs', JSON.stringify(mapped))
+            } catch {}
 
-          const savedId = localStorage.getItem('cv_screening_job_id')
-          const found = jobs.find((j: any) => j.id === savedId)
-          if (found) {
-            await selectJob(found.id, found.title)
-          } else {
-            const bestJob = jobs
-              .slice()
-              .sort((a: any, b: any) => (b.cv_count || 0) - (a.cv_count || 0))[0]
-            if (bestJob) {
-              await selectJob(bestJob.id, bestJob.title)
+            const savedId = localStorage.getItem('cv_screening_job_id')
+            const found = jobs.find((j: any) => j.id === savedId)
+            if (found) {
+              await selectJob(found.id, found.title)
+            } else {
+              const bestJob = jobs
+                .slice()
+                .sort((a: any, b: any) => (b.cv_count || 0) - (a.cv_count || 0))[0]
+              if (bestJob) {
+                await selectJob(bestJob.id, bestJob.title)
+              }
             }
           }
         }
+      } catch (e) {
+        console.warn('Error fetching jobs:', e)
       }
-    } catch (e) {
-      console.warn('Error fetching jobs:', e)
-    }
-  }, [getAuthHeaders, selectJob])
+    },
+    [getAuthHeaders, loginRecruiter, selectJob]
+  )
 
   const handleRenameJob = async () => {
     if (!currentJobId) return
@@ -416,9 +559,13 @@ Kualifikasi:
         const updated = await res.json()
         setJobTitle(updated.title)
         setCurrentJobTitle(updated.title)
-        setAvailableJobs((prev) =>
-          prev.map((j) => (j.id === currentJobId ? { ...j, title: updated.title } : j))
-        )
+        setAvailableJobs((prev) => {
+          const next = prev.map((j) => (j.id === currentJobId ? { ...j, title: updated.title } : j))
+          try {
+            localStorage.setItem('cv_screening_available_jobs', JSON.stringify(next))
+          } catch {}
+          return next
+        })
         showToast('Nama lowongan berhasil diperbarui.', 'success')
       }
     } catch (e) {
@@ -444,6 +591,9 @@ Kualifikasi:
         showToast(`Lowongan "${title}" berhasil dihapus.`, 'info')
         const remaining = availableJobs.filter((j) => j.id !== currentJobId)
         setAvailableJobs(remaining)
+        try {
+          localStorage.setItem('cv_screening_available_jobs', JSON.stringify(remaining))
+        } catch {}
         if (remaining.length > 0) {
           await selectJob(remaining[0].id, remaining[0].title)
         }
@@ -470,10 +620,13 @@ Kualifikasi:
       })
       if (res.ok) {
         const newJob = await res.json()
-        setAvailableJobs((prev) => [
-          { id: newJob.id, title: newJob.title, cv_count: 0 },
-          ...prev,
-        ])
+        setAvailableJobs((prev) => {
+          const next = [{ id: newJob.id, title: newJob.title, cv_count: 0 }, ...prev]
+          try {
+            localStorage.setItem('cv_screening_available_jobs', JSON.stringify(next))
+          } catch {}
+          return next
+        })
         await selectJob(newJob.id, newJob.title)
         showToast(`Lowongan "${title.trim()}" berhasil dibuat.`, 'success')
       }
@@ -658,7 +811,7 @@ Kualifikasi:
         const data = await res.json()
         const runId = data.screening_run_id || data.run_id
         setCurrentRunId(runId)
-        await fetchLatestLeaderboard(jId)
+        await fetchLatestLeaderboard(jId, 6)
         showToast('Screening CV berhasil diselesaikan.', 'success')
         setCurrentStep('workbench')
       } else {
@@ -677,7 +830,7 @@ Kualifikasi:
     setIsRefreshing(true)
     try {
       await fetchJobCvsStatus(currentJobId)
-      await fetchLatestLeaderboard(currentJobId)
+      await fetchLatestLeaderboard(currentJobId, 1)
       showToast('Status berkas CV dan hasil evaluasi diperbarui.', 'success')
     } catch (e) {
       console.warn('Manual refresh note:', e)
@@ -832,14 +985,27 @@ Kualifikasi:
     handleSelectCandidate,
   ])
 
-  // Lifecycle init
+  // Lifecycle init — non-blocking concurrent hydration
   useEffect(() => {
+    let isMounted = true
     const init = async () => {
-      await loginRecruiter()
-      await fetchJobsList()
+      const existingToken = localStorage.getItem('cv_screening_token')
+      if (existingToken) {
+        // Parallel non-blocking init: run fetchJobsList and re-authenticate recruiter concurrently
+        await Promise.all([
+          fetchJobsList(existingToken),
+          loginRecruiter(),
+        ])
+      } else {
+        const freshToken = await loginRecruiter()
+        if (isMounted) {
+          await fetchJobsList(freshToken || undefined)
+        }
+      }
     }
     init()
     return () => {
+      isMounted = false
       stopPollingJobCvs()
     }
   }, [fetchJobsList, loginRecruiter, stopPollingJobCvs])
@@ -904,6 +1070,7 @@ Kualifikasi:
             criteriaApproved={criteriaApproved}
             criteriaVersion={criteriaVersion}
             isCompiling={isCompiling}
+            isLoading={isJobLoading}
             onCompileFromJd={handleCompileFromJd}
             onNext={() => setCurrentStep('criteria')}
           />

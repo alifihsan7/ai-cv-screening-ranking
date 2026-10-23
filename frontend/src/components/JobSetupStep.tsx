@@ -25,6 +25,7 @@ export interface JobSetupStepProps {
   criteriaApproved: boolean
   criteriaVersion: number
   isCompiling: boolean
+  isLoading?: boolean
   onCompileFromJd: () => Promise<void> | void
   onNext: () => void
 }
@@ -41,6 +42,7 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
   criteriaApproved,
   criteriaVersion,
   isCompiling,
+  isLoading = false,
   onCompileFromJd,
   onNext,
 }) => {
@@ -59,6 +61,74 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
       await onCompileFromJd()
     }
     onNext()
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-[#F2F5F3]">
+        <div className="max-w-4xl mx-auto space-y-6">
+          <div className="bg-[#FCFDFC] rounded-2xl border border-[#D5DFD9] shadow-tactile p-6 sm:p-7">
+            {/* Step Banner Skeleton */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-[#E2E9E5]">
+              <div className="flex items-start space-x-3.5">
+                <div className="w-10 h-10 rounded-xl bg-[#E2E9E5] animate-pulse shrink-0" />
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <div className="h-5 w-24 bg-[#E2E9E5] rounded animate-pulse" />
+                    <div className="h-6 w-44 bg-[#E2E9E5] rounded animate-pulse" />
+                  </div>
+                  <div className="h-3.5 w-72 sm:w-96 bg-[#EBF1EE] rounded animate-pulse" />
+                  <div className="h-3.5 w-48 sm:w-64 bg-[#EBF1EE] rounded animate-pulse" />
+                </div>
+              </div>
+              <div className="h-6 w-24 bg-[#E2E9E5] rounded animate-pulse shrink-0" />
+            </div>
+
+            {/* Quick Role Templates Skeleton */}
+            <div className="mt-6 bg-[#F5F8F6] border border-[#D5DFD9] rounded-xl p-4 sm:p-5 shadow-tactile-sm">
+              <div className="h-4 w-48 bg-[#E2E9E5] rounded animate-pulse mb-3" />
+              <div className="flex flex-wrap gap-2">
+                <div className="h-7.5 w-28 bg-[#E2E9E5] rounded-lg animate-pulse" />
+                <div className="h-7.5 w-32 bg-[#E2E9E5] rounded-lg animate-pulse" />
+                <div className="h-7.5 w-24 bg-[#E2E9E5] rounded-lg animate-pulse" />
+                <div className="h-7.5 w-36 bg-[#E2E9E5] rounded-lg animate-pulse" />
+                <div className="h-7.5 w-28 bg-[#E2E9E5] rounded-lg animate-pulse" />
+              </div>
+            </div>
+
+            {/* Form Fields Skeleton */}
+            <div className="mt-6 space-y-5">
+              <div>
+                <div className="h-3.5 w-36 bg-[#E2E9E5] rounded animate-pulse mb-1.5" />
+                <div className="h-10 w-full bg-[#FCFDFC] border border-[#D5DFD9] rounded-xl animate-pulse" />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <div className="h-3.5 w-28 bg-[#E2E9E5] rounded animate-pulse mb-1.5" />
+                  <div className="h-10 w-full bg-[#FCFDFC] border border-[#D5DFD9] rounded-xl animate-pulse" />
+                </div>
+                <div>
+                  <div className="h-3.5 w-24 bg-[#E2E9E5] rounded animate-pulse mb-1.5" />
+                  <div className="h-10 w-full bg-[#FCFDFC] border border-[#D5DFD9] rounded-xl animate-pulse" />
+                </div>
+              </div>
+
+              <div>
+                <div className="h-3.5 w-48 bg-[#E2E9E5] rounded animate-pulse mb-1.5" />
+                <div className="h-52 w-full bg-[#FCFDFC] border border-[#D5DFD9] rounded-xl animate-pulse" />
+              </div>
+            </div>
+
+            {/* Bottom Action Footer Skeleton */}
+            <div className="mt-8 pt-5 border-t border-[#E2E9E5] flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="h-4 w-48 bg-[#E2E9E5] rounded animate-pulse" />
+              <div className="h-11 w-full sm:w-60 bg-[#1B4938]/30 rounded-xl animate-pulse" />
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
