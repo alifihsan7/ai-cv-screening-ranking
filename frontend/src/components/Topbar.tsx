@@ -63,10 +63,10 @@ export const Topbar: React.FC<TopbarProps> = ({
   const displayCvCount = activeJob?.cv_count ?? readyCvCount ?? 15
 
   return (
-    <header className="h-[44px] border-b border-[#D5DFD9] bg-[#FCFDFC] px-3 sm:px-4 flex items-center justify-between shrink-0 z-30 gap-2">
+    <header className="h-[46px] border-b border-[#D5DFD9] bg-[#FCFDFC] px-4 sm:px-6 lg:px-8 flex items-center justify-between shrink-0 z-30 gap-2">
       {/* Left: Brand Monogram + Job Popover Selector */}
-      <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
-        <div className="flex items-center space-x-2 shrink-0">
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           <div className="w-6.5 h-6.5 rounded-lg bg-[#1B4938] flex items-center justify-center text-[#FCFDFC] font-bold text-xs shadow-tactile-sm shrink-0">
             <span className="font-mono text-[11px] tracking-tight">AI</span>
           </div>
@@ -77,15 +77,15 @@ export const Topbar: React.FC<TopbarProps> = ({
 
         <div className="h-4 w-px bg-[#D5DFD9] hidden md:block shrink-0" />
 
-        {/* Custom Popover Job Selector */}
+        {/* Custom Popover Job Selector Cluster */}
         <div className="relative shrink-0" ref={jobSelectRef}>
-          <div className="flex items-center space-x-1 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0 bg-[#F5F8F6] p-0.5 rounded-xl border border-[#D5DFD9]">
             <button
               type="button"
               onClick={() => setIsJobSelectOpen((prev) => !prev)}
               aria-expanded={isJobSelectOpen}
               aria-haspopup="listbox"
-              className="h-7.5 px-2.5 bg-[#F2F5F3] hover:bg-[#EBF1EE] border border-[#D5DFD9] rounded-lg text-xs font-semibold text-[#13221C] flex items-center space-x-1.5 sm:space-x-2 transition-all cursor-pointer shadow-tactile-sm shrink-0"
+              className="h-7.5 px-2.5 bg-[#FCFDFC] hover:bg-[#EBF1EE] border border-[#D5DFD9] rounded-lg text-xs font-semibold text-[#13221C] flex items-center gap-1.5 sm:gap-2 transition-all cursor-pointer shadow-tactile-sm shrink-0 active:scale-99"
               title="Pilih Lowongan Aktif"
             >
               <Briefcase className="w-3.5 h-3.5 text-[#1B4938] shrink-0" />
@@ -106,7 +106,7 @@ export const Topbar: React.FC<TopbarProps> = ({
               type="button"
               onClick={onRenameJob}
               disabled={!currentJobId}
-              className="h-7.5 w-7.5 inline-flex items-center justify-center text-[#40564D] hover:text-[#1B4938] bg-[#F2F5F3] hover:bg-[#EBF1EE] rounded-lg border border-[#D5DFD9] transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer shadow-tactile-sm shrink-0"
+              className="h-7.5 w-7.5 inline-flex items-center justify-center text-[#40564D] hover:text-[#1B4938] bg-[#FCFDFC] hover:bg-[#EBF1EE] rounded-lg border border-[#D5DFD9] transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer shadow-tactile-sm shrink-0 active:scale-95"
               title="Ubah Nama Lowongan"
             >
               <Pencil className="w-3 h-3" />
@@ -115,18 +115,21 @@ export const Topbar: React.FC<TopbarProps> = ({
               type="button"
               onClick={onDeleteJob}
               disabled={!currentJobId}
-              className="h-7.5 w-7.5 inline-flex items-center justify-center text-[#40564D] hover:text-[#9E2A2B] bg-[#F2F5F3] hover:bg-[#FCEBEB] rounded-lg border border-[#D5DFD9] transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer shadow-tactile-sm shrink-0"
+              className="h-7.5 w-7.5 inline-flex items-center justify-center text-[#40564D] hover:text-[#9E2A2B] bg-[#FCFDFC] hover:bg-[#FCEBEB] rounded-lg border border-[#D5DFD9] transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer shadow-tactile-sm shrink-0 active:scale-95"
               title="Hapus Lowongan"
             >
               <Trash2 className="w-3 h-3" />
             </button>
+
+            <div className="h-4 w-px bg-[#D5DFD9] mx-0.5 shrink-0" />
+
             <button
               type="button"
               onClick={onCreateNewJob}
-              className="h-7.5 px-2 text-[11px] bg-[#EBF6EF] hover:bg-[#DEF0E4] text-[#1B4938] border border-[#BBE5CD] rounded-lg font-semibold transition-all flex items-center space-x-1 cursor-pointer shadow-tactile-sm shrink-0 whitespace-nowrap"
+              className="h-7.5 px-2.5 text-[11px] bg-[#EBF6EF] hover:bg-[#DEF0E4] active:scale-98 text-[#1B4938] border border-[#BBE5CD] rounded-lg font-bold transition-all flex items-center gap-1 cursor-pointer shadow-tactile-sm shrink-0 whitespace-nowrap"
               title="Buat Lowongan Baru"
             >
-              <Plus className="w-3 h-3 shrink-0" />
+              <Plus className="w-3 h-3 shrink-0 stroke-[2.5]" />
               <span className="whitespace-nowrap">Baru</span>
             </button>
           </div>

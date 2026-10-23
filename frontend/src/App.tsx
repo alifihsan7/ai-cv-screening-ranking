@@ -953,17 +953,28 @@ Kualifikasi:
         readyCvCount={uploadedFiles.filter((f) => f.status === 'ready').length}
       />
 
-      {/* 2. Dedicated Workflow Sub-Header */}
-      <div className="h-[42px] bg-[#F7FAF8] border-b border-[#D5DFD9] flex items-center justify-center px-4 shrink-0 overflow-hidden z-20">
-        <WorkflowStepper
-          currentStep={currentStep}
-          onStepChange={setCurrentStep}
-          criteriaCount={requirements.length}
-          criteriaApproved={criteriaApproved}
-          uploadedCount={uploadedFiles.length}
-          readyCvCount={uploadedFiles.filter((f) => f.status === 'ready').length}
-          candidatesCount={candidates.length}
-        />
+      {/* 2. Dedicated Workflow Sub-Header with Grid-Aligned Boundary */}
+      <div className="h-[46px] bg-[#F7FAF8] border-b border-[#D5DFD9] shrink-0 z-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-center sm:justify-between">
+          <div className="hidden md:flex items-center gap-2 text-xs font-semibold text-[#40564D]">
+            <span className="w-2 h-2 rounded-full bg-[#1B6C47]" />
+            <span>Alur Evaluasi Deterministik</span>
+          </div>
+          <WorkflowStepper
+            currentStep={currentStep}
+            onStepChange={setCurrentStep}
+            criteriaCount={requirements.length}
+            criteriaApproved={criteriaApproved}
+            uploadedCount={uploadedFiles.length}
+            readyCvCount={uploadedFiles.filter((f) => f.status === 'ready').length}
+            candidatesCount={candidates.length}
+          />
+          <div className="hidden lg:flex items-center gap-2 text-[11px] font-mono text-[#40564D]">
+            <span className="bg-[#EBF1EE] px-2 py-0.5 rounded border border-[#D5DFD9]">
+              Jev Engine v2.4
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* 3. Main Body: 4-Step Progressive Workflow */}
