@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
 from src.domain.kind_rules import (
     eval_achievement,
@@ -523,11 +523,17 @@ class ScreeningAgent:
                 )
 
             # Invoke Grounded Micro-Verifier
+            prov_raw = getattr(self.verifier, "provider_name", "JEV_TYPESAFE")
+            verifier_prov_name: Literal["JEV_TYPESAFE", "LLM_VERIFIED"] = (
+                "LLM_VERIFIED"
+                if prov_raw in ("LLM", "LLM_VERIFIED", "LLM_GATEWAY")
+                else "JEV_TYPESAFE"
+            )
             verifier_input = VerifierActionInput(
                 action_type="GROUNDED_VERIFIER",
                 criterion_id=req_id,
                 context_snippets=candidate_snippets,
-                provider="JEV_TYPESAFE",
+                provider=verifier_prov_name,
             )
             raw_decision = await self.tools.execute(
                 verifier_input,
@@ -537,6 +543,7 @@ class ScreeningAgent:
                     "rule_state": rule_st,
                     "kind": kind,
                     "context_type": selected_context_type,
+                    "verifier_provider": self.verifier,
                 },
             )
             if isinstance(raw_decision, VerifierDecision):
@@ -545,7 +552,7 @@ class ScreeningAgent:
                 decision = VerifierDecision(
                     state=EvaluationStatus.NOT_DEMONSTRATED,
                     confidence=0.50,
-                    provider_name="JEV_TYPESAFE",
+                    provider_name=getattr(self.verifier, "provider_name", "JEV_TYPESAFE"),
                 )
 
             # -------------------------------------------------------------
@@ -554,6 +561,15 @@ class ScreeningAgent:
             observation = (
                 f"Verifier evaluated: state={decision.state.value}, confidence={decision.confidence:.2f}, "
                 f"quote='{decision.quote or ''}', flags={decision.flags}"
+            )
+
+            # Record typed Grounded Verifier step in ReAct trajectory
+            self.record_step(
+                thought=f"[Cycle {k}/{self.max_reflection_budget}] Micro-verification for criterion {req_id} using {verifier_input.provider}.",
+                action="GROUNDED_VERIFIER",
+                action_input=verifier_input,
+                observation=observation,
+                state_mutation=f"verifier_decision[{req_id}] -> {decision.state.value} (conf={decision.confidence:.2f})",
             )
 
             # -------------------------------------------------------------

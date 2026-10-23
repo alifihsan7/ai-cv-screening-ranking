@@ -46,8 +46,12 @@ class GroundedVerifierTool(BaseTool):
         kind = ctx.get("kind") or CriterionKind.SKILL
         context_type = ctx.get("context_type") or ContextSectionType.UNKNOWN
 
-        # Select provider based on action_input.provider
-        provider = self.llm_provider if action_input.provider == "LLM_VERIFIED" else self.jev_provider
+        # Select provider based on context override or action_input.provider
+        custom_provider = ctx.get("verifier_provider")
+        if custom_provider is not None:
+            provider = custom_provider
+        else:
+            provider = self.llm_provider if action_input.provider == "LLM_VERIFIED" else self.jev_provider
 
         decision = await provider.verify(
             criterion_id=criterion_id,

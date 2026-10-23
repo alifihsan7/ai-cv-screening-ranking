@@ -27,6 +27,7 @@ class ScreeningRunCreate(BaseModel):
     as_of: str | None = Field(default=None, description="As-of date for evaluation")
     use_verifier: bool = Field(default=False, description="Enable LLM verification for ambiguous criteria")
     use_agent: bool = Field(default=True, description="Enable autonomous ReAct screening agent")
+    verifier_provider: str = Field(default="JEV_TYPESAFE", description="Evidence verifier provider (JEV_TYPESAFE, LLM, or MOCK)")
 
 
 @router.post("", status_code=status.HTTP_202_ACCEPTED)
@@ -105,6 +106,7 @@ async def trigger_screening_run(
                 json.dumps({
                     "use_verifier": payload.use_verifier,
                     "use_agent": payload.use_agent,
+                    "verifier_provider": payload.verifier_provider,
                     "as_of": effective_as_of,
                 }),
                 json.dumps(elig_snapshot),
@@ -145,7 +147,7 @@ async def get_latest_screening(
         await get_job_for_tenant(cur, job_id, current_user.tenant_id)
         await cur.execute(
             """
-            SELECT id, status, as_of, started_at, finished_at
+            SELECT id, status, as_of, started_at, finished_at, params
             FROM screening_runs
             WHERE job_id = %s AND tenant_id = %s AND status IN ('DONE', 'COMPLETED')
             ORDER BY COALESCE(finished_at, started_at) DESC NULLS LAST
@@ -158,6 +160,11 @@ async def get_latest_screening(
             return {"job_id": str(job_id), "latest_run": None, "rankings": []}
 
         run_id = latest_run["id"]
+        latest_params = (
+            latest_run["params"]
+            if isinstance(latest_run.get("params"), dict)
+            else json.loads(latest_run.get("params") or "{}")
+        )
         await cur.execute(
             """
             WITH req_summary AS (
@@ -193,6 +200,11 @@ async def get_latest_screening(
                 "status": latest_run["status"],
                 "as_of": str(latest_run["as_of"]),
                 "finished_at": str(latest_run["finished_at"]),
+                "params": latest_params,
+                "verifier_provider": latest_params.get(
+                    "verifier_provider",
+                    "JEV_TYPESAFE" if latest_params.get("use_agent", True) else "NONE",
+                ),
             },
             "rankings": [dict(r) for r in rows],
         }
@@ -296,11 +308,18 @@ async def get_candidate_detail(
         cur = conn.cursor()
         await get_job_for_tenant(cur, job_id, current_user.tenant_id)
         await cur.execute(
-            "SELECT id FROM screening_runs WHERE id = %s AND job_id = %s AND tenant_id = %s",
+            "SELECT id, params FROM screening_runs WHERE id = %s AND job_id = %s AND tenant_id = %s",
             (run_id, job_id, current_user.tenant_id),
         )
-        if not await cur.fetchone():
+        run_row = await cur.fetchone()
+        if not run_row:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Screening run not found")
+
+        run_params = (
+            run_row["params"]
+            if isinstance(run_row.get("params"), dict)
+            else json.loads(run_row.get("params") or "{}")
+        )
 
         # Fetch candidate score
         await cur.execute(
@@ -396,6 +415,15 @@ async def get_candidate_detail(
                 raw_traj = json.loads(raw_traj)
         trajectory = raw_traj if isinstance(raw_traj, list) else []
 
+        verifier_provider = run_params.get("verifier_provider")
+        if not verifier_provider:
+            if trajectory or run_params.get("use_agent", True):
+                verifier_provider = "JEV_TYPESAFE"
+            elif run_params.get("use_verifier", False):
+                verifier_provider = "LLM"
+            else:
+                verifier_provider = "NONE"
+
         return {
             "cv_id": str(cv_id),
             "file_name": cand_score["file_name"],
@@ -409,6 +437,12 @@ async def get_candidate_detail(
             "requirement_states": req_states,
             "evidence": ev_map,
             "reasoning_trajectory": trajectory,
+            "verifier_provider": verifier_provider,
+            "verifier_metadata": {
+                "provider": verifier_provider,
+                "engine": verifier_provider,
+                "mode": "autonomous_react" if run_params.get("use_agent", True) else "rules_heuristic",
+            },
             "explanation": explanation,
             "eligibility": elig_data,
         }

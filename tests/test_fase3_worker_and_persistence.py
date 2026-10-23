@@ -349,6 +349,10 @@ async def test_get_candidate_detail_exposes_reasoning_trajectory(
     assert len(data["reasoning_trajectory"]) == 2
     assert data["reasoning_trajectory"][0]["action"] == "INITIALIZE_SESSION"
     assert data["reasoning_trajectory"][1]["action"] == "DIRECT_RULE_MATCH"
+    assert "verifier_provider" in data
+    assert data["verifier_provider"] == "JEV_TYPESAFE"
+    assert "verifier_metadata" in data
+    assert data["verifier_metadata"]["provider"] == "JEV_TYPESAFE"
 
 
 @pytest.mark.asyncio
@@ -619,4 +623,130 @@ async def test_legacy_screening_execution_without_agent_fallback(auth_headers: d
         req_row = await cur.fetchone()
         assert req_row is not None
         assert req_row["method"] == "rule"
+
+
+@pytest.mark.asyncio
+async def test_screening_run_with_jev_typesafe_harmonization(
+    client: httpx.AsyncClient, auth_headers: dict[str, str]
+):
+    """Verifies end-to-end harmonization:
+    1. POST /api/v1/jobs/{job_id}/screenings creates a run with default use_agent=True and verifier_provider="JEV_TYPESAFE".
+    2. execute_screening_run executes with JevTypeSafeVerifierProvider.
+    3. candidate_scores table stores reasoning_trajectory with step GROUNDED_VERIFIER.
+    4. GET /api/v1/jobs/{job_id}/screenings/{run_id}/candidates/{cv_id} returns non-empty trajectory and verifier_provider.
+    """
+    job_id = uuid.uuid4()
+    set_id = uuid.uuid4()
+    doc_id = uuid.uuid4()
+    cand_id = uuid.uuid4()
+
+    cv_text = """
+    # Work Experience
+    Backend Software Engineer at Tech Corp (2021-01 to 2024-01)
+    - Developed high throughput messaging consumers using Apache Kafka.
+    """
+
+    profile_data = {
+        "work_experiences": [],
+        "skills": ["Kafka"],
+    }
+
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            "INSERT INTO jobs (id, tenant_id, title, jd_text) VALUES (%s, %s, 'Jev Harmonization Job', 'JD')",
+            (job_id, TEST_TENANT),
+        )
+        await cur.execute(
+            """
+            INSERT INTO requirement_sets (id, tenant_id, job_id, version, status, category_weights)
+            VALUES (%s, %s, %s, 1, 'APPROVED', '{"HARD_SKILLS": 100}'::jsonb)
+            """,
+            (set_id, TEST_TENANT, job_id),
+        )
+        await cur.execute(
+            """
+            INSERT INTO requirements (id, tenant_id, requirement_set_id, requirement_id, description, category, kind, importance, weight, concepts, params)
+            VALUES
+            (%s, %s, %s, 'R_MSG_BROKER', 'Practical experience with message broker or streaming platform such as Apache Kafka or RabbitMQ', 'HARD_SKILLS', 'RESPONSIBILITY', 'MUST_HAVE', 10, ARRAY['kafka'], '{}'::jsonb)
+            """,
+            (uuid.uuid4(), TEST_TENANT, set_id),
+        )
+        await cur.execute(
+            "INSERT INTO candidates (id, tenant_id, candidate_code) VALUES (%s, %s, %s)",
+            (cand_id, TEST_TENANT, f"C-{uuid.uuid4().hex[:6]}"),
+        )
+        await cur.execute(
+            """
+            INSERT INTO documents (id, tenant_id, job_id, candidate_id, original_filename, size_bytes, sha256, status)
+            VALUES (%s, %s, %s, %s, 'candidate_kafka.pdf', 1024, 'sha_cand_kafka', 'READY')
+            """,
+            (doc_id, TEST_TENANT, job_id, cand_id),
+        )
+        await cur.execute(
+            """
+            INSERT INTO candidate_profiles (id, tenant_id, document_id, profile, matching_profile, full_text_redacted, extractor_version)
+            VALUES (%s, %s, %s, %s, %s, %s, '1.0')
+            """,
+            (uuid.uuid4(), TEST_TENANT, doc_id, json.dumps(profile_data), json.dumps(profile_data), cv_text),
+        )
+        await conn.commit()
+
+    # 1. Trigger screening run via API with empty body (defaults: use_agent=True, verifier_provider="JEV_TYPESAFE")
+    post_res = await client.post(
+        f"/api/v1/jobs/{job_id}/screenings",
+        json={},
+        headers=auth_headers,
+    )
+    assert post_res.status_code == 202
+    run_id = uuid.UUID(post_res.json()["screening_run_id"])
+
+    # 2. Check params in database
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute("SELECT params FROM screening_runs WHERE id = %s", (run_id,))
+        row = await cur.fetchone()
+        assert row is not None
+        params = row["params"] if isinstance(row["params"], dict) else json.loads(row["params"])
+        assert params.get("use_agent") is True
+        assert params.get("verifier_provider") == "JEV_TYPESAFE"
+
+    # 3. Execute screening run
+    exec_res = await execute_screening_run(run_id)
+    assert exec_res["status"] == "COMPLETED"
+
+    # 4. Check candidate_scores reasoning trajectory in DB
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            "SELECT reasoning_trajectory FROM candidate_scores WHERE run_id = %s AND candidate_id = %s",
+            (run_id, cand_id),
+        )
+        s_row = await cur.fetchone()
+        assert s_row is not None
+        traj = s_row["reasoning_trajectory"]
+        assert isinstance(traj, list) and len(traj) > 0
+
+        # Assert all 6 phases/steps exist in trajectory
+        actions = [step["action"] for step in traj]
+        assert "INITIALIZE_SESSION" in actions
+        assert "DOCLING_PARSER" in actions
+        assert "GROUNDED_VERIFIER" in actions
+        assert "CRITIQUE_REFLECT" in actions
+        assert "DETERMINISTIC_SCORER" in actions
+        assert "FINALIZE_RUN" in actions
+
+        # Assert GROUNDED_VERIFIER step has provider JEV_TYPESAFE
+        gv_steps = [s for s in traj if s["action"] == "GROUNDED_VERIFIER"]
+        assert len(gv_steps) > 0
+        assert gv_steps[0]["action_input"]["provider"] == "JEV_TYPESAFE"
+
+    # 5. Check GET candidate detail endpoint
+    det_res = await client.get(
+        f"/api/v1/jobs/{job_id}/screenings/{run_id}/candidates/{cand_id}",
+        headers=auth_headers,
+    )
+    assert det_res.status_code == 200
+    det_data = det_res.json()
+    assert det_data["verifier_provider"] == "JEV_TYPESAFE"
+    assert det_data["verifier_metadata"]["provider"] == "JEV_TYPESAFE"
+    assert len(det_data["reasoning_trajectory"]) > 0
+    assert any(s["action"] == "GROUNDED_VERIFIER" for s in det_data["reasoning_trajectory"])
 

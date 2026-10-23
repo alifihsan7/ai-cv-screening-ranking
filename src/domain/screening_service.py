@@ -7,7 +7,10 @@ import contextlib
 import json
 import uuid
 from datetime import date
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from src.domain.verifier import BaseVerifierProvider
 
 from src.domain.agent import run_screening_agent
 from src.domain.eligibility import evaluate_all
@@ -30,10 +33,13 @@ from src.infrastructure.logging import logger
 async def execute_screening_run(
     run_id: uuid.UUID,
     use_agent: bool | None = None,
+    verifier_provider: BaseVerifierProvider | None = None,
 ) -> dict[str, Any]:
     """Executes an immutable screening run asynchronously over all ready CVs for the job."""
     try:
-        return await _execute_screening_run_internal(run_id, use_agent=use_agent)
+        return await _execute_screening_run_internal(
+            run_id, use_agent=use_agent, verifier_provider=verifier_provider
+        )
     except Exception as e:
         logger.exception(f"Screening run {run_id} failed: {e}")
         with contextlib.suppress(Exception):
@@ -49,6 +55,7 @@ async def execute_screening_run(
 async def _execute_screening_run_internal(
     run_id: uuid.UUID,
     use_agent: bool | None = None,
+    verifier_provider: BaseVerifierProvider | None = None,
 ) -> dict[str, Any]:
     async with get_connection() as conn, conn.cursor() as cur:
         await cur.execute(
@@ -73,7 +80,8 @@ async def _execute_screening_run_internal(
         job_id = run_row["job_id"]
         req_set_id = run_row["requirement_set_id"]
         effective_as_of = str(run_row["as_of"]) if run_row["as_of"] else date.today().isoformat()
-        params = run_row["params"] or {}
+        raw_params = run_row["params"] or {}
+        params = dict(raw_params) if isinstance(raw_params, dict) else json.loads(raw_params or "{}")
         use_verifier = params.get("use_verifier", False)
         elig_snapshot = run_row["eligibility_snapshot"] or []
 
@@ -84,10 +92,47 @@ async def _execute_screening_run_internal(
         else:
             effective_use_agent = getattr(settings, "USE_SCREENING_AGENT", True)
 
-        # Mark RUNNING
+        # Harmonize verifier provider and persist metadata to params
+        chosen_verifier: BaseVerifierProvider | None = verifier_provider
+        configured_provider_name = params.get("verifier_provider")
+
+        if effective_use_agent:
+            if chosen_verifier is None:
+                if configured_provider_name in ("LLM", "LLM_GATEWAY") or (use_verifier and not configured_provider_name):
+                    from src.domain.verifier import LLMGatewayVerifierProvider
+
+                    chosen_verifier = LLMGatewayVerifierProvider()
+                    provider_name = "LLM"
+                else:
+                    from src.domain.verifier import JevTypeSafeVerifierProvider
+
+                    chosen_verifier = JevTypeSafeVerifierProvider()
+                    provider_name = "JEV_TYPESAFE"
+            else:
+                provider_name = getattr(chosen_verifier, "provider_name", "CUSTOM")
+        else:
+            if chosen_verifier is None and use_verifier:
+                from src.domain.verifier import LLMGatewayVerifierProvider
+
+                chosen_verifier = LLMGatewayVerifierProvider()
+                provider_name = "LLM"
+            elif chosen_verifier is not None:
+                provider_name = getattr(chosen_verifier, "provider_name", "CUSTOM")
+            else:
+                provider_name = configured_provider_name or "NONE"
+
+        # Explicitly harmonize metadata in screening_runs.params
+        params["use_agent"] = effective_use_agent
+        params["verifier_provider"] = provider_name
+
+        # Mark RUNNING and save harmonized params
         await cur.execute(
-            "UPDATE screening_runs SET status = 'RUNNING', started_at = COALESCE(started_at, now()) WHERE id = %s",
-            (run_id,),
+            """
+            UPDATE screening_runs
+            SET status = 'RUNNING', started_at = COALESCE(started_at, now()), params = %s
+            WHERE id = %s
+            """,
+            (json.dumps(params), run_id),
         )
         await conn.commit()
 
@@ -146,11 +191,7 @@ async def _execute_screening_run_internal(
         scoring_items: list[dict[str, Any]] = []
         eval_cache: dict[str, dict[str, Any]] = {}
 
-        verifier_provider = None
-        if use_verifier:
-            from src.domain.verifier import LLMGatewayVerifierProvider
-
-            verifier_provider = LLMGatewayVerifierProvider()
+        verifier_provider = chosen_verifier
 
         verifier_semaphore = asyncio.Semaphore(settings.VERIFIER_CONCURRENCY)
 
