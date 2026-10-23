@@ -1,6 +1,6 @@
-# Agentic CV Screener & Talent Ranking Engine
+# AI CV Screening
 
-*Autonomous ReAct Screening Loop, Jev TypeSafe Deterministic Verifier, Anti-Adversarial PDF Inspection, and Executive Decision Workbench.*
+*Automated CV screening and candidate ranking system with evidence-grounded verification.*
 
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB.svg?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
@@ -40,9 +40,9 @@
 
 ## Overview
 
-**Agentic CV Screener** is an enterprise-grade talent screening and ranking engine built to eliminate hallucination, prompt injection vulnerabilities, and heuristic bias from technical hiring workflows.
+**AI CV Screening** is an enterprise-grade talent screening and ranking engine built to eliminate hallucination, prompt injection vulnerabilities, and heuristic bias from technical hiring workflows.
 
-Unlike conventional heuristic parsers or opaque generative chatbots, Agentic CV Screener implements a decoupled, evidence-grounded architecture:
+Unlike conventional heuristic parsers or opaque generative chatbots, AI CV Screening implements a decoupled, evidence-grounded architecture:
 1. **Mathematical Determinism**: Scoring calculations are 100% deterministic (`scorer.py`). Generative models and verifiers are strictly prohibited from generating raw numerical scores.
 2. **Code-Level Verbatim Grounding**: Every qualification claim requires exact verbatim substring quotes from the applicant's raw CV text. If a quote cannot be verified verbatim at length $\ge 5$, the claim is unconditionally repudiated (`GROUNDING_FAIL`).
 3. **Adversarial Resilience**: Binary-level PDF inspection detects invisible zero-point typography, white-on-white text overlays, and zero-width Unicode injection vectors before files reach parsing pipelines.
@@ -212,8 +212,8 @@ System precision is validated against a golden evaluation dataset (`docs/spec/go
 
 ### 1. Clone & Python Environment
 ```bash
-git clone https://github.com/alifihsan7/agentic-cv-screener.git
-cd agentic-cv-screener
+git clone https://github.com/alifihsan7/ai-cv-screening-ranking.git
+cd ai-cv-screening-ranking
 
 # Create virtual environment
 python3.12 -m venv .venv
