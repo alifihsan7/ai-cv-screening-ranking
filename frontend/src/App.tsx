@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import type { CandidateDetail, Requirement, WorkflowStep, UploadedCvFile } from './types'
-import { INITIAL_REQUIREMENTS, MOCK_CANDIDATES } from './mockData'
+import { MOCK_CANDIDATES } from './mockData'
 import { Topbar } from './components/Topbar'
 import { WorkflowStepper } from './components/WorkflowStepper'
 import { JobSetupStep } from './components/JobSetupStep'
@@ -53,26 +53,29 @@ export default function App() {
   const [blindMode, setBlindMode] = useState<boolean>(true)
   const [isUploadModalOpen, setIsUploadModalOpen] = useState<boolean>(false)
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false)
-  const [isJobLoading, setIsJobLoading] = useState<boolean>(false)
+  const [isJobLoading, setIsJobLoading] = useState<boolean>(true)
 
-  // Job Setup state with instant localStorage cache fallback
-  const DEFAULT_JD = `Kami mencari Senior Backend Engineer untuk bergabung dengan tim platform core kami.
-Tanggung Jawab:
-- Membangun RESTful API dan arsitektur microservices yang berjalan di production berskala besar.
-- Merancang, memelihara, dan mengoptimalkan basis data PostgreSQL.
-- Mengembangkan layanan backend dengan Python (FastAPI / Django).
-- Mengelola deployment menggunakan Docker dan Kubernetes di cloud (AWS/GCP).
-- Membimbing engineer junior dan melakukan code review.
+  // Pure initial state helper — purges any legacy mock data from browser localStorage
+  const getCleanCachedValue = (key: string, dummyValues: string[] = []): string => {
+    try {
+      const val = localStorage.getItem(key)
+      if (!val) return ''
+      if (
+        dummyValues.includes(val) ||
+        (key === 'cv_screening_job_description' && val.includes('Kami mencari Senior Backend Engineer'))
+      ) {
+        localStorage.removeItem(key)
+        return ''
+      }
+      return val
+    } catch {
+      return ''
+    }
+  }
 
-Kualifikasi:
-- Minimal 3 tahun pengalaman kerja relevan sebagai Backend Engineer.
-- Menguasai Python (FastAPI/Django) dan PostgreSQL.
-- Berpengalaman dengan container Docker dan Kubernetes/cloud.
-- Pendidikan S1 Teknik Informatika, Ilmu Komputer, atau setara.
-- Memiliki sertifikasi cloud arsitek merupakan nilai tambah.`
-
+  // Job Setup state without dummy text fallbacks
   const [jobTitle, setJobTitleState] = useState(
-    () => localStorage.getItem('cv_screening_job_title') || 'Senior Backend Engineer'
+    () => getCleanCachedValue('cv_screening_job_title', ['Senior Backend Engineer'])
   )
   const setJobTitle = useCallback((val: string) => {
     setJobTitleState(val)
@@ -82,7 +85,7 @@ Kualifikasi:
   }, [])
 
   const [jobLocation, setJobLocationState] = useState(
-    () => localStorage.getItem('cv_screening_job_location') || 'Jakarta / Hybrid'
+    () => getCleanCachedValue('cv_screening_job_location', ['Jakarta / Hybrid'])
   )
   const setJobLocation = useCallback((val: string) => {
     setJobLocationState(val)
@@ -92,7 +95,7 @@ Kualifikasi:
   }, [])
 
   const [jobType, setJobTypeState] = useState(
-    () => localStorage.getItem('cv_screening_job_type') || 'Penuh Waktu (Full-time)'
+    () => getCleanCachedValue('cv_screening_job_type', ['Penuh Waktu (Full-time)'])
   )
   const setJobType = useCallback((val: string) => {
     setJobTypeState(val)
@@ -102,7 +105,7 @@ Kualifikasi:
   }, [])
 
   const [jobDescription, setJobDescriptionState] = useState(
-    () => localStorage.getItem('cv_screening_job_description') || DEFAULT_JD
+    () => getCleanCachedValue('cv_screening_job_description')
   )
   const setJobDescription = useCallback((val: string) => {
     setJobDescriptionState(val)
@@ -112,14 +115,14 @@ Kualifikasi:
   }, [])
 
   // Requirements & Studio state
-  const [requirements, setRequirements] = useState<Requirement[]>(INITIAL_REQUIREMENTS)
+  const [requirements, setRequirements] = useState<Requirement[]>([])
   const [categoryWeights, setCategoryWeights] = useState<Record<string, number>>({
     EXPERIENCE: 40,
     HARD_SKILLS: 30,
     EDUCATION_CERT: 15,
     ACHIEVEMENT: 15,
   })
-  const [criteriaApproved, setCriteriaApproved] = useState<boolean>(true)
+  const [criteriaApproved, setCriteriaApproved] = useState<boolean>(false)
   const [criteriaVersion, setCriteriaVersion] = useState<number>(1)
   const [isCompiling, setIsCompiling] = useState<boolean>(false)
 
@@ -152,8 +155,8 @@ Kualifikasi:
     } catch {}
   }, [])
 
-  const [currentJobTitle, setCurrentJobTitleState] = useState<string>(() =>
-    localStorage.getItem('cv_screening_job_title') || ''
+  const [currentJobTitle, setCurrentJobTitleState] = useState<string>(
+    () => getCleanCachedValue('cv_screening_job_title', ['Senior Backend Engineer'])
   )
   const setCurrentJobTitle = useCallback((title: string) => {
     setCurrentJobTitleState(title)
@@ -184,11 +187,9 @@ Kualifikasi:
   // Uploaded files list
   const [uploadedFiles, setUploadedFiles] = useState<UploadedCvFile[]>([])
 
-  // Candidates & Leaderboard state
-  const [candidates, setCandidates] = useState<CandidateDetail[]>(MOCK_CANDIDATES)
-  const [selectedCandidate, setSelectedCandidate] = useState<CandidateDetail | null>(
-    MOCK_CANDIDATES[0] || null
-  )
+  // Candidates & Leaderboard state (pure initial empty state, mock only loaded on explicit Golden Sample button)
+  const [candidates, setCandidates] = useState<CandidateDetail[]>([])
+  const [selectedCandidate, setSelectedCandidate] = useState<CandidateDetail | null>(null)
 
   // Executive Studio (Option A): Slide-over Audit Drawer state
   const [isAuditDrawerOpen, setIsAuditDrawerOpen] = useState<boolean>(false)
@@ -342,7 +343,7 @@ Kualifikasi:
     } catch (e) {
       console.warn('Job listing error:', e)
     }
-    return '5364833c-ae8a-4b11-aeff-016b34903da0'
+    return ''
   }, [currentJobId, getAuthHeaders])
 
   const fetchLatestLeaderboard = useCallback(
@@ -530,12 +531,21 @@ Kualifikasi:
                 .sort((a: any, b: any) => (b.cv_count || 0) - (a.cv_count || 0))[0]
               if (bestJob) {
                 await selectJob(bestJob.id, bestJob.title)
+              } else {
+                setIsJobLoading(false)
               }
             }
+          } else {
+            setIsJobLoading(false)
           }
+        } else {
+          setIsJobLoading(false)
         }
       } catch (e) {
         console.warn('Error fetching jobs:', e)
+        setIsJobLoading(false)
+      } finally {
+        setIsJobLoading(false)
       }
     },
     [getAuthHeaders, loginRecruiter, selectJob]
@@ -604,7 +614,7 @@ Kualifikasi:
   }
 
   const handleCreateJob = async () => {
-    const title = window.prompt('Masukkan judul lowongan baru:', 'Senior Backend Engineer')
+    const title = window.prompt('Masukkan judul lowongan baru:', '')
     if (!title || !title.trim()) return
     try {
       const res = await fetch('/api/v1/jobs', {
@@ -613,8 +623,8 @@ Kualifikasi:
         body: JSON.stringify({
           title: title.trim(),
           jd_text: jobDescription,
-          location: 'Jakarta / Hybrid',
-          employment_type: 'Full-time',
+          location: jobLocation || 'Jakarta / Hybrid',
+          employment_type: jobType || 'Full-time',
           external_ref: `JD-${Date.now().toString().slice(-6)}`,
         }),
       })
@@ -1040,6 +1050,7 @@ Kualifikasi:
         onDeleteJob={handleDeleteJob}
         onCreateNewJob={handleCreateJob}
         readyCvCount={uploadedFiles.filter((f) => f.status === 'ready').length}
+        isLoading={isJobLoading}
       />
 
       {/* 2. Dedicated Workflow Sub-Header */}

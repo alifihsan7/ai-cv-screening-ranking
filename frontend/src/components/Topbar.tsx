@@ -30,6 +30,7 @@ export interface TopbarProps {
   blindMode: boolean
   onToggleBlindMode: () => void
   onLoadGoldenSample?: () => void
+  isLoading?: boolean
 }
 
 export const Topbar: React.FC<TopbarProps> = ({
@@ -44,6 +45,7 @@ export const Topbar: React.FC<TopbarProps> = ({
   blindMode,
   onToggleBlindMode,
   onLoadGoldenSample,
+  isLoading = false,
 }) => {
   const [isJobSelectOpen, setIsJobSelectOpen] = useState(false)
   const jobSelectRef = useRef<HTMLDivElement>(null)
@@ -59,8 +61,8 @@ export const Topbar: React.FC<TopbarProps> = ({
   }, [])
 
   const activeJob = availableJobs.find((j) => j.id === currentJobId)
-  const displayTitle = currentJobTitle || activeJob?.title || 'Senior Backend Engineer'
-  const displayCvCount = activeJob?.cv_count ?? readyCvCount ?? 15
+  const displayTitle = currentJobTitle || activeJob?.title || ''
+  const displayCvCount = activeJob?.cv_count ?? readyCvCount ?? 0
 
   return (
     <header className="h-[44px] border-b border-[#D5DFD9] bg-[#FCFDFC] px-3 sm:px-4 flex items-center justify-between shrink-0 z-30 gap-2">
@@ -89,12 +91,20 @@ export const Topbar: React.FC<TopbarProps> = ({
               title="Pilih Lowongan Aktif"
             >
               <Briefcase className="w-3.5 h-3.5 text-[#1B4938] shrink-0" />
-              <span className="truncate max-w-[110px] sm:max-w-[160px] md:max-w-[200px] lg:max-w-[260px]">
-                {displayTitle}
-              </span>
-              <span className="bg-[#EBF1EE] text-[#40564D] border border-[#D5DFD9] text-[10px] font-mono px-1.5 py-0.5 rounded font-semibold tabular-nums shrink-0 whitespace-nowrap">
-                {displayCvCount} CV
-              </span>
+              {isLoading && !displayTitle ? (
+                <span className="inline-block h-3.5 w-24 sm:w-32 bg-[#D5DFD9] rounded animate-pulse" />
+              ) : (
+                <span className="truncate max-w-[110px] sm:max-w-[160px] md:max-w-[200px] lg:max-w-[260px]">
+                  {displayTitle || (isLoading ? 'Memuat lowongan...' : 'Pilih Lowongan')}
+                </span>
+              )}
+              {isLoading && !activeJob ? (
+                <span className="inline-block h-3.5 w-8 bg-[#D5DFD9] rounded animate-pulse" />
+              ) : (
+                <span className="bg-[#EBF1EE] text-[#40564D] border border-[#D5DFD9] text-[10px] font-mono px-1.5 py-0.5 rounded font-semibold tabular-nums shrink-0 whitespace-nowrap">
+                  {displayCvCount} CV
+                </span>
+              )}
               <ChevronDown
                 className={`w-3.5 h-3.5 text-[#40564D] transition-transform duration-150 shrink-0 ${
                   isJobSelectOpen ? 'rotate-180' : ''
