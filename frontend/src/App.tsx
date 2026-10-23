@@ -955,7 +955,13 @@ Kualifikasi:
 
       {/* 2. Dedicated Workflow Sub-Header with Grid-Aligned Boundary */}
       <div className="h-[46px] bg-[#F7FAF8] border-b border-[#D5DFD9] shrink-0 z-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-center sm:justify-between">
+        <div
+          className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-center sm:justify-between"
+          style={{
+            paddingLeft: 'max(1rem, env(safe-area-inset-left))',
+            paddingRight: 'max(1.5rem, env(safe-area-inset-right))',
+          }}
+        >
           <div className="hidden md:flex items-center gap-2 text-xs font-semibold text-[#40564D]">
             <span className="w-2 h-2 rounded-full bg-[#1B6C47]" />
             <span>Alur Evaluasi Deterministik</span>
