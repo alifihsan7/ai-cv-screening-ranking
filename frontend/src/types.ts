@@ -66,3 +66,13 @@ export interface CandidateDetail extends CandidateScore {
   reasoning_trajectory?: ReasoningStep[]
   verifier_provider?: string
 }
+
+export type WorkflowStep = 'setup' | 'criteria' | 'upload' | 'workbench'
+
+export interface UploadedCvFile {
+  name: string
+  size: string
+  status: 'ready' | 'processing' | 'review' | 'unqualified' | 'duplicate'
+  reason?: string
+}
+

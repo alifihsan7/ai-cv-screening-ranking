@@ -11,6 +11,8 @@ import {
   Loader2,
   Layers,
   Lock,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import type { Requirement } from '../types'
 
@@ -32,6 +34,8 @@ export interface CriteriaStudioProps {
   isCompiling: boolean
   onCompileFromJd: () => void
   onApproveCriteria: () => void
+  onBack?: () => void
+  onNext?: () => void
 }
 
 export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
@@ -52,6 +56,8 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
   isCompiling,
   onCompileFromJd,
   onApproveCriteria,
+  onBack,
+  onNext,
 }) => {
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('ALL')
   const [newDesc, setNewDesc] = useState('')
@@ -122,10 +128,21 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
     )
   }
 
+  const handleSaveAndContinue = () => {
+    if (!criteriaApproved) {
+      onApproveCriteria()
+    }
+    if (onNext) {
+      onNext()
+    }
+  }
+
   return (
-    <div className="flex-1 flex h-full overflow-hidden bg-[#F2F5F3] select-none">
-      {/* Kolom Kiri (60%): Editor Kriteria */}
-      <div className="w-[60%] border-r border-[#D5DFD9] bg-[#FCFDFC] flex flex-col h-full overflow-hidden">
+    <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#F2F5F3] select-none">
+      {/* Dual Column Studio Body */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Kolom Kiri (60%): Editor Kriteria */}
+        <div className="w-[60%] border-r border-[#D5DFD9] bg-[#FCFDFC] flex flex-col h-full overflow-hidden">
         {/* Header Editor */}
         <div className="px-5 py-3 border-b border-[#D5DFD9] bg-[#FCFDFC] flex items-center justify-between shrink-0">
           <div>
@@ -538,6 +555,54 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
           </div>
         </section>
       </div>
+    </div>
+
+    {/* Tactile Workflow Navigation Footer */}
+      <footer className="h-12 border-t border-[#D5DFD9] bg-[#FCFDFC] px-4 sm:px-6 flex items-center justify-between shrink-0 shadow-tactile-sm z-10">
+        <button
+          type="button"
+          onClick={onBack}
+          className="h-8 px-3 text-xs font-semibold text-[#40564D] hover:text-[#13221C] hover:bg-[#EBF1EE] border border-[#D5DFD9] rounded-lg transition-colors flex items-center space-x-1.5 cursor-pointer shadow-tactile-sm active:scale-98"
+        >
+          <ChevronLeft className="w-3.5 h-3.5" />
+          <span>Kembali ke Setup Lowongan</span>
+        </button>
+
+        <div className="hidden md:flex items-center space-x-3 text-xs font-mono">
+          <span className="text-[#40564D]">
+            Total Bobot:{' '}
+            <strong
+              className={
+                totalCategoryWeight === 100
+                  ? 'text-[#1B6C47]'
+                  : 'text-[#8A4C05] font-bold underline'
+              }
+            >
+              {totalCategoryWeight}%
+            </strong>
+          </span>
+          <span className="text-[#D5DFD9]">|</span>
+          <span className="text-[#40564D]">
+            Kriteria: <strong className="text-[#13221C]">{requirements.length} item</strong>
+          </span>
+          <span className="text-[#D5DFD9]">|</span>
+          <span className="text-[#40564D]">
+            Status:{' '}
+            <strong className={criteriaApproved ? 'text-[#1B6C47]' : 'text-[#8A4C05]'}>
+              {criteriaApproved ? `Disetujui (v${criteriaVersion})` : 'Draf'}
+            </strong>
+          </span>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleSaveAndContinue}
+          className="h-8 px-4 bg-[#1B4938] hover:bg-[#2D6A4F] text-[#FCFDFC] text-xs font-bold rounded-lg transition-all flex items-center space-x-1.5 cursor-pointer shadow-tactile-sm active:scale-98"
+        >
+          <span>Simpan & Lanjut ke Unggah CV</span>
+          <ChevronRight className="w-3.5 h-3.5" />
+        </button>
+      </footer>
     </div>
   )
 }

@@ -1,17 +1,20 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
-import type { CandidateDetail, Requirement } from './types'
+import type { CandidateDetail, Requirement, WorkflowStep, UploadedCvFile } from './types'
 import { INITIAL_REQUIREMENTS, MOCK_CANDIDATES } from './mockData'
 import { Topbar } from './components/Topbar'
+import { JobSetupStep } from './components/JobSetupStep'
+import { CriteriaStudio } from './components/CriteriaStudio'
+import { UploadStep } from './components/UploadStep'
 import { CandidateRoster } from './components/CandidateRoster'
 import { ForensicCanvas } from './components/ForensicCanvas'
-import { CriteriaStudio } from './components/CriteriaStudio'
 import { UploadModal } from './components/UploadModal'
 
 export default function App() {
-  // Navigation & View Mode: Workbench vs Studio Kriteria
-  const [currentTab, setCurrentTab] = useState<'workbench' | 'criteria'>('workbench')
+  // Navigation & 4-Step Workflow state
+  const [currentStep, setCurrentStep] = useState<WorkflowStep>('setup')
   const [blindMode, setBlindMode] = useState<boolean>(true)
   const [isUploadModalOpen, setIsUploadModalOpen] = useState<boolean>(false)
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false)
 
   // Job Setup state
   const [jobTitle, setJobTitle] = useState('Senior Backend Engineer')
@@ -67,14 +70,7 @@ Kualifikasi:
   const isPollingRef = useRef<boolean>(false)
 
   // Uploaded files list
-  const [uploadedFiles, setUploadedFiles] = useState<
-    Array<{
-      name: string
-      size: string
-      status: 'ready' | 'processing' | 'review' | 'unqualified' | 'duplicate'
-      reason?: string
-    }>
-  >([])
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedCvFile[]>([])
 
   // Candidates & Leaderboard state
   const [candidates, setCandidates] = useState<CandidateDetail[]>(MOCK_CANDIDATES)
@@ -641,9 +637,10 @@ Kualifikasi:
         setCurrentRunId(runId)
         await fetchLatestLeaderboard(jId)
         showToast('Screening CV berhasil diselesaikan.', 'success')
-        setCurrentTab('workbench')
+        setCurrentStep('workbench')
       } else {
         showToast('Skrining offline: Golden sample tetap aktif.', 'info')
+        setCurrentStep('workbench')
       }
     } catch (e: any) {
       showToast(`Catatan evaluasi: ${e.message}`, 'info')
@@ -651,6 +648,37 @@ Kualifikasi:
       setIsScreening(false)
     }
   }
+
+  const handleManualRefresh = useCallback(async () => {
+    if (!currentJobId) return
+    setIsRefreshing(true)
+    try {
+      await fetchJobCvsStatus(currentJobId)
+      await fetchLatestLeaderboard(currentJobId)
+      showToast('Status berkas CV dan hasil evaluasi diperbarui.', 'success')
+    } catch (e) {
+      console.warn('Manual refresh note:', e)
+    } finally {
+      setIsRefreshing(false)
+    }
+  }, [currentJobId, fetchJobCvsStatus, fetchLatestLeaderboard, showToast])
+
+  const handleClearUploadedCvs = useCallback(async () => {
+    if (uploadedFiles.length === 0) return
+    if (!window.confirm('Kosongkan semua berkas CV yang telah diunggah untuk lowongan ini?')) return
+    if (currentJobId) {
+      try {
+        await fetch(`/api/v1/jobs/${currentJobId}/cvs`, {
+          method: 'DELETE',
+          headers: { ...getAuthHeaders() },
+        })
+      } catch (e) {
+        console.warn('Clear CVs backend note:', e)
+      }
+    }
+    setUploadedFiles([])
+    showToast('Daftar berkas CV berhasil dikosongkan.', 'info')
+  }, [currentJobId, getAuthHeaders, showToast, uploadedFiles.length])
 
   const handleCompileFromJd = async () => {
     if (!jobDescription.trim()) return
@@ -723,7 +751,7 @@ Kualifikasi:
         return
       }
 
-      if (currentTab !== 'workbench') return
+      if (currentStep !== 'workbench') return
 
       const currentIndex = candidates.findIndex(
         (c) => c.cv_id === selectedCandidate?.cv_id
@@ -766,7 +794,7 @@ Kualifikasi:
     candidates,
     selectedCandidate,
     blindMode,
-    currentTab,
+    currentStep,
     isUploadModalOpen,
   ])
 
@@ -797,13 +825,12 @@ Kualifikasi:
 
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-[#F2F5F3] text-[#13221C] font-sans select-none antialiased">
-      {/* 1. Ramping Topbar 46px */}
+      {/* 1. Header with Workflow Stepper */}
       <Topbar
-        currentTab={currentTab}
-        setCurrentTab={setCurrentTab}
+        currentStep={currentStep}
+        onStepChange={setCurrentStep}
         blindMode={blindMode}
         onToggleBlindMode={() => setBlindMode((prev) => !prev)}
-        onOpenUpload={() => setIsUploadModalOpen(true)}
         onLoadGoldenSample={handleLoadGoldenSample}
         currentJobId={currentJobId}
         currentJobTitle={currentJobTitle}
@@ -812,12 +839,76 @@ Kualifikasi:
         onRenameJob={handleRenameJob}
         onDeleteJob={handleDeleteJob}
         onCreateNewJob={handleCreateJob}
+        criteriaCount={requirements.length}
+        criteriaApproved={criteriaApproved}
+        uploadedCount={uploadedFiles.length}
+        readyCvCount={uploadedFiles.filter((f) => f.status === 'ready').length}
+        candidatesCount={candidates.length}
       />
 
-      {/* 2. Main Body: Master-Detail Dual Pane OR Studio Kriteria */}
-      <div className="flex-1 flex overflow-hidden">
-        {currentTab === 'workbench' ? (
-          <>
+      {/* 2. Main Body: 4-Step Progressive Workflow */}
+      <main className="flex-1 overflow-hidden flex flex-col">
+        {currentStep === 'setup' && (
+          <JobSetupStep
+            jobTitle={jobTitle}
+            setJobTitle={setJobTitle}
+            jobLocation={jobLocation}
+            setJobLocation={setJobLocation}
+            jobType={jobType}
+            setJobType={setJobType}
+            jobDescription={jobDescription}
+            setJobDescription={setJobDescription}
+            criteriaApproved={criteriaApproved}
+            criteriaVersion={criteriaVersion}
+            isCompiling={isCompiling}
+            onCompileFromJd={handleCompileFromJd}
+            onNext={() => setCurrentStep('criteria')}
+          />
+        )}
+
+        {currentStep === 'criteria' && (
+          <CriteriaStudio
+            jobTitle={jobTitle}
+            setJobTitle={setJobTitle}
+            jobLocation={jobLocation}
+            setJobLocation={setJobLocation}
+            jobType={jobType}
+            setJobType={setJobType}
+            jobDescription={jobDescription}
+            setJobDescription={setJobDescription}
+            requirements={requirements}
+            setRequirements={setRequirements}
+            categoryWeights={categoryWeights}
+            setCategoryWeights={setCategoryWeights}
+            criteriaApproved={criteriaApproved}
+            criteriaVersion={criteriaVersion}
+            isCompiling={isCompiling}
+            onCompileFromJd={handleCompileFromJd}
+            onApproveCriteria={handleApproveCriteria}
+            onBack={() => setCurrentStep('setup')}
+            onNext={() => setCurrentStep('upload')}
+          />
+        )}
+
+        {currentStep === 'upload' && (
+          <UploadStep
+            uploadedFiles={uploadedFiles}
+            isUploading={isUploading}
+            uploadStatusMsg={uploadStatusMsg}
+            isScreening={isScreening}
+            onUploadFiles={handleUploadFiles}
+            onLoadGoldenSample={handleLoadGoldenSample}
+            onClearFiles={handleClearUploadedCvs}
+            onRefreshStatus={handleManualRefresh}
+            isRefreshing={isRefreshing}
+            onStartScreening={handleStartScreening}
+            onBack={() => setCurrentStep('criteria')}
+            onNext={() => setCurrentStep('workbench')}
+          />
+        )}
+
+        {currentStep === 'workbench' && (
+          <div className="flex-1 flex overflow-hidden">
             {/* Panel Kiri (38%): Candidate Roster */}
             <CandidateRoster
               candidates={candidates}
@@ -837,32 +928,11 @@ Kualifikasi:
               onDecision={handleDecision}
               onRevealCandidate={handleRevealCandidate}
             />
-          </>
-        ) : (
-          /* Studio Kriteria Mode */
-          <CriteriaStudio
-            jobTitle={jobTitle}
-            setJobTitle={setJobTitle}
-            jobLocation={jobLocation}
-            setJobLocation={setJobLocation}
-            jobType={jobType}
-            setJobType={setJobType}
-            jobDescription={jobDescription}
-            setJobDescription={setJobDescription}
-            requirements={requirements}
-            setRequirements={setRequirements}
-            categoryWeights={categoryWeights}
-            setCategoryWeights={setCategoryWeights}
-            criteriaApproved={criteriaApproved}
-            criteriaVersion={criteriaVersion}
-            isCompiling={isCompiling}
-            onCompileFromJd={handleCompileFromJd}
-            onApproveCriteria={handleApproveCriteria}
-          />
+          </div>
         )}
-      </div>
+      </main>
 
-      {/* 3. Upload Modal Dialog */}
+      {/* 3. Quick Upload Modal Dialog (if invoked) */}
       <UploadModal
         isOpen={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
