@@ -20,11 +20,13 @@ import {
   ShieldAlert,
   Search,
   Loader2,
-  Sparkles,
   Terminal,
   Cpu,
   Clock,
   ShieldCheck,
+  X,
+  BookmarkCheck,
+  Layers,
 } from 'lucide-react'
 import type { CandidateDetail, Requirement } from './types'
 import { INITIAL_REQUIREMENTS } from './mockData'
@@ -32,24 +34,24 @@ import { ROLE_TEMPLATES } from './jobTemplates'
 
 const getActionBadgeClass = (action: string) => {
   if (action.includes('Jev') || action.includes('GROUNDED_VERIFIER')) {
-    return 'bg-emerald-950 text-emerald-300 border-emerald-700/80 font-bold'
+    return 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold'
   }
   if (action.includes('CRITIQUE') || action.includes('REFLECT')) {
-    return 'bg-amber-950 text-amber-300 border-amber-700/80 font-semibold'
+    return 'bg-amber-50 text-amber-800 border-amber-300 font-semibold'
   }
   if (action.includes('PARSER') || action.includes('DOCLING')) {
-    return 'bg-sky-950 text-sky-300 border-sky-700/80 font-semibold'
+    return 'bg-sky-50 text-sky-800 border-sky-300 font-semibold'
   }
   if (action.includes('RETRIEVAL')) {
-    return 'bg-cyan-950 text-cyan-300 border-cyan-700/80 font-semibold'
+    return 'bg-cyan-50 text-cyan-800 border-cyan-300 font-semibold'
   }
   if (action.includes('DETERMINISTIC') || action.includes('SCORER')) {
-    return 'bg-indigo-950 text-indigo-300 border-indigo-700/80 font-semibold'
+    return 'bg-indigo-50 text-indigo-800 border-indigo-300 font-semibold'
   }
   if (action.includes('FINALIZE')) {
-    return 'bg-purple-950 text-purple-300 border-purple-700/80 font-semibold'
+    return 'bg-purple-50 text-purple-800 border-purple-300 font-semibold'
   }
-  return 'bg-zinc-900 text-zinc-200 border-zinc-700 font-semibold'
+  return 'bg-slate-100 text-slate-800 border-slate-300 font-medium'
 }
 
 export default function App() {
@@ -122,6 +124,35 @@ Kualifikasi:
   const [isExportOpen, setIsExportOpen] = useState(false)
   const [activeDrawerTab, setActiveDrawerTab] = useState<'ringkasan' | 'kartu_skor' | 'cv_asli' | 'riwayat'>('ringkasan')
   const [selectedQuoteToHighlight, setSelectedQuoteToHighlight] = useState<string | null>(null)
+
+  // Non-blocking Toast notification state
+  const [toast, setToast] = useState<{ message: string; type: 'info' | 'warning' | 'success' } | null>(null)
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const showToast = (message: string, type: 'info' | 'warning' | 'success' = 'info') => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current)
+    setToast({ message, type })
+    toastTimeoutRef.current = setTimeout(() => {
+      setToast(null)
+    }, 4000)
+  }
+
+  // Keyboard Accessibility: Escape key closes active drawer & modals instantly
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (selectedCandidate) {
+          setSelectedCandidate(null)
+        } else if (isCompareOpen) {
+          setIsCompareOpen(false)
+        } else if (isExportOpen) {
+          setIsExportOpen(false)
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [selectedCandidate, isCompareOpen, isExportOpen])
 
   // Policy Linter for prohibited criteria (physical appearance only; religion & gender are permitted)
   const prohibitedFlags = useMemo(() => {
@@ -301,12 +332,13 @@ Kualifikasi:
         setAvailableJobs((prev) =>
           prev.map((j) => (j.id === currentJobId ? { ...j, title: updated.title } : j))
         )
+        showToast('Nama lowongan berhasil diperbarui.', 'success')
       } else {
-        alert('Gagal mengubah nama lowongan.')
+        showToast('Gagal mengubah nama lowongan.', 'warning')
       }
     } catch (e) {
       console.error(e)
-      alert('Terjadi kesalahan jaringan saat mengubah nama lowongan.')
+      showToast('Terjadi kesalahan jaringan saat mengubah nama lowongan.', 'warning')
     }
   }
 
@@ -325,6 +357,7 @@ Kualifikasi:
         },
       })
       if (res.ok) {
+        showToast(`Lowongan "${title}" berhasil dihapus.`, 'info')
         const remaining = availableJobs.filter((j) => j.id !== currentJobId)
         setAvailableJobs(remaining)
         if (remaining.length > 0) {
@@ -342,11 +375,11 @@ Kualifikasi:
           setCurrentStep('setup')
         }
       } else {
-        alert('Gagal menghapus lowongan.')
+        showToast('Gagal menghapus lowongan.', 'warning')
       }
     } catch (e) {
       console.error(e)
-      alert('Terjadi kesalahan jaringan saat menghapus lowongan.')
+      showToast('Terjadi kesalahan jaringan saat menghapus lowongan.', 'warning')
     }
   }
 
@@ -546,10 +579,11 @@ Kualifikasi:
         setUploadStatusMsg('Unggahan diterima server. Mengekstrak dan menganalisis berkas...')
         // Start continuous background polling
         startPollingJobCvs(jId)
+        showToast('Berkas CV berhasil diunggah.', 'success')
       } else {
         const err = await res.json().catch(() => ({}))
         const msg = err.detail || err.message || res.statusText || `Server error (${res.status})`
-        alert(`Gagal mengunggah berkas: ${msg}`)
+        showToast(`Gagal mengunggah berkas: ${msg}`, 'warning')
         setUploadedFiles((prev) =>
           prev.map((p) =>
             immediateItems.some((imm) => imm.name === p.name)
@@ -559,7 +593,7 @@ Kualifikasi:
         )
       }
     } catch (e: any) {
-      alert(`Terjadi kesalahan jaringan: ${e.message}`)
+      showToast(`Terjadi kesalahan jaringan: ${e.message}`, 'warning')
       setUploadedFiles((prev) =>
         prev.map((p) =>
           immediateItems.some((imm) => imm.name === p.name)
@@ -589,9 +623,10 @@ Kualifikasi:
       { name: 'I1_hr_generalist_id.pdf', size: '115 KB', status: 'ready', reason: 'Ekstraksi identitas & keahlian terverifikasi' },
       { name: 'E1_empty_cv.pdf', size: '12 KB', status: 'review', reason: 'Dokumen kosong / konten tidak memadai' },
       { name: 'E3_hidden_prompt_injection.pdf', size: '160 KB', status: 'ready', reason: 'Teks tersembunyi dinetralkan' },
-      { name: 'E6_password_protected.pdf', size: '84 KB', status: 'unqualified', reason: 'PDF terkunci password — minta kandidat kirim ulang' },
+      { name: 'E6_password_protected.pdf', size: '84 KB', status: 'unqualified', reason: 'PDF terklocked password — minta kandidat kirim ulang' },
       { name: 'E8_duplicate_of_S1.pdf', size: '142 KB', status: 'duplicate', reason: 'Duplikat identik dari S1_senior_backend_id.pdf' },
     ])
+    showToast('Sampel CV berhasil dimuat.', 'info')
   }
 
   const handleClearUploadedCvs = async () => {
@@ -605,11 +640,12 @@ Kualifikasi:
       if (res.ok) {
         setUploadedFiles([])
         setCandidates([])
+        showToast('Semua berkas CV berhasil dikosongkan.', 'info')
       } else {
-        alert('Gagal mengosongkan berkas CV dari server.')
+        showToast('Gagal mengosongkan berkas CV dari server.', 'warning')
       }
     } catch (e: any) {
-      alert(`Terjadi kesalahan: ${e.message}`)
+      showToast(`Terjadi kesalahan: ${e.message}`, 'warning')
     }
   }
 
@@ -737,7 +773,7 @@ Kualifikasi:
 
       if (res.status === 409) {
         const errJson = await res.json().catch(() => ({}))
-        alert(errJson.detail || 'Kriteria belum disetujui. Silakan setujui kriteria lowongan terlebih dahulu.')
+        showToast(errJson.detail || 'Kriteria belum disetujui. Silakan setujui kriteria lowongan terlebih dahulu.', 'warning')
         setCurrentStep('requirements')
         return
       }
@@ -747,14 +783,15 @@ Kualifikasi:
         const runId = data.screening_run_id || data.run_id
         setCurrentRunId(runId)
         await fetchLatestLeaderboard(jId)
+        showToast('Screening CV berhasil diselesaikan.', 'success')
         setCurrentStep('leaderboard')
       } else {
         const errJson = await res.json().catch(() => ({}))
-        alert(`Gagal menjalankan evaluasi: ${errJson.detail || res.statusText || 'Terjadi kesalahan pada server'}`)
+        showToast(`Gagal menjalankan evaluasi: ${errJson.detail || res.statusText || 'Terjadi kesalahan pada server'}`, 'warning')
       }
     } catch (e: any) {
       console.warn('Error starting screening:', e)
-      alert(`Terjadi kesalahan: ${e.message}`)
+      showToast(`Terjadi kesalahan: ${e.message}`, 'warning')
     } finally {
       setIsScreening(false)
     }
@@ -855,7 +892,7 @@ Kualifikasi:
 
   const handleCompileFromJd = async () => {
     if (!jobDescription.trim()) {
-      alert('Silakan masukkan deskripsi lowongan terlebih dahulu.')
+      showToast('Silakan masukkan deskripsi lowongan terlebih dahulu.', 'warning')
       return
     }
     setIsCompiling(true)
@@ -970,7 +1007,7 @@ Kualifikasi:
 
   const handleApproveCriteria = async () => {
     if (prohibitedFlags.length > 0) {
-      alert('Terdapat kriteria diskriminatif terlarang! Harap hapus kriteria tersebut sebelum menyetujui.')
+      showToast('Terdapat kriteria diskriminatif terlarang! Harap hapus kriteria tersebut sebelum menyetujui.', 'warning')
       return
     }
     if (totalCategoryWeight !== 100) {
@@ -1003,7 +1040,7 @@ Kualifikasi:
         console.warn('Requirements persist error:', e)
       }
     }
-    alert(`Kriteria lowongan dan bobot penilaian berhasil disetujui dan dikunci (Versi ${nextVer}).`)
+    showToast(`Kriteria lowongan dan bobot penilaian berhasil disetujui dan dikunci (Versi ${nextVer}).`, 'success')
   }
 
   return (
@@ -1025,7 +1062,7 @@ Kualifikasi:
                     const selected = availableJobs.find((j) => j.id === e.target.value)
                     if (selected) selectJob(selected.id, selected.title)
                   }}
-                  className="text-xs bg-slate-50 hover:bg-white border border-slate-300 font-bold text-indigo-950 rounded-md px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500 min-w-[200px] max-w-[340px] truncate shadow-2xs transition-colors"
+                  className="text-xs bg-white hover:bg-slate-50 border border-slate-300 font-bold text-slate-900 rounded-lg px-2.5 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 min-w-[200px] max-w-[340px] truncate shadow-2xs transition-colors cursor-pointer"
                 >
                   {availableJobs.map((j) => (
                     <option key={j.id} value={j.id}>
@@ -1037,8 +1074,9 @@ Kualifikasi:
                   type="button"
                   onClick={handleRenameJob}
                   disabled={!currentJobId}
-                  className="h-7 w-7 inline-flex items-center justify-center text-slate-500 hover:text-indigo-600 bg-white hover:bg-indigo-50/60 rounded-md border border-slate-200 hover:border-indigo-300 transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-2xs"
+                  className="h-8 w-8 inline-flex items-center justify-center text-slate-600 hover:text-indigo-600 bg-white hover:bg-indigo-50/60 rounded-lg border border-slate-200 hover:border-indigo-300 transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-2xs focus-visible:ring-2 focus-visible:ring-indigo-500/20"
                   title="Ubah Nama Lowongan (Rename)"
+                  aria-label="Ubah Nama Lowongan"
                 >
                   <Pencil className="w-3.5 h-3.5" />
                 </button>
@@ -1046,8 +1084,9 @@ Kualifikasi:
                   type="button"
                   onClick={handleDeleteJob}
                   disabled={!currentJobId}
-                  className="h-7 w-7 inline-flex items-center justify-center text-slate-400 hover:text-rose-600 bg-white hover:bg-rose-50 rounded-md border border-slate-200 hover:border-rose-300 transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-2xs"
+                  className="h-8 w-8 inline-flex items-center justify-center text-slate-500 hover:text-rose-600 bg-white hover:bg-rose-50 rounded-lg border border-slate-200 hover:border-rose-300 transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-2xs focus-visible:ring-2 focus-visible:ring-rose-500/20"
                   title="Hapus Lowongan Ini (Delete)"
+                  aria-label="Hapus Lowongan Ini"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -1164,13 +1203,13 @@ Kualifikasi:
             </div>
 
             {/* Role Templates Quick Selector */}
-            <div className="bg-gradient-to-r from-indigo-50/80 via-slate-50 to-indigo-50/40 border border-indigo-100/80 rounded-xl p-4 shadow-2xs">
+            <div className="bg-slate-50/90 border border-slate-200 rounded-xl p-4 shadow-2xs">
               <div className="flex items-center justify-between mb-2.5">
-                <span className="text-xs font-bold text-indigo-950 flex items-center space-x-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                <span className="text-xs font-bold text-slate-900 flex items-center space-x-1.5">
+                  <BookmarkCheck className="w-4 h-4 text-indigo-600" />
                   <span>Pilih Template Role Standar Industri:</span>
                 </span>
-                <span className="text-[11px] text-slate-500 hidden sm:inline">1-Klik otomatis mengisi form & standar ATS</span>
+                <span className="text-[11px] text-slate-600 hidden sm:inline">1-Klik otomatis mengisi form & standar ATS</span>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {ROLE_TEMPLATES.map((tmpl) => (
@@ -1226,8 +1265,8 @@ Kualifikasi:
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-xs font-semibold text-slate-700">Deskripsi Lowongan (Job Description) *</label>
-                  <span className="text-[11px] text-slate-500 flex items-center space-x-1">
-                    <Sparkles className="w-3 h-3 text-indigo-500" />
+                  <span className="text-[11px] text-slate-600 flex items-center space-x-1">
+                    <Layers className="w-3.5 h-3.5 text-indigo-600" />
                     <span>Kriteria otomatis diekstrak & dikompilasi dari teks ini</span>
                   </span>
                 </div>
@@ -1238,14 +1277,14 @@ Kualifikasi:
                   placeholder="Ketik atau tempel deskripsi lowongan kerja lengkap di sini..."
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-hidden leading-relaxed"
                 />
-                <p className="text-[11px] text-slate-400 mt-1">
+                <p className="text-[11px] text-slate-600 mt-1">
                   💡 Tips: Cantumkan tanggung jawab dan kualifikasi menggunakan tanda strip (-) atau poin baris agar AI & Policy Linter dapat menyusun kriteria terstruktur dengan presisi tinggi.
                 </p>
               </div>
             </div>
 
             <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-              <span className="text-xs text-slate-400">Status Kriteria: {criteriaApproved ? 'Sudah Disetujui (v1)' : 'Draf'}</span>
+              <span className="text-xs text-slate-600">Status Kriteria: {criteriaApproved ? 'Sudah Disetujui (v1)' : 'Draf'}</span>
               <button
                 onClick={handleCompileFromJd}
                 disabled={isCompiling}
@@ -1258,7 +1297,7 @@ Kualifikasi:
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-4 h-4" />
+                    <Layers className="w-4 h-4" />
                     <span>Ekstrak Kriteria & Lanjut</span>
                     <ChevronRight className="w-4 h-4" />
                   </>
@@ -1342,7 +1381,7 @@ Kualifikasi:
                   <div className="bg-white p-2.5 rounded-lg border border-slate-200 flex items-center justify-between">
                     <div>
                       <div className="text-[11px] font-semibold text-blue-700">Pengalaman</div>
-                      <div className="text-[10px] text-slate-400">EXPERIENCE</div>
+                      <div className="text-[10px] text-slate-600 font-medium">EXPERIENCE</div>
                     </div>
                     <div className="flex items-center space-x-1">
                       <input
@@ -1355,16 +1394,16 @@ Kualifikasi:
                           setCategoryWeights({ ...categoryWeights, EXPERIENCE: val })
                           setCriteriaApproved(false)
                         }}
-                        className="w-12 px-1 py-1 text-center font-mono font-bold text-slate-900 border border-slate-200 hover:border-slate-300 focus:border-indigo-500 rounded text-xs bg-slate-50 focus:bg-white focus:outline-hidden"
+                        className="w-12 px-1 py-1 text-center font-mono tabular-nums font-bold text-slate-900 border border-slate-200 hover:border-slate-300 focus:border-indigo-500 rounded text-xs bg-slate-50 focus:bg-white focus:outline-hidden"
                       />
-                      <span className="font-mono text-slate-400 text-xs">%</span>
+                      <span className="font-mono tabular-nums text-slate-600 text-xs">%</span>
                     </div>
                   </div>
 
                   <div className="bg-white p-2.5 rounded-lg border border-slate-200 flex items-center justify-between">
                     <div>
                       <div className="text-[11px] font-semibold text-indigo-700">Hard Skill</div>
-                      <div className="text-[10px] text-slate-400">HARD_SKILLS</div>
+                      <div className="text-[10px] text-slate-600 font-medium">HARD_SKILLS</div>
                     </div>
                     <div className="flex items-center space-x-1">
                       <input
@@ -1377,16 +1416,16 @@ Kualifikasi:
                           setCategoryWeights({ ...categoryWeights, HARD_SKILLS: val })
                           setCriteriaApproved(false)
                         }}
-                        className="w-12 px-1 py-1 text-center font-mono font-bold text-slate-900 border border-slate-200 hover:border-slate-300 focus:border-indigo-500 rounded text-xs bg-slate-50 focus:bg-white focus:outline-hidden"
+                        className="w-12 px-1 py-1 text-center font-mono tabular-nums font-bold text-slate-900 border border-slate-200 hover:border-slate-300 focus:border-indigo-500 rounded text-xs bg-slate-50 focus:bg-white focus:outline-hidden"
                       />
-                      <span className="font-mono text-slate-400 text-xs">%</span>
+                      <span className="font-mono tabular-nums text-slate-600 text-xs">%</span>
                     </div>
                   </div>
 
                   <div className="bg-white p-2.5 rounded-lg border border-slate-200 flex items-center justify-between">
                     <div>
                       <div className="text-[11px] font-semibold text-amber-700">Pendidikan</div>
-                      <div className="text-[10px] text-slate-400">EDUCATION_CERT</div>
+                      <div className="text-[10px] text-slate-600 font-medium">EDUCATION_CERT</div>
                     </div>
                     <div className="flex items-center space-x-1">
                       <input
@@ -1399,16 +1438,16 @@ Kualifikasi:
                           setCategoryWeights({ ...categoryWeights, EDUCATION_CERT: val })
                           setCriteriaApproved(false)
                         }}
-                        className="w-12 px-1 py-1 text-center font-mono font-bold text-slate-900 border border-slate-200 hover:border-slate-300 focus:border-indigo-500 rounded text-xs bg-slate-50 focus:bg-white focus:outline-hidden"
+                        className="w-12 px-1 py-1 text-center font-mono tabular-nums font-bold text-slate-900 border border-slate-200 hover:border-slate-300 focus:border-indigo-500 rounded text-xs bg-slate-50 focus:bg-white focus:outline-hidden"
                       />
-                      <span className="font-mono text-slate-400 text-xs">%</span>
+                      <span className="font-mono tabular-nums text-slate-600 text-xs">%</span>
                     </div>
                   </div>
 
                   <div className="bg-white p-2.5 rounded-lg border border-slate-200 flex items-center justify-between">
                     <div>
                       <div className="text-[11px] font-semibold text-purple-700">Pencapaian</div>
-                      <div className="text-[10px] text-slate-400">ACHIEVEMENT</div>
+                      <div className="text-[10px] text-slate-600 font-medium">ACHIEVEMENT</div>
                     </div>
                     <div className="flex items-center space-x-1">
                       <input
@@ -1421,9 +1460,9 @@ Kualifikasi:
                           setCategoryWeights({ ...categoryWeights, ACHIEVEMENT: val })
                           setCriteriaApproved(false)
                         }}
-                        className="w-12 px-1 py-1 text-center font-mono font-bold text-slate-900 border border-slate-200 hover:border-slate-300 focus:border-indigo-500 rounded text-xs bg-slate-50 focus:bg-white focus:outline-hidden"
+                        className="w-12 px-1 py-1 text-center font-mono tabular-nums font-bold text-slate-900 border border-slate-200 hover:border-slate-300 focus:border-indigo-500 rounded text-xs bg-slate-50 focus:bg-white focus:outline-hidden"
                       />
-                      <span className="font-mono text-slate-400 text-xs">%</span>
+                      <span className="font-mono tabular-nums text-slate-600 text-xs">%</span>
                     </div>
                   </div>
                 </div>
@@ -1475,7 +1514,7 @@ Kualifikasi:
                               setRequirements(updated)
                               setCriteriaApproved(false)
                             }}
-                            className="w-full text-[11px] font-medium rounded-md px-2 py-1 bg-slate-50 hover:bg-white border border-slate-200 hover:border-slate-300 text-slate-700 focus:outline-hidden focus:ring-1 focus:ring-indigo-500"
+                            className="w-full text-xs font-medium rounded-lg px-2.5 py-1.5 bg-white hover:bg-slate-50 border border-slate-300 hover:border-slate-400 text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs transition-colors cursor-pointer"
                           >
                             <option value="EXPERIENCE">Pengalaman</option>
                             <option value="HARD_SKILLS">Hard Skill</option>
@@ -1492,12 +1531,12 @@ Kualifikasi:
                               setRequirements(updated)
                               setCriteriaApproved(false)
                             }}
-                            className={`w-full text-[11px] font-bold rounded-md px-2 py-1 border transition-colors cursor-pointer focus:outline-hidden focus:ring-1 focus:ring-indigo-500 ${
+                            className={`w-full text-xs font-bold rounded-lg px-2.5 py-1.5 border transition-colors cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 ${
                               r.importance === 'MUST_HAVE'
-                                ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                                ? 'bg-rose-50 text-rose-800 border-rose-300 hover:bg-rose-100/70'
                                 : r.importance === 'STRONG_PREFERENCE'
-                                ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
-                                : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+                                ? 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100/70'
+                                : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
                             }`}
                           >
                             <option value="MUST_HAVE">🔴 Wajib</option>
@@ -1519,12 +1558,12 @@ Kualifikasi:
                                 setRequirements(updated)
                                 setCriteriaApproved(false)
                               }}
-                              className="w-14 px-1 py-1 text-center font-mono font-bold text-slate-900 border border-slate-200 hover:border-slate-300 focus:border-indigo-500 rounded text-xs bg-slate-50 focus:bg-white focus:outline-hidden"
+                              className="w-14 px-1 py-1 text-center font-mono tabular-nums font-bold text-slate-900 border border-slate-200 hover:border-slate-300 focus:border-indigo-500 rounded text-xs bg-slate-50 focus:bg-white focus:outline-hidden"
                             />
-                            <span className="font-mono text-slate-400 text-xs">%</span>
+                            <span className="font-mono tabular-nums text-slate-600 text-xs">%</span>
                           </div>
                         </td>
-                        <td className="py-2.5 px-3 text-slate-500 italic max-w-xs truncate" title={r.source_text}>
+                        <td className="py-2.5 px-3 text-slate-600 italic max-w-xs truncate" title={r.source_text}>
                           "{r.source_text || '-'}"
                         </td>
                         <td className="py-2.5 px-3 text-center">
@@ -1533,8 +1572,9 @@ Kualifikasi:
                               setRequirements(requirements.filter((_, idx) => idx !== i))
                               setCriteriaApproved(false)
                             }}
-                            className="text-slate-400 hover:text-rose-600 transition-colors"
+                            className="p-1.5 rounded-md text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors focus-visible:ring-2 focus-visible:ring-rose-500/20"
                             title="Hapus Kriteria"
+                            aria-label={`Hapus kriteria ${r.requirement_id}`}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -1552,12 +1592,12 @@ Kualifikasi:
                   placeholder="Kriteria baru (contoh: Memahami arsitektur event-driven)..."
                   value={newReqDesc}
                   onChange={(e) => setNewReqDesc(e.target.value)}
-                  className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                  className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-hidden shadow-2xs"
                 />
                 <select
                   value={newReqCategory}
                   onChange={(e) => setNewReqCategory(e.target.value)}
-                  className="px-2.5 py-2 border border-slate-300 rounded-lg text-xs bg-white text-slate-700 focus:outline-hidden"
+                  className="px-3 py-2 border border-slate-300 hover:border-slate-400 rounded-lg text-xs bg-white text-slate-800 font-medium focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs transition-colors cursor-pointer"
                 >
                   <option value="HARD_SKILLS">Hard Skill</option>
                   <option value="EXPERIENCE">Pengalaman</option>
@@ -1567,23 +1607,23 @@ Kualifikasi:
                 <select
                   value={newReqImportance}
                   onChange={(e) => setNewReqImportance(e.target.value)}
-                  className="px-2.5 py-2 border border-slate-300 rounded-lg text-xs bg-white text-slate-700 focus:outline-hidden"
+                  className="px-3 py-2 border border-slate-300 hover:border-slate-400 rounded-lg text-xs bg-white text-slate-800 font-medium focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs transition-colors cursor-pointer"
                 >
                   <option value="MUST_HAVE">🔴 Wajib</option>
                   <option value="STRONG_PREFERENCE">🟡 Diutamakan</option>
                   <option value="NICE_TO_HAVE">⚪ Nilai Tambah</option>
                 </select>
                 <div className="flex items-center space-x-1 shrink-0">
-                  <span className="text-[11px] text-slate-500 font-medium">Bobot:</span>
+                  <span className="text-[11px] text-slate-600 font-medium">Bobot:</span>
                   <input
                     type="number"
                     min="1"
                     max="100"
                     value={newReqWeight}
                     onChange={(e) => setNewReqWeight(parseInt(e.target.value) || 10)}
-                    className="w-14 px-1.5 py-2 border border-slate-300 rounded-lg text-xs font-mono font-bold text-center bg-white focus:outline-hidden"
+                    className="w-14 px-1.5 py-2 border border-slate-300 rounded-lg text-xs font-mono tabular-nums font-bold text-center bg-white focus:outline-hidden shadow-2xs"
                   />
-                  <span className="text-xs text-slate-400 font-mono">%</span>
+                  <span className="text-xs text-slate-600 font-mono tabular-nums">%</span>
                 </div>
                 <button
                   onClick={handleAddRequirement}
@@ -1737,8 +1777,8 @@ Kualifikasi:
               </div>
 
               {/* Files Table List */}
-              <div className="mt-6 border border-slate-200 rounded-lg overflow-hidden">
-                <table className="w-full text-left text-xs">
+              <div className="mt-6 border border-slate-200 rounded-lg overflow-hidden overflow-x-auto">
+                <table className="w-full text-left text-xs min-w-[640px]">
                   <thead className="bg-slate-100 text-slate-700 font-semibold uppercase tracking-wider border-b border-slate-200">
                     <tr>
                       <th className="py-2.5 px-3">Nama Berkas</th>
@@ -1750,10 +1790,10 @@ Kualifikasi:
                   <tbody className="divide-y divide-slate-100">
                     {uploadedFiles.length === 0 ? (
                       <tr>
-                        <td colSpan={4} className="py-8 text-center text-slate-400">
-                          <FileText className="w-8 h-8 mx-auto mb-1 text-slate-300" />
-                          <p className="font-medium text-slate-600">Belum ada berkas CV yang diunggah.</p>
-                          <p className="text-[11px] text-slate-400 mt-0.5">
+                        <td colSpan={4} className="py-8 text-center text-slate-600">
+                          <FileText className="w-8 h-8 mx-auto mb-1 text-slate-400" />
+                          <p className="font-medium text-slate-700">Belum ada berkas CV yang diunggah.</p>
+                          <p className="text-[11px] text-slate-600 mt-0.5">
                             Tarik dan letakkan berkas PDF/DOCX di atas atau klik untuk memilih file.
                           </p>
                         </td>
@@ -1769,7 +1809,7 @@ Kualifikasi:
                             )}
                             <span className="truncate max-w-xs">{file.name}</span>
                           </td>
-                          <td className="py-2 px-3 text-slate-500 font-mono text-[11px]">{file.size}</td>
+                          <td className="py-2 px-3 text-slate-600 font-mono tabular-nums text-[11px]">{file.size}</td>
                           <td className="py-2 px-3">
                             <span
                               className={`px-2 py-0.5 rounded text-[11px] font-bold inline-flex items-center space-x-1 ${
@@ -1873,8 +1913,8 @@ Kualifikasi:
                   <span>Export Laporan</span>
                 </button>
                 <button
-                  onClick={() => alert('Screening ulang dieksekusi secara deterministik dengan model Harrier-270m.')}
-                  className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-600 border border-slate-300 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-colors"
+                  onClick={() => showToast('Screening ulang dieksekusi secara deterministik dengan model Harrier-270m.', 'info')}
+                  className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-colors shadow-2xs"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   <span>Jalankan Ulang</span>
@@ -1922,194 +1962,196 @@ Kualifikasi:
 
               {/* Search box */}
               <div className="relative">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-2.5" />
                 <input
                   type="text"
                   placeholder="Cari kandidat / berkas..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 border border-slate-300 rounded-lg text-xs w-56 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                  className="pl-8 pr-3 py-1.5 border border-slate-300 rounded-lg text-xs w-56 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs"
                 />
               </div>
             </div>
 
             {/* Candidates Table */}
             <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-100 text-slate-700 font-semibold uppercase tracking-wider border-b border-slate-200">
-                  <tr>
-                    <th className="py-3 px-3 w-10 text-center">☐</th>
-                    <th className="py-3 px-2 w-12 text-center">#</th>
-                    <th className="py-3 px-3">Kandidat</th>
-                    <th className="py-3 px-3 w-28 text-center">Skor Akhir</th>
-                    <th className="py-3 px-3 w-32">Kriteria Wajib</th>
-                    <th className="py-3 px-3 w-36">Rincian Kategori</th>
-                    <th className="py-3 px-3 w-36">Rekomendasi</th>
-                    <th className="py-3 px-3 w-28">Keputusan</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredCandidates.length === 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs min-w-[760px]">
+                  <thead className="bg-slate-100 text-slate-700 font-semibold uppercase tracking-wider border-b border-slate-200">
                     <tr>
-                      <td colSpan={8} className="py-12 text-center text-slate-400">
-                        <Trophy className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                        <p className="font-medium text-slate-600">Belum ada hasil screening kandidat.</p>
-                        <p className="text-[11px] text-slate-400 mt-1">
-                          Unggah berkas CV di menu Upload CV, lalu klik &quot;Mulai Screening&quot; untuk menjalankan evaluasi objektif.
-                        </p>
-                      </td>
+                      <th className="py-3 px-3 w-10 text-center">☐</th>
+                      <th className="py-3 px-2 w-12 text-center">#</th>
+                      <th className="py-3 px-3">Kandidat</th>
+                      <th className="py-3 px-3 w-28 text-center">Skor Akhir</th>
+                      <th className="py-3 px-3 w-32">Kriteria Wajib</th>
+                      <th className="py-3 px-3 w-36">Rincian Kategori</th>
+                      <th className="py-3 px-3 w-36">Rekomendasi</th>
+                      <th className="py-3 px-3 w-28">Keputusan</th>
                     </tr>
-                  ) : (
-                    filteredCandidates.map((cand) => (
-                    <tr
-                      key={cand.cv_id}
-                      onClick={() => handleSelectCandidate(cand)}
-                      className="hover:bg-indigo-50/40 cursor-pointer transition-colors"
-                    >
-                      <td
-                        className="py-3 px-3 text-center"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          if (selectedForCompare.includes(cand.cv_id)) {
-                            setSelectedForCompare(selectedForCompare.filter((id) => id !== cand.cv_id))
-                          } else {
-                            if (selectedForCompare.length < 4) {
-                              setSelectedForCompare([...selectedForCompare, cand.cv_id])
-                            } else {
-                              alert('Maksimal membandingkan 4 kandidat sekaligus.')
-                            }
-                          }
-                        }}
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredCandidates.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="py-12 text-center text-slate-600">
+                          <Trophy className="w-8 h-8 mx-auto mb-2 text-slate-400" />
+                          <p className="font-medium text-slate-700">Belum ada hasil screening kandidat.</p>
+                          <p className="text-[11px] text-slate-600 mt-1">
+                            Unggah berkas CV di menu Upload CV, lalu klik &quot;Mulai Screening&quot; untuk menjalankan evaluasi objektif.
+                          </p>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredCandidates.map((cand) => (
+                      <tr
+                        key={cand.cv_id}
+                        onClick={() => handleSelectCandidate(cand)}
+                        className="hover:bg-indigo-50/40 cursor-pointer transition-colors"
                       >
-                        <input
-                          type="checkbox"
-                          checked={selectedForCompare.includes(cand.cv_id)}
-                          onChange={() => {}}
-                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                        />
-                      </td>
-                      <td className="py-3 px-2 text-center font-bold font-mono text-slate-500">
-                        {cand.rank}
-                      </td>
-                      <td className="py-3 px-3">
-                        <div className="flex items-center space-x-2">
-                          <span className="font-bold text-slate-900">
-                            {blindMode && !cand.revealed ? cand.blind_id : cand.real_name}
-                          </span>
-                          {cand.flags.includes('PROMPT_INJECTION') && (
-                            <span className="bg-rose-100 text-rose-700 text-[10px] px-1.5 py-0.5 rounded font-bold" title="Upaya prompt injection dinetralkan">
-                              INJECTION DINUTRALKAN
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-[11px] text-slate-400 font-mono block">{cand.file_name}</span>
-                      </td>
-                      <td className="py-3 px-3 text-center">
-                        <span
-                          className={`inline-block px-2.5 py-1 rounded-md font-bold font-mono text-sm ${
-                            cand.final_score >= 75
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : cand.final_score >= 50
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-rose-100 text-rose-800'
-                          }`}
+                        <td
+                          className="py-3 px-3 text-center"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (selectedForCompare.includes(cand.cv_id)) {
+                              setSelectedForCompare(selectedForCompare.filter((id) => id !== cand.cv_id))
+                            } else {
+                              if (selectedForCompare.length < 4) {
+                                setSelectedForCompare([...selectedForCompare, cand.cv_id])
+                              } else {
+                                showToast('Maksimal membandingkan 4 kandidat sekaligus.', 'warning')
+                              }
+                            }
+                          }}
                         >
-                          {cand.final_score.toFixed(1)}
-                        </span>
-                        <span className="text-[10px] text-slate-400 block mt-0.5">Band {cand.band}</span>
-                      </td>
-                      <td className="py-3 px-3">
-                        <div className="flex items-center space-x-1">
-                          {['R1', 'R2', 'R3'].map((rKey) => {
-                            const st = cand.requirement_states[rKey]
-                            return (
-                              <div
-                                key={rKey}
-                                className={`w-2.5 h-2.5 rounded-full ${
-                                  st === 'STRONG' ? 'bg-emerald-500' : st === 'PARTIAL' ? 'bg-amber-400' : 'bg-slate-300'
-                                }`}
-                                title={`${rKey}: ${st || 'Belum terbukti'}`}
-                              />
-                            )
-                          })}
-                          <span className="text-[11px] text-slate-500 ml-1.5">
-                            {Object.entries(cand.requirement_states).filter(([k, v]) => ['R1', 'R2', 'R3'].includes(k) && v === 'STRONG').length}/3 Wajib
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-3">
-                        <div className="space-y-1">
-                          <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden flex">
-                            <div className="bg-blue-500 h-full" style={{ width: `${cand.category_breakdown.EXPERIENCE || 0}%` }} />
-                            <div className="bg-indigo-500 h-full" style={{ width: `${cand.category_breakdown.HARD_SKILLS || 0}%` }} />
-                            <div className="bg-amber-500 h-full" style={{ width: `${cand.category_breakdown.EDUCATION_CERTIFICATION || 0}%` }} />
+                          <input
+                            type="checkbox"
+                            checked={selectedForCompare.includes(cand.cv_id)}
+                            onChange={() => {}}
+                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                          />
+                        </td>
+                        <td className="py-3 px-2 text-center font-bold font-mono tabular-nums text-slate-600">
+                          {cand.rank}
+                        </td>
+                        <td className="py-3 px-3">
+                          <div className="flex items-center space-x-2">
+                            <span className="font-bold text-slate-900">
+                              {blindMode && !cand.revealed ? cand.blind_id : cand.real_name}
+                            </span>
+                            {cand.flags.includes('PROMPT_INJECTION') && (
+                              <span className="bg-rose-100 text-rose-700 text-[10px] px-1.5 py-0.5 rounded font-bold" title="Upaya prompt injection dinetralkan">
+                                INJECTION DINUTRALKAN
+                              </span>
+                            )}
                           </div>
-                          <span className="text-[10px] text-slate-400 font-mono block">
-                            {cand.metrics.backend_months ? `${cand.metrics.backend_months} bln relevan` : '-'}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-3">
-                        <div className="flex flex-col gap-1 items-start">
+                          <span className="text-[11px] text-slate-600 font-mono tabular-nums block">{cand.file_name}</span>
+                        </td>
+                        <td className="py-3 px-3 text-center">
                           <span
-                            className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                              cand.recommendation === 'SHORTLIST'
-                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                : cand.recommendation === 'REVIEW'
-                                ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                : cand.recommendation === 'REJECTED_NOT_A_CV' || cand.flags?.includes('NOT_A_CV')
-                                ? 'bg-rose-50 text-rose-700 border border-rose-300'
-                                : cand.recommendation === 'MANUAL_CHECK'
-                                ? 'bg-purple-50 text-purple-700 border border-purple-200'
-                                : 'bg-slate-100 text-slate-600'
+                            className={`inline-block px-2.5 py-1 rounded-md font-bold font-mono text-sm tabular-nums ${
+                              cand.final_score >= 75
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : cand.final_score >= 50
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-rose-100 text-rose-800'
                             }`}
-                            title={cand.document_reasons?.join(', ')}
                           >
-                            {cand.recommendation === 'SHORTLIST'
-                              ? 'Disarankan Shortlist'
-                              : cand.recommendation === 'REVIEW'
-                              ? 'Perlu Ditinjau'
-                              : cand.recommendation === 'REJECTED_NOT_A_CV' || cand.flags?.includes('NOT_A_CV')
-                              ? '⛔ Bukan CV (Ditolak)'
-                              : cand.recommendation === 'MANUAL_CHECK'
-                              ? 'Perlu Cek Manual'
-                              : 'Prioritas Rendah'}
+                            {cand.final_score.toFixed(1)}
                           </span>
-                          {cand.eligibility_status === 'NOT_ELIGIBLE' && (
-                            <span
-                              className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-50 text-amber-800 border border-amber-200"
-                              title={cand.eligibility_reasons?.join(', ') || 'Di luar kriteria administratif'}
-                            >
-                              ⚠️ Di luar kriteria administratif
+                          <span className="text-[10px] text-slate-600 font-medium block mt-0.5">Band {cand.band}</span>
+                        </td>
+                        <td className="py-3 px-3">
+                          <div className="flex items-center space-x-1">
+                            {['R1', 'R2', 'R3'].map((rKey) => {
+                              const st = cand.requirement_states[rKey]
+                              return (
+                                <div
+                                  key={rKey}
+                                  className={`w-2.5 h-2.5 rounded-full ${
+                                    st === 'STRONG' ? 'bg-emerald-500' : st === 'PARTIAL' ? 'bg-amber-400' : 'bg-slate-300'
+                                  }`}
+                                  title={`${rKey}: ${st || 'Belum terbukti'}`}
+                                />
+                              )
+                            })}
+                            <span className="text-[11px] text-slate-600 font-mono tabular-nums ml-1.5">
+                              {Object.entries(cand.requirement_states).filter(([k, v]) => ['R1', 'R2', 'R3'].includes(k) && v === 'STRONG').length}/3 Wajib
                             </span>
-                          )}
-                          {cand.eligibility_status === 'UNKNOWN' && (
-                            <span
-                              className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200"
-                              title="Data administratif tidak tersedia di CV"
-                            >
-                              ℹ️ Data administratif tidak tersedia
+                          </div>
+                        </td>
+                        <td className="py-3 px-3">
+                          <div className="space-y-1">
+                            <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden flex">
+                              <div className="bg-blue-500 h-full" style={{ width: `${cand.category_breakdown.EXPERIENCE || 0}%` }} />
+                              <div className="bg-indigo-500 h-full" style={{ width: `${cand.category_breakdown.HARD_SKILLS || 0}%` }} />
+                              <div className="bg-amber-500 h-full" style={{ width: `${cand.category_breakdown.EDUCATION_CERTIFICATION || 0}%` }} />
+                            </div>
+                            <span className="text-[10px] text-slate-600 font-mono tabular-nums block">
+                              {cand.metrics.backend_months ? `${cand.metrics.backend_months} bln relevan` : '-'}
                             </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-3 px-3" onClick={(e) => e.stopPropagation()}>
-                        <select
-                          value={cand.decision || 'NONE'}
-                          onChange={(e) => handleDecision(cand.cv_id, e.target.value as any)}
-                          className="bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs font-medium text-slate-700 focus:outline-hidden"
-                        >
-                          <option value="NONE">- Belum Diputuskan -</option>
-                          <option value="SHORTLIST">Shortlist</option>
-                          <option value="HOLD">Tahan</option>
-                          <option value="TIDAK_LANJUT">Tidak Lanjut</option>
-                        </select>
-                      </td>
-                    </tr>
-                  ))
-                )}
-                </tbody>
-              </table>
+                          </div>
+                        </td>
+                        <td className="py-3 px-3">
+                          <div className="flex flex-col gap-1 items-start">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                                cand.recommendation === 'SHORTLIST'
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                  : cand.recommendation === 'REVIEW'
+                                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                  : cand.recommendation === 'REJECTED_NOT_A_CV' || cand.flags?.includes('NOT_A_CV')
+                                  ? 'bg-rose-50 text-rose-700 border border-rose-300'
+                                  : cand.recommendation === 'MANUAL_CHECK'
+                                  ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                                  : 'bg-slate-100 text-slate-600'
+                              }`}
+                              title={cand.document_reasons?.join(', ')}
+                            >
+                              {cand.recommendation === 'SHORTLIST'
+                                ? 'Disarankan Shortlist'
+                                : cand.recommendation === 'REVIEW'
+                                ? 'Perlu Ditinjau'
+                                : cand.recommendation === 'REJECTED_NOT_A_CV' || cand.flags?.includes('NOT_A_CV')
+                                ? '⛔ Bukan CV (Ditolak)'
+                                : cand.recommendation === 'MANUAL_CHECK'
+                                ? 'Perlu Cek Manual'
+                                : 'Prioritas Rendah'}
+                            </span>
+                            {cand.eligibility_status === 'NOT_ELIGIBLE' && (
+                              <span
+                                className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-50 text-amber-800 border border-amber-200"
+                                title={cand.eligibility_reasons?.join(', ') || 'Di luar kriteria administratif'}
+                              >
+                                ⚠️ Di luar kriteria administratif
+                              </span>
+                            )}
+                            {cand.eligibility_status === 'UNKNOWN' && (
+                              <span
+                                className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200"
+                                title="Data administratif tidak tersedia di CV"
+                              >
+                                ℹ️ Data administratif tidak tersedia
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3 px-3" onClick={(e) => e.stopPropagation()}>
+                          <select
+                            value={cand.decision || 'NONE'}
+                            onChange={(e) => handleDecision(cand.cv_id, e.target.value as any)}
+                            className="bg-white hover:bg-slate-50 border border-slate-300 hover:border-slate-400 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs transition-colors cursor-pointer"
+                          >
+                            <option value="NONE">- Belum Diputuskan -</option>
+                            <option value="SHORTLIST">Shortlist</option>
+                            <option value="HOLD">Tahan</option>
+                            <option value="TIDAK_LANJUT">Tidak Lanjut</option>
+                          </select>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
@@ -2125,7 +2167,7 @@ Kualifikasi:
             <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
               <div className="flex items-center space-x-3">
                 <div
-                  className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg font-mono ${
+                  className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg font-mono tabular-nums shadow-2xs ${
                     selectedCandidate.final_score >= 75
                       ? 'bg-emerald-600 text-white'
                       : selectedCandidate.final_score >= 50
@@ -2150,15 +2192,16 @@ Kualifikasi:
                       </button>
                     )}
                   </div>
-                  <p className="text-xs text-slate-500 font-mono">{selectedCandidate.file_name} • Peringkat #{selectedCandidate.rank}</p>
+                  <p className="text-xs text-slate-600 font-mono tabular-nums">{selectedCandidate.file_name} • Peringkat #{selectedCandidate.rank}</p>
                 </div>
               </div>
 
               <button
                 onClick={() => setSelectedCandidate(null)}
-                className="text-slate-400 hover:text-slate-600 text-lg font-bold p-1 rounded-md"
+                aria-label="Tutup panel kandidat"
+                className="inline-flex items-center justify-center min-w-[44px] min-h-[44px] p-2.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-200/60 transition-colors focus-visible:ring-2 focus-visible:ring-slate-400 focus:outline-hidden"
               >
-                ✕
+                <X className="w-5 h-5" />
               </button>
             </div>
 
@@ -2264,10 +2307,10 @@ Kualifikasi:
                               {r.requirement_id}
                             </span>
                             {/* Tactile Badge: Verified by Jev (TypeSafe Classifier) */}
-                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-zinc-900 text-zinc-100 text-[10px] font-mono border border-zinc-700 shadow-2xs">
-                              <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                              <span className="font-semibold text-white">Verified by Jev</span>
-                              <span className="text-zinc-400">(TypeSafe Classifier)</span>
+                            <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 font-mono font-medium text-xs px-2.5 py-1 rounded-md flex items-center space-x-1.5 shadow-2xs">
+                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                              <span className="font-semibold text-emerald-900">Verified by Jev</span>
+                              <span className="text-emerald-700/80 text-[11px]">(TypeSafe Classifier)</span>
                             </span>
                           </div>
                           <span
@@ -2294,13 +2337,13 @@ Kualifikasi:
                                 <div className="flex flex-wrap items-center justify-between gap-1.5">
                                   <div className="flex flex-wrap items-center gap-1.5">
                                     {ev.verified && (
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 text-[10px] font-mono font-medium">
-                                        <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-mono font-medium">
+                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                                         Grounding Verbatim Terverifikasi
                                       </span>
                                     )}
                                     {typeof ev.char_start === 'number' && (
-                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-zinc-900 text-zinc-300 border border-zinc-700 font-mono text-[10px] tabular-nums">
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-300 font-mono text-[11px] tabular-nums">
                                         Offset [{ev.char_start}..{typeof ev.char_end === 'number' ? ev.char_end : ev.char_start}]
                                       </span>
                                     )}
@@ -2323,7 +2366,7 @@ Kualifikasi:
                             ))}
                           </div>
                         ) : (
-                          <p className="text-[11px] text-slate-500 italic mt-1 bg-slate-50 border border-dashed border-slate-200 p-2 rounded">
+                          <p className="text-[11px] text-slate-600 italic mt-1 bg-slate-50 border border-dashed border-slate-200 p-2 rounded">
                             Tidak ada kutipan bukti yang mendukung di berkas.
                           </p>
                         )}
@@ -2344,7 +2387,7 @@ Kualifikasi:
                       </span>
                     )}
                   </div>
-                  <div className="p-4 bg-slate-900 text-slate-100 rounded-xl font-mono text-xs whitespace-pre-wrap leading-relaxed max-h-[500px] overflow-y-auto border border-slate-800">
+                  <div className="p-4 bg-slate-50 text-slate-800 rounded-xl font-mono text-xs whitespace-pre-wrap leading-relaxed max-h-[500px] overflow-y-auto border border-slate-200 shadow-2xs">
                     {selectedCandidate.full_text || `--- Teks Terbaca dari Berkas (${selectedCandidate.file_name}) ---
 Pengalaman Kerja:
 ${Object.values(selectedCandidate.evidence).flat().map((e) => `• ${e.quote}`).join('\n')}
@@ -2368,18 +2411,18 @@ S1 Teknik Informatika / Ilmu Komputer.`}
                             ReAct Reasoning Trajectory
                           </h4>
                         </div>
-                        <p className="text-slate-500 text-[11px] mt-0.5">
+                        <p className="text-slate-600 text-[11px] mt-0.5">
                           Audit jejak penalaran agen otonom & verifikasi tipe-aman Jev langkah demi langkah
                         </p>
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-zinc-900 text-zinc-200 font-mono text-[10px] border border-zinc-700">
-                          <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                          Verifier: {selectedCandidate.verifier_provider || 'JEV_TYPESAFE'}
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-emerald-50 text-emerald-800 font-mono text-xs border border-emerald-200 shadow-2xs">
+                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Verifier: <strong>{selectedCandidate.verifier_provider || 'JEV_TYPESAFE'}</strong></span>
                         </span>
                         {selectedCandidate.reasoning_trajectory && selectedCandidate.reasoning_trajectory.length > 0 && (
-                          <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-300 font-mono text-[10px] font-semibold tabular-nums">
+                          <span className="px-2.5 py-1 rounded bg-slate-100 text-slate-700 border border-slate-300 font-mono text-[11px] font-semibold tabular-nums shadow-2xs">
                             {selectedCandidate.reasoning_trajectory.length} Steps
                           </span>
                         )}
@@ -2397,16 +2440,21 @@ S1 Teknik Informatika / Ilmu Komputer.`}
                         </p>
                       </div>
                     ) : (
-                      <div className="space-y-3.5 pt-1">
+                      <div className="relative border-l-2 border-slate-200 ml-3.5 pl-5 space-y-6 pt-2 pb-2">
                         {selectedCandidate.reasoning_trajectory.map((step) => (
                           <div
                             key={step.step_number}
-                            className="bg-slate-50/80 border border-slate-200 rounded-xl p-3.5 space-y-2.5 hover:border-slate-300 transition-colors shadow-2xs"
+                            className="relative bg-slate-50/80 border border-slate-200 rounded-xl p-3.5 space-y-2.5 hover:border-slate-300 transition-colors shadow-2xs"
                           >
+                            {/* Vertical Rail Step Node Marker */}
+                            <div className="absolute -left-[33px] top-3.5 w-6 h-6 rounded-full bg-white border-2 border-slate-300 text-slate-700 font-mono text-[11px] font-bold flex items-center justify-center shadow-2xs">
+                              {String(step.step_number).padStart(2, '0')}
+                            </div>
+
                             {/* Step Header */}
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <div className="flex flex-wrap items-center gap-2">
-                                <span className="font-mono text-[11px] font-bold bg-zinc-900 text-zinc-100 px-2 py-0.5 rounded border border-zinc-700 shadow-2xs">
+                                <span className="font-mono text-[11px] font-bold bg-slate-100 text-slate-800 px-2.5 py-0.5 rounded-md border border-slate-300 shadow-2xs">
                                   Step {String(step.step_number).padStart(2, '0')}
                                 </span>
                                 <span
@@ -2418,7 +2466,7 @@ S1 Teknik Informatika / Ilmu Komputer.`}
                                 </span>
                               </div>
                               {step.timestamp_utc && (
-                                <span className="font-mono text-[10px] text-slate-500 tabular-nums flex items-center gap-1">
+                                <span className="font-mono text-[10px] text-slate-600 tabular-nums flex items-center gap-1">
                                   <Clock className="w-3 h-3 text-slate-400" />
                                   {step.timestamp_utc.replace('T', ' ').replace('Z', ' UTC')}
                                 </span>
@@ -2426,43 +2474,43 @@ S1 Teknik Informatika / Ilmu Komputer.`}
                             </div>
 
                             {/* Thought Context */}
-                            <div className="bg-white p-2.5 rounded-lg border border-slate-200 space-y-1">
+                            <div className="bg-white p-3 rounded-lg border border-slate-200 space-y-1">
                               <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-700 uppercase tracking-wider">
                                 <Cpu className="w-3 h-3 text-slate-500" />
                                 <span>Thought Context</span>
                               </div>
-                              <p className="text-slate-800 text-[11px] leading-relaxed">
+                              <p className="text-slate-700 text-xs leading-relaxed">
                                 {step.thought}
                               </p>
                             </div>
 
                             {/* Action Input (if present) */}
                             {step.action_input && Object.keys(step.action_input).length > 0 && (
-                              <div className="bg-zinc-950 p-2.5 rounded-lg border border-zinc-800 font-mono text-[10px] text-zinc-300 overflow-x-auto space-y-1">
-                                <span className="text-zinc-500 block text-[9px] uppercase tracking-wider">// Action Input</span>
-                                <pre className="whitespace-pre-wrap leading-tight text-zinc-300">
+                              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 font-mono text-xs text-slate-800 overflow-x-auto space-y-1">
+                                <span className="text-slate-500 block text-[10px] font-bold uppercase tracking-wider">// Action Input</span>
+                                <pre className="whitespace-pre-wrap leading-tight text-slate-800 font-mono text-[11px]">
                                   {JSON.stringify(step.action_input, null, 2)}
                                 </pre>
                               </div>
                             )}
 
                             {/* Observation */}
-                            <div className="bg-zinc-900 p-2.5 rounded-lg border border-zinc-800 space-y-1">
-                              <div className="flex items-center gap-1.5 text-[10px] font-bold text-zinc-400 uppercase tracking-wider font-mono">
-                                <Terminal className="w-3 h-3 text-emerald-400" />
+                            <div className="bg-amber-50 text-amber-900 border border-amber-200 p-3 rounded-lg space-y-1.5 font-mono text-xs">
+                              <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-800 uppercase tracking-wider">
+                                <Terminal className="w-3 h-3 text-amber-700" />
                                 <span>Observation</span>
                               </div>
-                              <p className="font-mono text-[11px] text-zinc-100 leading-relaxed whitespace-pre-wrap">
+                              <p className="font-mono text-xs text-amber-950 leading-relaxed whitespace-pre-wrap">
                                 {step.observation}
                               </p>
                             </div>
 
                             {/* State Mutation */}
                             <div className="flex flex-wrap items-center gap-2 pt-1.5 border-t border-slate-200 text-[10px]">
-                              <span className="font-semibold text-slate-600 uppercase tracking-wider text-[9px]">
+                              <span className="font-semibold text-slate-600 uppercase tracking-wider text-[10px]">
                                 State Mutation:
                               </span>
-                              <span className="font-mono font-medium text-emerald-900 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-300">
+                              <span className="font-mono font-medium text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200 text-xs">
                                 {step.state_mutation}
                               </span>
                             </div>
@@ -2476,11 +2524,11 @@ S1 Teknik Informatika / Ilmu Komputer.`}
                   <div className="bg-white p-4 border border-slate-200 rounded-xl space-y-3 shadow-2xs">
                     <h4 className="font-bold text-slate-900">Catatan & Keputusan Hiring Manager</h4>
                     <div>
-                      <label className="block text-slate-600 font-medium mb-1">Status Keputusan</label>
+                      <label className="block text-slate-700 font-medium mb-1">Status Keputusan</label>
                       <select
                         value={selectedCandidate.decision || 'NONE'}
                         onChange={(e) => handleDecision(selectedCandidate.cv_id, e.target.value as any)}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs"
+                        className="w-full px-3 py-2 bg-white hover:bg-slate-50 border border-slate-300 hover:border-slate-400 rounded-lg text-xs font-medium text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs transition-colors cursor-pointer"
                       >
                         <option value="NONE">- Belum Diputuskan -</option>
                         <option value="SHORTLIST">Disarankan Shortlist untuk Interview</option>
@@ -2489,11 +2537,11 @@ S1 Teknik Informatika / Ilmu Komputer.`}
                       </select>
                     </div>
                     <div>
-                      <label className="block text-slate-600 font-medium mb-1">Catatan Tambahan</label>
+                      <label className="block text-slate-700 font-medium mb-1">Catatan Tambahan</label>
                       <textarea
                         rows={3}
                         placeholder="Tambahkan catatan pertimbangan keputusan..."
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs"
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-normal text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs transition-colors"
                       />
                     </div>
                   </div>
@@ -2540,9 +2588,15 @@ S1 Teknik Informatika / Ilmu Komputer.`}
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-base font-bold text-slate-900">Perbandingan Kandidat Berdampingan</h3>
-                <p className="text-xs text-slate-500">Menganalisis perbandingan pemenuhan kriteria antara kandidat terpilih.</p>
+                <p className="text-xs text-slate-600">Menganalisis perbandingan pemenuhan kriteria antara kandidat terpilih.</p>
               </div>
-              <button onClick={() => setIsCompareOpen(false)} className="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
+              <button
+                onClick={() => setIsCompareOpen(false)}
+                aria-label="Tutup modal perbandingan"
+                className="inline-flex items-center justify-center min-w-[44px] min-h-[44px] p-2 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors focus-visible:ring-2 focus-visible:ring-slate-400 focus:outline-hidden"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
             <div className="overflow-x-auto flex-1">
@@ -2555,7 +2609,7 @@ S1 Teknik Informatika / Ilmu Komputer.`}
                       return (
                         <th key={cid} className="py-2.5 px-3 text-center border-l border-slate-200">
                           <p className="font-bold text-slate-900">{blindMode && !cand?.revealed ? cand?.blind_id : cand?.real_name}</p>
-                          <span className="text-[10px] text-slate-500 font-mono font-normal">Skor: {cand?.final_score.toFixed(1)} (Band {cand?.band})</span>
+                          <span className="text-[10px] text-slate-600 font-mono font-normal tabular-nums">Skor: {cand?.final_score.toFixed(1)} (Band {cand?.band})</span>
                         </th>
                       )
                     })}
@@ -2576,10 +2630,10 @@ S1 Teknik Informatika / Ilmu Komputer.`}
                             <span
                               className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                                 st === 'STRONG'
-                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                                   : st === 'PARTIAL'
-                                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                  : 'bg-slate-100 text-slate-500'
+                                  ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                                  : 'bg-slate-100 text-slate-600'
                               }`}
                             >
                               {st === 'STRONG' ? 'Terbukti' : st === 'PARTIAL' ? 'Sebagian' : 'Tidak Tercantum'}
@@ -2596,7 +2650,7 @@ S1 Teknik Informatika / Ilmu Komputer.`}
             <div className="pt-3 border-t border-slate-100 flex justify-end">
               <button
                 onClick={() => setIsCompareOpen(false)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg"
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors"
               >
                 Tutup
               </button>
@@ -2612,7 +2666,7 @@ S1 Teknik Informatika / Ilmu Komputer.`}
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-2xs flex items-center justify-center p-6">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
             <h3 className="text-base font-bold text-slate-900">Export Laporan Pemeringkatan</h3>
-            <p className="text-xs text-slate-500">Pilih format berkas dan cakupan data yang akan diunduh.</p>
+            <p className="text-xs text-slate-600">Pilih format berkas dan cakupan data yang akan diunduh.</p>
 
             <div className="space-y-3 text-xs">
               <div>
@@ -2631,7 +2685,7 @@ S1 Teknik Informatika / Ilmu Komputer.`}
 
               <div>
                 <label className="block text-slate-700 font-semibold mb-1">Cakupan Kandidat</label>
-                <select className="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                <select className="w-full px-3 py-2 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg text-xs font-medium text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs transition-colors cursor-pointer">
                   <option>Semua Kandidat ({candidates.length})</option>
                   <option>Kandidat Band A & B Saja</option>
                   <option>Hanya Kandidat yang Di-shortlist</option>
@@ -2646,21 +2700,56 @@ S1 Teknik Informatika / Ilmu Komputer.`}
             <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
               <button
                 onClick={() => setIsExportOpen(false)}
-                className="px-4 py-2 text-slate-600 hover:text-slate-800 text-xs font-semibold"
+                className="px-4 py-2 text-slate-600 hover:text-slate-800 text-xs font-semibold rounded-lg transition-colors"
               >
                 Batal
               </button>
               <button
                 onClick={() => {
-                  alert('Laporan berhasil di-export sesuai format yang dipilih.')
+                  showToast('Laporan berhasil diekspor sesuai format yang dipilih.', 'success')
                   setIsExportOpen(false)
                 }}
-                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-xs"
+                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-xs transition-colors"
               >
                 Unduh Berkas
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Non-blocking In-App Toast Notification */}
+      {toast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`fixed bottom-6 right-6 z-60 max-w-sm px-4 py-3 rounded-xl shadow-lg border text-xs font-medium flex items-center justify-between gap-3 transition-all ${
+            toast.type === 'warning'
+              ? 'bg-amber-50 text-amber-900 border-amber-300'
+              : toast.type === 'success'
+              ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
+              : 'bg-white text-slate-800 border-slate-300 shadow-md'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <span
+              className={`w-2 h-2 rounded-full shrink-0 ${
+                toast.type === 'warning'
+                  ? 'bg-amber-500'
+                  : toast.type === 'success'
+                  ? 'bg-emerald-500'
+                  : 'bg-indigo-600'
+              }`}
+            />
+            <span className="leading-snug">{toast.message}</span>
+          </div>
+          <button
+            onClick={() => setToast(null)}
+            aria-label="Tutup notifikasi"
+            className="p-1 rounded-md hover:bg-slate-200/60 text-slate-500 hover:text-slate-800 transition-colors shrink-0"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
     </div>
