@@ -71,10 +71,10 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
     requirements.forEach((r) => {
       const txt = (r.description + ' ' + (r.source_text || '')).toLowerCase()
       if (/\busia\b|\bumur\b|maks\.\s*\d+|max\s*\d+\s*tahun/.test(txt)) {
-        flags.push(`Kriteria usia (${r.requirement_id}): Tidak diperkenankan sesuai doktrin anti-bias Solaris`)
+        flags.push(`Kriteria usia (${r.requirement_id}): Tidak diperkenankan sesuai aturan anti-bias`)
       }
       if (/\bpria\b|\bwanita\b|\bgender\b|\blaki-laki\b|\bperempuan\b/.test(txt)) {
-        flags.push(`Kriteria gender (${r.requirement_id}): Tidak diperkenankan sesuai doktrin anti-bias Solaris`)
+        flags.push(`Kriteria gender (${r.requirement_id}): Tidak diperkenankan sesuai aturan anti-bias`)
       }
       if (/menarik|penampilan|good looking|tinggi|berat/.test(txt)) {
         flags.push(`Kriteria fisik (${r.requirement_id}): Evaluasi wajib 100% berbasis kompetensi teknis`)

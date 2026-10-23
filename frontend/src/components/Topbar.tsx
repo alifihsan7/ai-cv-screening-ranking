@@ -68,10 +68,10 @@ export const Topbar: React.FC<TopbarProps> = ({
       <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
         <div className="flex items-center space-x-2 shrink-0">
           <div className="w-6.5 h-6.5 rounded-lg bg-[#1B4938] flex items-center justify-center text-[#FCFDFC] font-bold text-xs shadow-tactile-sm shrink-0">
-            <span className="font-mono text-[11px] tracking-tight">S7</span>
+            <span className="font-mono text-[11px] tracking-tight">AI</span>
           </div>
           <span className="font-bold text-xs text-[#13221C] tracking-tight hidden lg:inline shrink-0">
-            Solaris Talent Engine
+            AI CV Screening
           </span>
         </div>
 

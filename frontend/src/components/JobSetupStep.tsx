@@ -81,7 +81,7 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
                   </h1>
                 </div>
                 <p className="text-xs sm:text-sm text-[#40564D] mt-1">
-                  Tentukan profil posisi kerja dan masukkan teks deskripsi lowongan (JD). Mesin Solaris akan mengekstrak kriteria kompetensi deterministik secara otomatis.
+                  Tentukan profil posisi kerja dan masukkan teks deskripsi lowongan (JD). Sistem AI akan mengekstrak kriteria kompetensi deterministik secara otomatis.
                 </p>
               </div>
             </div>
