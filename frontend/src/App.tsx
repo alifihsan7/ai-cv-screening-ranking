@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import type { CandidateDetail, Requirement, WorkflowStep, UploadedCvFile } from './types'
 import { INITIAL_REQUIREMENTS, MOCK_CANDIDATES } from './mockData'
 import { Topbar } from './components/Topbar'
+import { WorkflowStepper } from './components/WorkflowStepper'
 import { JobSetupStep } from './components/JobSetupStep'
 import { CriteriaStudio } from './components/CriteriaStudio'
 import { UploadStep } from './components/UploadStep'
@@ -825,7 +826,7 @@ Kualifikasi:
 
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-[#F2F5F3] text-[#13221C] font-sans select-none antialiased">
-      {/* 1. Header with Workflow Stepper */}
+      {/* 1. Topbar Utama */}
       <Topbar
         currentStep={currentStep}
         onStepChange={setCurrentStep}
@@ -839,14 +840,23 @@ Kualifikasi:
         onRenameJob={handleRenameJob}
         onDeleteJob={handleDeleteJob}
         onCreateNewJob={handleCreateJob}
-        criteriaCount={requirements.length}
-        criteriaApproved={criteriaApproved}
-        uploadedCount={uploadedFiles.length}
         readyCvCount={uploadedFiles.filter((f) => f.status === 'ready').length}
-        candidatesCount={candidates.length}
       />
 
-      {/* 2. Main Body: 4-Step Progressive Workflow */}
+      {/* 2. Dedicated Workflow Sub-Header */}
+      <div className="h-[42px] bg-[#F7FAF8] border-b border-[#D5DFD9] flex items-center justify-center px-4 shrink-0 overflow-hidden z-20">
+        <WorkflowStepper
+          currentStep={currentStep}
+          onStepChange={setCurrentStep}
+          criteriaCount={requirements.length}
+          criteriaApproved={criteriaApproved}
+          uploadedCount={uploadedFiles.length}
+          readyCvCount={uploadedFiles.filter((f) => f.status === 'ready').length}
+          candidatesCount={candidates.length}
+        />
+      </div>
+
+      {/* 3. Main Body: 4-Step Progressive Workflow */}
       <main className="flex-1 overflow-hidden flex flex-col">
         {currentStep === 'setup' && (
           <JobSetupStep
