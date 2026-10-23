@@ -9,6 +9,7 @@ import uuid
 from datetime import date
 from typing import Any
 
+from src.domain.agent import run_screening_agent
 from src.domain.eligibility import evaluate_all
 from src.domain.kind_rules import (
     eval_achievement,
@@ -26,10 +27,13 @@ from src.infrastructure.database import get_connection
 from src.infrastructure.logging import logger
 
 
-async def execute_screening_run(run_id: uuid.UUID) -> dict[str, Any]:
+async def execute_screening_run(
+    run_id: uuid.UUID,
+    use_agent: bool | None = None,
+) -> dict[str, Any]:
     """Executes an immutable screening run asynchronously over all ready CVs for the job."""
     try:
-        return await _execute_screening_run_internal(run_id)
+        return await _execute_screening_run_internal(run_id, use_agent=use_agent)
     except Exception as e:
         logger.exception(f"Screening run {run_id} failed: {e}")
         with contextlib.suppress(Exception):
@@ -42,7 +46,10 @@ async def execute_screening_run(run_id: uuid.UUID) -> dict[str, Any]:
         raise
 
 
-async def _execute_screening_run_internal(run_id: uuid.UUID) -> dict[str, Any]:
+async def _execute_screening_run_internal(
+    run_id: uuid.UUID,
+    use_agent: bool | None = None,
+) -> dict[str, Any]:
     async with get_connection() as conn, conn.cursor() as cur:
         await cur.execute(
             """
@@ -69,6 +76,13 @@ async def _execute_screening_run_internal(run_id: uuid.UUID) -> dict[str, Any]:
         params = run_row["params"] or {}
         use_verifier = params.get("use_verifier", False)
         elig_snapshot = run_row["eligibility_snapshot"] or []
+
+        if use_agent is not None:
+            effective_use_agent = use_agent
+        elif "use_agent" in params:
+            effective_use_agent = bool(params["use_agent"])
+        else:
+            effective_use_agent = getattr(settings, "USE_SCREENING_AGENT", True)
 
         # Mark RUNNING
         await cur.execute(
@@ -131,6 +145,12 @@ async def _execute_screening_run_internal(run_id: uuid.UUID) -> dict[str, Any]:
         scoring_items: list[dict[str, Any]] = []
         eval_cache: dict[str, dict[str, Any]] = {}
 
+        verifier_provider = None
+        if use_verifier:
+            from src.domain.verifier import LLMGatewayVerifierProvider
+
+            verifier_provider = LLMGatewayVerifierProvider()
+
         verifier_semaphore = asyncio.Semaphore(settings.VERIFIER_CONCURRENCY)
 
         for idx, cv in enumerate(cv_rows, 1):
@@ -154,97 +174,223 @@ async def _execute_screening_run_internal(run_id: uuid.UUID) -> dict[str, Any]:
                     "flags": flags,
                     "reasons": reasons,
                     "score_res": None,
+                    "reasoning_trajectory": [],
+                    "req_evals": {},
                 }
                 continue
 
             if cv["quality_status"] != "READY":
                 continue
 
-            states_map: dict[str, str] = {}
-            metrics_map: dict[str, Any] = {}
-            ev_map: dict[str, list[dict[str, Any]]] = {}
-
-            for r in req_set_dict["requirements"]:
-                rid = r["requirement_id"]
-                kind = r["kind"]
-                if kind == "EXPERIENCE_DURATION":
-                    st, conf, m, evs, flgs = eval_experience_duration(matching_prof, r, as_of=effective_as_of)
-                    metrics_map.update(m)
-                elif kind == "SKILL":
-                    st, conf, m, evs, flgs = eval_skill(matching_prof, r)
-                elif kind == "RESPONSIBILITY":
-                    st, conf, m, evs, flgs = eval_responsibility(matching_prof, r)
-                elif kind == "EDUCATION":
-                    st, conf, m, evs, flgs = eval_education(matching_prof, r)
-                elif kind == "CERTIFICATION":
-                    st, conf, m, evs, flgs = eval_certification(matching_prof, r)
-                elif kind == "ACHIEVEMENT":
-                    st, conf, m, evs, flgs = eval_achievement(matching_prof, r)
-                elif kind == "LEADERSHIP":
-                    st, _conf, m, evs, flgs = eval_leadership(matching_prof, r)
-                else:
-                    st, _conf, m, evs, flgs = "NOT_DEMONSTRATED", 0.9, {}, [], []
-
-                # Hybrid semantic retrieval fallback (FX-32)
-                if (
-                    settings.SCORING_MODE == "hybrid"
-                    and kind in ("SKILL", "RESPONSIBILITY", "ACHIEVEMENT", "LEADERSHIP")
-                    and st == "NOT_DEMONSTRATED"
-                    and cv.get("profile_id")
-                ):
-                    from src.domain.retrieval import retrieve_evidence, split_sentences
-
-                    top_chunks, sim = await retrieve_evidence(
-                        profile_id=cv["profile_id"],
-                        requirement=r,
-                        tenant_id=tenant_id,
+            if effective_use_agent:
+                try:
+                    agent_state = await run_screening_agent(
+                        job_id=str(job_id),
+                        candidate_id=str(cand_id),
+                        requirements=req_set_dict["requirements"],
+                        profile=matching_prof,
+                        raw_cv_text=full_text,
+                        as_of=effective_as_of,
+                        category_weights=cat_weights,
+                        verifier_provider=verifier_provider,
                     )
-                    if sim >= settings.SEMANTIC_THRESHOLD and top_chunks:
-                        st = "PARTIAL"
-                        flgs = list(flgs) + ["SEMANTIC_MATCH"]
-                        sentences = split_sentences(top_chunks[0]["text"])
-                        sample_sentence = sentences[0] if sentences else top_chunks[0]["text"][:120]
-                        evs = [{"quote": sample_sentence, "context": top_chunks[0]["kind"], "verified": True}]
 
-                flags.extend(flgs)
+                    states_map: dict[str, str] = {}
+                    metrics_map: dict[str, Any] = {}
+                    ev_map: dict[str, list[dict[str, Any]]] = {}
+                    req_evals: dict[str, dict[str, Any]] = {}
+                    cand_flags = list(flags)
+                    cand_reasons = list(reasons)
 
-                # Optional LLM verifier bounded with semaphore
-                if use_verifier and st in ("PARTIAL", "STRONG") and evs:
-                    async with verifier_semaphore:
-                        v_st, v_quote, v_flgs = await verify_requirement_with_llm(
-                            full_text, r, st, [e.get("quote", "") for e in evs]
+                    for req_obj in req_set_dict["requirements"]:
+                        rid = req_obj["requirement_id"]
+                        res = agent_state.evaluation_results.get(rid)
+                        if res:
+                            states_map[rid] = res.state.value
+                            metrics_map.update(res.metrics.model_dump(mode="json"))
+                            cand_flags.extend(res.flags)
+                            cand_reasons.extend(res.reasons)
+                            citations = []
+                            for ev in res.evidences:
+                                citations.append(
+                                    {
+                                        "quote": ev.verbatim_quote,
+                                        "context": ev.source_section,
+                                        "verified": ev.is_grounded,
+                                        "char_start": ev.char_start,
+                                        "char_end": ev.char_end,
+                                    }
+                                )
+                            ev_map[rid] = citations
+                            req_evals[rid] = {
+                                "state": res.state.value,
+                                "confidence": float(res.confidence),
+                                "method": "react_agent",
+                                "metrics": res.metrics.model_dump(mode="json"),
+                            }
+                        else:
+                            states_map[rid] = "NOT_DEMONSTRATED"
+                            ev_map[rid] = []
+                            req_evals[rid] = {
+                                "state": "NOT_DEMONSTRATED",
+                                "confidence": 0.0,
+                                "method": "react_agent",
+                                "metrics": {},
+                            }
+
+                    score_res = score(states_map, req_set_dict)
+                    strong_count = sum(1 for v in states_map.values() if v == "STRONG")
+                    trajectory = [step.model_dump(mode="json") for step in agent_state.reasoning_trajectory]
+
+                    scoring_items.append(
+                        {
+                            "candidate_id": str(cand_id),
+                            "cv_id": cand_id,
+                            "document_id": doc_id,
+                            "file_name": file_name,
+                            "result": score_res,
+                            "strong_count": strong_count,
+                        }
+                    )
+                    eval_cache[str(cand_id)] = {
+                        "cv_id": cand_id,
+                        "document_id": doc_id,
+                        "file_name": file_name,
+                        "status": "SCORED",
+                        "states": states_map,
+                        "metrics": metrics_map,
+                        "evidence": ev_map,
+                        "flags": list(set(cand_flags)),
+                        "reasons": cand_reasons,
+                        "score_res": score_res,
+                        "reasoning_trajectory": trajectory,
+                        "req_evals": req_evals,
+                    }
+                except Exception as agent_err:
+                    logger.error(
+                        f"Autonomous agent failed for candidate {cand_id} (doc {doc_id}): {agent_err}",
+                        exc_info=True,
+                    )
+                    # Error isolation: isolate to this candidate, mark NEEDS_REVIEW, do not crash the run
+                    eval_cache[str(cand_id)] = {
+                        "cv_id": cand_id,
+                        "document_id": doc_id,
+                        "file_name": file_name,
+                        "status": "NEEDS_REVIEW",
+                        "states": {},
+                        "metrics": {},
+                        "evidence": {},
+                        "flags": list(set(flags + ["AGENT_EVALUATION_ERROR"])),
+                        "reasons": list(reasons + [f"Agent evaluation error: {agent_err}"]),
+                        "score_res": None,
+                        "reasoning_trajectory": [],
+                        "req_evals": {},
+                    }
+            else:
+                # Legacy rule-based evaluation
+                states_map = {}
+                metrics_map = {}
+                ev_map = {}
+                req_evals = {}
+                cand_flags = list(flags)
+
+                for r in req_set_dict["requirements"]:
+                    rid = r["requirement_id"]
+                    kind = r["kind"]
+                    st: str = "NOT_DEMONSTRATED"
+                    conf: float = 0.95
+                    m: dict[str, Any] = {}
+                    evs: list[dict[str, Any]] = []
+                    flgs: list[str] = []
+
+                    if kind == "EXPERIENCE_DURATION":
+                        st, conf, m, evs, flgs = eval_experience_duration(matching_prof, r, as_of=effective_as_of)
+                        metrics_map.update(m)
+                    elif kind == "SKILL":
+                        st, conf, m, evs, flgs = eval_skill(matching_prof, r)
+                    elif kind == "RESPONSIBILITY":
+                        st, conf, m, evs, flgs = eval_responsibility(matching_prof, r)
+                    elif kind == "EDUCATION":
+                        st, conf, m, evs, flgs = eval_education(matching_prof, r)
+                    elif kind == "CERTIFICATION":
+                        st, conf, m, evs, flgs = eval_certification(matching_prof, r)
+                    elif kind == "ACHIEVEMENT":
+                        st, conf, m, evs, flgs = eval_achievement(matching_prof, r)
+                    elif kind == "LEADERSHIP":
+                        st, conf, m, evs, flgs = eval_leadership(matching_prof, r)
+                    else:
+                        st, conf, m, evs, flgs = "NOT_DEMONSTRATED", 0.9, {}, [], []
+
+                    # Hybrid semantic retrieval fallback (FX-32)
+                    if (
+                        settings.SCORING_MODE == "hybrid"
+                        and kind in ("SKILL", "RESPONSIBILITY", "ACHIEVEMENT", "LEADERSHIP")
+                        and st == "NOT_DEMONSTRATED"
+                        and cv.get("profile_id")
+                    ):
+                        from src.domain.retrieval import retrieve_evidence, split_sentences
+
+                        top_chunks, sim = await retrieve_evidence(
+                            profile_id=cv["profile_id"],
+                            requirement=r,
+                            tenant_id=tenant_id,
                         )
-                        st = v_st
-                        flags.extend(v_flgs)
+                        if sim >= settings.SEMANTIC_THRESHOLD and top_chunks:
+                            st = "PARTIAL"
+                            flgs = list(flgs) + ["SEMANTIC_MATCH"]
+                            sentences = split_sentences(top_chunks[0]["text"])
+                            sample_sentence = sentences[0] if sentences else top_chunks[0]["text"][:120]
+                            evs = [{"quote": sample_sentence, "context": top_chunks[0]["kind"], "verified": True}]
 
-                states_map[rid] = st
-                ev_map[rid] = evs
+                    cand_flags.extend(flgs)
 
-            score_res = score(states_map, req_set_dict)
-            strong_count = sum(1 for v in states_map.values() if v == "STRONG")
+                    eval_method = "rule"
+                    # Optional LLM verifier bounded with semaphore
+                    if use_verifier and st in ("PARTIAL", "STRONG") and evs:
+                        async with verifier_semaphore:
+                            v_st, v_quote, v_flgs = await verify_requirement_with_llm(
+                                full_text, r, st, [e.get("quote", "") for e in evs]
+                            )
+                            st = v_st
+                            cand_flags.extend(v_flgs)
+                            eval_method = "verifier"
 
-            scoring_items.append(
-                {
-                    "candidate_id": str(cand_id),
+                    states_map[rid] = st
+                    ev_map[rid] = evs
+                    req_evals[rid] = {
+                        "state": st,
+                        "confidence": float(conf) if "conf" in locals() else 0.95,
+                        "method": eval_method,
+                        "metrics": m if "m" in locals() else {},
+                    }
+
+                score_res = score(states_map, req_set_dict)
+                strong_count = sum(1 for v in states_map.values() if v == "STRONG")
+
+                scoring_items.append(
+                    {
+                        "candidate_id": str(cand_id),
+                        "cv_id": cand_id,
+                        "document_id": doc_id,
+                        "file_name": file_name,
+                        "result": score_res,
+                        "strong_count": strong_count,
+                    }
+                )
+                eval_cache[str(cand_id)] = {
                     "cv_id": cand_id,
                     "document_id": doc_id,
                     "file_name": file_name,
-                    "result": score_res,
-                    "strong_count": strong_count,
+                    "status": "SCORED",
+                    "states": states_map,
+                    "metrics": metrics_map,
+                    "evidence": ev_map,
+                    "flags": list(set(cand_flags)),
+                    "reasons": reasons,
+                    "score_res": score_res,
+                    "reasoning_trajectory": [],
+                    "req_evals": req_evals,
                 }
-            )
-            eval_cache[str(cand_id)] = {
-                "cv_id": cand_id,
-                "document_id": doc_id,
-                "file_name": file_name,
-                "status": "SCORED",
-                "states": states_map,
-                "metrics": metrics_map,
-                "evidence": ev_map,
-                "flags": flags,
-                "reasons": reasons,
-                "score_res": score_res,
-            }
 
             # Periodic progress update every 10 CVs
             if idx % 10 == 0 or idx == total_docs:
@@ -289,21 +435,31 @@ async def _execute_screening_run_internal(run_id: uuid.UUID) -> dict[str, Any]:
             fin_sc = s_res.final_score if s_res else 0.0
             bnd = s_res.band if s_res else "R"
             rec = s_res.recommendation if s_res else "MANUAL_CHECK"
-            if "NOT_A_CV" in c_data.get("flags", []) or any("NOT_A_CV" in str(r) for r in c_data.get("reasons", [])):
-                rec = "REJECTED_NOT_A_CV"
+            if rec not in ("SHORTLIST", "REVIEW", "LOW_PRIORITY", "MANUAL_CHECK"):
+                rec = "MANUAL_CHECK"
             cat_b = s_res.category_breakdown if s_res else {}
             cov = s_res.coverage if s_res else 1.0
             cand_flags = list(set(c_data["flags"] + (s_res.flags if s_res else [])))
+            traj_json = json.dumps(c_data.get("reasoning_trajectory", []))
 
             await cur.execute(
                 """
                 INSERT INTO candidate_scores (
                     run_id, candidate_id, tenant_id, document_id, rank, band,
-                    raw_score, final_score, capped, recommendation, category_scores, flags, coverage
+                    raw_score, final_score, capped, recommendation, category_scores, flags, coverage,
+                    reasoning_trajectory
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, false, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, false, %s, %s, %s, %s, %s)
                 ON CONFLICT (run_id, candidate_id) DO UPDATE SET
-                    rank = EXCLUDED.rank, final_score = EXCLUDED.final_score, coverage = EXCLUDED.coverage
+                    rank = EXCLUDED.rank,
+                    final_score = EXCLUDED.final_score,
+                    raw_score = EXCLUDED.raw_score,
+                    band = EXCLUDED.band,
+                    recommendation = EXCLUDED.recommendation,
+                    category_scores = EXCLUDED.category_scores,
+                    flags = EXCLUDED.flags,
+                    coverage = EXCLUDED.coverage,
+                    reasoning_trajectory = EXCLUDED.reasoning_trajectory
                 """,
                 (
                     run_id,
@@ -318,28 +474,55 @@ async def _execute_screening_run_internal(run_id: uuid.UUID) -> dict[str, Any]:
                     json.dumps(cat_b),
                     cand_flags,
                     cov,
+                    traj_json,
                 ),
             )
 
             # Batch insert requirement scores & evidence via executemany
-            req_params = [
-                (
-                    run_id,
-                    cv_id_val,
-                    req_obj["requirement_id"],
-                    tenant_id,
-                    c_data["states"].get(req_obj["requirement_id"], "NOT_DEMONSTRATED"),
-                )
-                for req_obj in req_set_dict["requirements"]
-            ]
+            req_params = []
+            req_evals = c_data.get("req_evals", {})
+            for req_obj in req_set_dict["requirements"]:
+                req_id_str = req_obj["requirement_id"]
+                if req_id_str in req_evals:
+                    r_inf = req_evals[req_id_str]
+                    req_params.append(
+                        (
+                            run_id,
+                            cv_id_val,
+                            req_id_str,
+                            tenant_id,
+                            r_inf["state"],
+                            float(r_inf["confidence"]),
+                            r_inf["method"],
+                            json.dumps(r_inf.get("metrics", {})),
+                        )
+                    )
+                else:
+                    st_val = c_data["states"].get(req_id_str, "NOT_DEMONSTRATED")
+                    req_params.append(
+                        (
+                            run_id,
+                            cv_id_val,
+                            req_id_str,
+                            tenant_id,
+                            st_val,
+                            0.95,
+                            "rule",
+                            json.dumps({}),
+                        )
+                    )
             if req_params:
                 await cur.executemany(
                     """
                     INSERT INTO requirement_scores (
                         run_id, candidate_id, requirement_id, tenant_id, state, confidence, method, metrics
                     )
-                    VALUES (%s, %s, %s, %s, %s, 0.95, 'rule', '{}'::jsonb)
-                    ON CONFLICT (run_id, candidate_id, requirement_id) DO NOTHING
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (run_id, candidate_id, requirement_id) DO UPDATE SET
+                        state = EXCLUDED.state,
+                        confidence = EXCLUDED.confidence,
+                        method = EXCLUDED.method,
+                        metrics = EXCLUDED.metrics
                     """,
                     req_params,
                 )
@@ -357,16 +540,18 @@ async def _execute_screening_run_internal(run_id: uuid.UUID) -> dict[str, Any]:
                             tenant_id,
                             ev_item.get("quote", ""),
                             ev_item.get("context", "experience"),
-                            ev_item.get("verified", True),
+                            bool(ev_item.get("verified", True)),
+                            ev_item.get("char_start"),
+                            ev_item.get("char_end"),
                         )
                     )
             if ev_params:
                 await cur.executemany(
                     """
                     INSERT INTO evidence (
-                        id, run_id, candidate_id, requirement_id, tenant_id, quote, context, verified
+                        id, run_id, candidate_id, requirement_id, tenant_id, quote, context, verified, char_start, char_end
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     ev_params,
                 )

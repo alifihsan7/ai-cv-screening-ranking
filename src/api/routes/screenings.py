@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import uuid
 from datetime import date
@@ -25,6 +26,7 @@ router = APIRouter(prefix="/api/v1/jobs/{job_id}/screenings", tags=["Screenings"
 class ScreeningRunCreate(BaseModel):
     as_of: str | None = Field(default=None, description="As-of date for evaluation")
     use_verifier: bool = Field(default=False, description="Enable LLM verification for ambiguous criteria")
+    use_agent: bool = Field(default=True, description="Enable autonomous ReAct screening agent")
 
 
 @router.post("", status_code=status.HTTP_202_ACCEPTED)
@@ -100,7 +102,11 @@ async def trigger_screening_run(
                 req_set["id"],
                 effective_as_of,
                 json.dumps(versions_info),
-                json.dumps({"use_verifier": payload.use_verifier, "as_of": effective_as_of}),
+                json.dumps({
+                    "use_verifier": payload.use_verifier,
+                    "use_agent": payload.use_agent,
+                    "as_of": effective_as_of,
+                }),
                 json.dumps(elig_snapshot),
             ),
         )
@@ -300,7 +306,9 @@ async def get_candidate_detail(
         await cur.execute(
             """
             SELECT cs.rank, cs.final_score, cs.raw_score, cs.band, cs.recommendation,
-                   cs.category_scores as category_breakdown, cs.flags, d.original_filename as file_name
+                   cs.category_scores as category_breakdown, cs.flags,
+                   cs.reasoning_trajectory,
+                   d.original_filename as file_name
             FROM candidate_scores cs
             LEFT JOIN documents d ON cs.document_id = d.id AND d.tenant_id = cs.tenant_id
             WHERE cs.run_id = %s AND cs.candidate_id = %s AND cs.tenant_id = %s
@@ -382,6 +390,12 @@ async def get_candidate_detail(
             "details": elig_row["details"] if elig_row else [],
         }
 
+        raw_traj = cand_score.get("reasoning_trajectory")
+        if isinstance(raw_traj, str):
+            with contextlib.suppress(Exception):
+                raw_traj = json.loads(raw_traj)
+        trajectory = raw_traj if isinstance(raw_traj, list) else []
+
         return {
             "cv_id": str(cv_id),
             "file_name": cand_score["file_name"],
@@ -394,6 +408,7 @@ async def get_candidate_detail(
             "flags": cand_score["flags"],
             "requirement_states": req_states,
             "evidence": ev_map,
+            "reasoning_trajectory": trajectory,
             "explanation": explanation,
             "eligibility": elig_data,
         }

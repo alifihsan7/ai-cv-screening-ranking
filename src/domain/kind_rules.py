@@ -98,7 +98,7 @@ def eval_experience_duration(
         as_of = date.today().isoformat()
     params = req.get("params", {})
     accepted_rfs = [rf.lower() for rf in params.get("accepted_role_families", [])]
-    desc_text = (req.get("description", "") + " " + req.get("source_text", "")).lower()
+    desc_text = ((req.get("description") or "") + " " + (req.get("source_text") or "")).lower()
 
     if not accepted_rfs:
         concepts = [c.lower() for c in req.get("concepts", [])]
@@ -258,7 +258,7 @@ def eval_responsibility(
         target_kws.extend(CONCEPT_ALIASES.get(c, [base, base.replace("_", " "), base.replace("_", "-")]))
 
     if not target_kws:
-        desc = req.get("description", "") + " " + req.get("source_text", "")
+        desc = (req.get("description") or "") + " " + (req.get("source_text") or "")
         potential = re.findall(r"[A-Za-z0-9+#]+", desc)
         for term in potential:
             t_lower = term.lower()
@@ -388,7 +388,7 @@ def eval_education(
 ) -> tuple[str, float, dict[str, Any], list[dict[str, Any]], list[str]]:
     """Evaluates EDUCATION requirements."""
     params = req.get("params", {})
-    desc_text = (req.get("description", "") + " " + req.get("source_text", "")).lower()
+    desc_text = ((req.get("description") or "") + " " + (req.get("source_text") or "")).lower()
     concepts = [c.lower() for c in req.get("concepts", [])]
 
     min_level = params.get("min_level")
@@ -488,7 +488,7 @@ def eval_certification(
 ) -> tuple[str, float, dict[str, Any], list[dict[str, Any]], list[str]]:
     """Evaluates CERTIFICATION requirements using taxonomy mappings."""
     concepts = [c.lower() for c in req.get("concepts", [])]
-    desc_text = (req.get("description", "") + " " + req.get("source_text", "")).lower()
+    desc_text = ((req.get("description") or "") + " " + (req.get("source_text") or "")).lower()
     cert_certs = list(profile.get("certifications", []))
     for sk in profile.get("skills", []):
         sk_val = sk.get("name", "") if isinstance(sk, dict) else str(sk)

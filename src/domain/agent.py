@@ -180,6 +180,10 @@ class ScreeningAgent:
         self._parsed_sections: list[ParsedSection] = []
         self._score_result: ScoreResult | None = None
 
+    @property
+    def score_result(self) -> ScoreResult | None:
+        return self._score_result
+
     def record_step(
         self,
         thought: str,

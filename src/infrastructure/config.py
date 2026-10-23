@@ -57,6 +57,7 @@ class Settings(BaseSettings):
     # Hybrid Retrieval & Scoring Mode (FX-32)
     SCORING_MODE: str = "rules"  # "rules" | "hybrid"
     SEMANTIC_THRESHOLD: float = 0.65
+    USE_SCREENING_AGENT: bool = True
 
     # System Versions (FX-40)
     EXTRACTOR_VERSION: str = "1.0.0"
