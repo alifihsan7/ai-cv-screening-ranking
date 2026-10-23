@@ -10,7 +10,7 @@
 [![Ruff Clean](https://img.shields.io/badge/ruff-clean-D7FF64.svg?style=flat-square&logo=ruff&logoColor=black)](https://docs.astral.sh/ruff/)
 [![Accessibility](https://img.shields.io/badge/accessibility-WCAG%20AAA-brightgreen.svg?style=flat-square)](https://www.w3.org/WAI/standards-guidelines/wcag/)
 [![Benchmark](https://img.shields.io/badge/Golden%20Dataset-NDCG%4010%201.000-success.svg?style=flat-square)](docs/spec/golden_dataset/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
+[![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg?style=flat-square)](LICENSE)
 
 ---
 
@@ -34,7 +34,7 @@
   - [5. Running & Building the Frontend](#5-running--building-the-frontend)
 - [Quality Gates & Automated Verification](#quality-gates--automated-verification)
 - [Provenance & Attribution](#provenance--attribution)
-- [License](#license)
+- [Proprietary Notice & Confidentiality](#proprietary-notice--confidentiality)
 
 ---
 
@@ -334,6 +334,10 @@ Subsequent architectural evolution, autonomous re-engineering, and extensions we
 
 ---
 
-## License
+## Proprietary Notice & Confidentiality
 
-This project is licensed under the [MIT License](LICENSE).
+Copyright (c) 2026 Alif Ihsan. All Rights Reserved.
+
+This software, including its source code, architecture, algorithms, and documentation, is strictly **Closed-Source / Proprietary** intellectual property developed in the context of institutional and corporate partnership agreements.
+
+Unauthorized copying, distribution, modification, reverse engineering, public disclosure, or commercial exploitation in any form without express prior written permission from the copyright holder is strictly prohibited. Access is restricted to authorized personnel bound by active non-disclosure and commercial collaboration agreements. See [LICENSE](LICENSE) for details.
