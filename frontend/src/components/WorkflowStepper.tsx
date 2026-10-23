@@ -81,7 +81,7 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
   return (
     <nav
       aria-label="Workflow Stepper"
-      className={`flex items-center justify-center select-none ${className}`}
+      className={`flex items-center justify-center ${className}`}
     >
       <ol className="flex items-center">
         {STEPS.map((step, idx) => {

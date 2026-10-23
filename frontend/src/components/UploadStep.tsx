@@ -99,7 +99,7 @@ export const UploadStep: React.FC<UploadStepProps> = ({
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#F2F5F3] select-none">
+    <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#F2F5F3]">
       {/* Scrollable Content Area */}
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
         <div className="max-w-5xl mx-auto space-y-6">

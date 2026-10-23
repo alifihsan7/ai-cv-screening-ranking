@@ -63,7 +63,7 @@ export const Topbar: React.FC<TopbarProps> = ({
   const displayCvCount = activeJob?.cv_count ?? readyCvCount ?? 15
 
   return (
-    <header className="h-[44px] border-b border-[#D5DFD9] bg-[#FCFDFC] px-3 sm:px-4 flex items-center justify-between shrink-0 select-none z-30 gap-2">
+    <header className="h-[44px] border-b border-[#D5DFD9] bg-[#FCFDFC] px-3 sm:px-4 flex items-center justify-between shrink-0 z-30 gap-2">
       {/* Left: Brand Monogram + Job Popover Selector */}
       <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
         <div className="flex items-center space-x-2 shrink-0">

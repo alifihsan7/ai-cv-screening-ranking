@@ -138,7 +138,7 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#F2F5F3] select-none">
+    <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#F2F5F3]">
       {/* Dual Column Studio Body */}
       <div className="flex-1 flex overflow-hidden">
         {/* Kolom Kiri (60%): Editor Kriteria */}

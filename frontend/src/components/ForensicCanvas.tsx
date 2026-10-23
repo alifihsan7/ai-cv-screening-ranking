@@ -32,7 +32,7 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
 }) => {
   if (!candidate) {
     return (
-      <main className="flex-1 bg-[#FCFDFC] flex flex-col items-center justify-center p-8 text-center select-none">
+      <main className="flex-1 bg-[#FCFDFC] flex flex-col items-center justify-center p-8 text-center">
         <div className="w-16 h-16 rounded-2xl bg-[#EBF1EE] border border-[#D5DFD9] flex items-center justify-center text-[#1B4938] mb-4 shadow-tactile">
           <FileCheck className="w-8 h-8 text-[#1B4938]" />
         </div>
@@ -81,7 +81,7 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
   const allMustHavesMet = mustHavePartialOrUnproven.length === 0
 
   return (
-    <main className="flex-1 bg-[#FCFDFC] flex flex-col h-full overflow-hidden select-none">
+    <main className="flex-1 bg-[#FCFDFC] flex flex-col h-full overflow-hidden">
       {/* Persistent Canvas Header (Option A) */}
       <header className="px-5 py-3 border-b border-[#D5DFD9] bg-[#FCFDFC] flex flex-wrap items-center justify-between gap-3 shrink-0 shadow-tactile-sm">
         {/* Candidate Identity + Action Button [ 🛡️ Buka Audit Jev (D) ] */}

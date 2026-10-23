@@ -858,7 +858,7 @@ Kualifikasi:
   }, [uploadedFiles])
 
   return (
-    <div className="h-screen w-screen flex flex-col overflow-hidden bg-[#F2F5F3] text-[#13221C] font-sans select-none antialiased">
+    <div className="h-screen w-screen flex flex-col overflow-hidden bg-[#F2F5F3] text-[#13221C] font-sans antialiased">
       {/* 1. Topbar Utama */}
       <Topbar
         currentStep={currentStep}

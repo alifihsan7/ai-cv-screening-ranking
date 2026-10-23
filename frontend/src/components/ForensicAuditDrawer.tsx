@@ -116,7 +116,7 @@ PENDIDIKAN & LATAR BELAKANG:
 
       {/* Slide-Over Drawer Container */}
       <aside
-        className={`fixed inset-y-0 right-0 w-full sm:w-[540px] lg:w-[620px] z-50 bg-[#FCFDFC] border-l border-[#D5DFD9] shadow-2xl flex flex-col transform transition-transform duration-200 ease-in-out select-none ${
+        className={`fixed inset-y-0 right-0 w-full sm:w-[540px] lg:w-[620px] z-50 bg-[#FCFDFC] border-l border-[#D5DFD9] shadow-2xl flex flex-col transform transition-transform duration-200 ease-in-out ${
           isOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'
         }`}
         aria-label="Forensic Audit Drawer"

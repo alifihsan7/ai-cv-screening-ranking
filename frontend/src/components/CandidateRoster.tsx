@@ -187,7 +187,7 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
   }
 
   return (
-    <aside className="w-[38%] min-w-[320px] max-w-[480px] border-r border-[#D5DFD9] bg-[#F2F5F3] flex flex-col h-full overflow-hidden shrink-0 select-none">
+    <aside className="w-[38%] min-w-[320px] max-w-[480px] border-r border-[#D5DFD9] bg-[#F2F5F3] flex flex-col h-full overflow-hidden shrink-0">
       {/* Top Controls: Search + Filter Pills + Counter */}
       <div className="p-3 border-b border-[#D5DFD9] bg-[#FCFDFC] space-y-2.5 shrink-0">
         {/* Search Bar */}
