@@ -12,57 +12,14 @@ import { ForensicAuditDrawer } from './components/ForensicAuditDrawer'
 import { UploadModal } from './components/UploadModal'
 
 export default function App() {
-  // Navigation & 4-Step Workflow state (with URL hash & localStorage persistence)
-  const getInitialStep = (): WorkflowStep => {
-    try {
-      const hash = window.location.hash.replace(/^#/, '') as WorkflowStep
-      if (['setup', 'criteria', 'upload', 'workbench'].includes(hash)) {
-        return hash
-      }
-      const saved = localStorage.getItem('cv_screening_step') as WorkflowStep
-      if (['setup', 'criteria', 'upload', 'workbench'].includes(saved)) {
-        return saved
-      }
-    } catch {
-      // Fallback on initial render
-    }
-    return 'setup'
-  }
-
-  const [currentStep, setCurrentStepState] = useState<WorkflowStep>(getInitialStep)
-
-  const setCurrentStep = useCallback((step: WorkflowStep) => {
-    setCurrentStepState(step)
-    try {
-      localStorage.setItem('cv_screening_step', step)
-      if (window.location.hash !== `#${step}`) {
-        window.history.replaceState(null, '', `#${step}`)
-      }
-    } catch {
-      // Ignore in restricted environments
-    }
-  }, [])
-
-  // Sync hash changes (e.g. browser back/forward buttons)
-  useEffect(() => {
-    const handleHashChange = () => {
-      const hash = window.location.hash.replace(/^#/, '') as WorkflowStep
-      if (['setup', 'criteria', 'upload', 'workbench'].includes(hash)) {
-        setCurrentStepState(hash)
-      }
-    }
-    window.addEventListener('hashchange', handleHashChange)
-    return () => window.removeEventListener('hashchange', handleHashChange)
-  }, [])
-
+  // Navigation & 4-Step Workflow state
+  const [currentStep, setCurrentStep] = useState<WorkflowStep>('setup')
   const [blindMode, setBlindMode] = useState<boolean>(true)
   const [isUploadModalOpen, setIsUploadModalOpen] = useState<boolean>(false)
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false)
 
-  // Job Setup state with instant localStorage cache fallback
-  const [jobTitle, setJobTitle] = useState(
-    () => localStorage.getItem('cv_screening_job_title') || 'Senior Backend Engineer'
-  )
+  // Job Setup state
+  const [jobTitle, setJobTitle] = useState('Senior Backend Engineer')
   const [jobLocation, setJobLocation] = useState('Jakarta / Hybrid')
   const [jobType, setJobType] = useState('Penuh Waktu (Full-time)')
   const [jobDescription, setJobDescription] = useState(
@@ -94,27 +51,18 @@ Kualifikasi:
   const [criteriaVersion, setCriteriaVersion] = useState<number>(1)
   const [isCompiling, setIsCompiling] = useState<boolean>(false)
 
-  // Auth & Backend Jobs state with instant stale-while-revalidate cache
+  // Auth & Backend Jobs state
   const [authToken, setAuthToken] = useState<string | null>(() =>
     localStorage.getItem('cv_screening_token')
   )
   const [currentJobId, setCurrentJobId] = useState<string | null>(() =>
     localStorage.getItem('cv_screening_job_id')
   )
-  const [currentJobTitle, setCurrentJobTitle] = useState<string>(() =>
-    localStorage.getItem('cv_screening_job_title') || ''
-  )
+  const [currentJobTitle, setCurrentJobTitle] = useState<string>('')
   const [currentRunId, setCurrentRunId] = useState<string | null>(null)
   const [availableJobs, setAvailableJobs] = useState<
     Array<{ id: string; title: string; cv_count: number }>
-  >(() => {
-    try {
-      const saved = localStorage.getItem('cv_screening_available_jobs')
-      return saved ? JSON.parse(saved) : []
-    } catch {
-      return []
-    }
-  })
+  >([])
 
   // Upload & Screening execution state
   const [isUploading, setIsUploading] = useState<boolean>(false)
@@ -288,7 +236,7 @@ Kualifikasi:
   }, [currentJobId, getAuthHeaders])
 
   const fetchLatestLeaderboard = useCallback(
-    async (jId?: string, maxAttempts = 1) => {
+    async (jId?: string, maxAttempts = 4) => {
       try {
         const targetJobId = jId || (await ensureJobExists())
         if (!targetJobId) return
@@ -367,29 +315,24 @@ Kualifikasi:
       if (title) {
         setJobTitle(title)
         setCurrentJobTitle(title)
-        localStorage.setItem('cv_screening_job_title', title)
       }
 
       try {
-        const headers = { ...getAuthHeaders() }
-        // Concurrently fetch job metadata and criteria requirements in parallel
-        const [resJob, resReq] = await Promise.all([
-          fetch(`/api/v1/jobs/${jId}`, { headers }),
-          fetch(`/api/v1/jobs/${jId}/requirements`, { headers }),
-        ])
-
-        if (resJob.ok) {
-          const data = await resJob.json()
+        const res = await fetch(`/api/v1/jobs/${jId}`, { headers: { ...getAuthHeaders() } })
+        if (res.ok) {
+          const data = await res.json()
           if (data.title) {
             setJobTitle(data.title)
             setCurrentJobTitle(data.title)
-            localStorage.setItem('cv_screening_job_title', data.title)
           }
           if (data.jd_text) setJobDescription(data.jd_text)
           if (data.location) setJobLocation(data.location)
           if (data.employment_type) setJobType(data.employment_type)
         }
 
+        const resReq = await fetch(`/api/v1/jobs/${jId}/requirements`, {
+          headers: { ...getAuthHeaders() },
+        })
         if (resReq.ok) {
           const reqList = await resReq.json()
           const catWeightsHdr = resReq.headers.get('X-Category-Weights')
@@ -416,38 +359,25 @@ Kualifikasi:
         console.warn('Error fetching job details:', e)
       }
 
-      // Parallelize CV status check and leaderboard fetch (maxAttempts = 1 on select)
-      await Promise.all([
-        fetchJobCvsStatus(jId),
-        fetchLatestLeaderboard(jId, 1),
-      ])
+      await fetchJobCvsStatus(jId)
+      await fetchLatestLeaderboard(jId)
     },
     [fetchJobCvsStatus, fetchLatestLeaderboard, getAuthHeaders]
   )
 
   const fetchJobsList = useCallback(async () => {
     try {
-      let res = await fetch('/api/v1/jobs', { headers: { ...getAuthHeaders() } })
-      if (res.status === 401) {
-        const freshToken = await loginRecruiter()
-        if (freshToken) {
-          res = await fetch('/api/v1/jobs', {
-            headers: { Authorization: `Bearer ${freshToken}` },
-          })
-        }
-      }
+      const res = await fetch('/api/v1/jobs', { headers: { ...getAuthHeaders() } })
       if (res.ok) {
         const jobs = await res.json()
         if (Array.isArray(jobs) && jobs.length > 0) {
-          const mapped = jobs.map((j: any) => ({
-            id: j.id,
-            title: j.title,
-            cv_count: j.cv_count || 0,
-          }))
-          setAvailableJobs(mapped)
-          try {
-            localStorage.setItem('cv_screening_available_jobs', JSON.stringify(mapped))
-          } catch {}
+          setAvailableJobs(
+            jobs.map((j: any) => ({
+              id: j.id,
+              title: j.title,
+              cv_count: j.cv_count || 0,
+            }))
+          )
 
           const savedId = localStorage.getItem('cv_screening_job_id')
           const found = jobs.find((j: any) => j.id === savedId)
@@ -466,7 +396,7 @@ Kualifikasi:
     } catch (e) {
       console.warn('Error fetching jobs:', e)
     }
-  }, [getAuthHeaders, loginRecruiter, selectJob])
+  }, [getAuthHeaders, selectJob])
 
   const handleRenameJob = async () => {
     if (!currentJobId) return
@@ -728,7 +658,7 @@ Kualifikasi:
         const data = await res.json()
         const runId = data.screening_run_id || data.run_id
         setCurrentRunId(runId)
-        await fetchLatestLeaderboard(jId, 6)
+        await fetchLatestLeaderboard(jId)
         showToast('Screening CV berhasil diselesaikan.', 'success')
         setCurrentStep('workbench')
       } else {
@@ -902,21 +832,14 @@ Kualifikasi:
     handleSelectCandidate,
   ])
 
-  // Lifecycle init — non-blocking instant mount
+  // Lifecycle init
   useEffect(() => {
-    let isMounted = true
     const init = async () => {
-      const existingToken = localStorage.getItem('cv_screening_token')
-      if (!existingToken) {
-        await loginRecruiter()
-      }
-      if (isMounted) {
-        await fetchJobsList()
-      }
+      await loginRecruiter()
+      await fetchJobsList()
     }
     init()
     return () => {
-      isMounted = false
       stopPollingJobCvs()
     }
   }, [fetchJobsList, loginRecruiter, stopPollingJobCvs])
