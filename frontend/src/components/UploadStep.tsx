@@ -106,18 +106,20 @@ export const UploadStep: React.FC<UploadStepProps> = ({
           {/* Header Card */}
           <div className="bg-[#FCFDFC] rounded-2xl border border-[#D5DFD9] shadow-tactile p-6 sm:p-7">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-[#E2E9E5]">
-              <div className="flex items-start gap-3.5">
+              <div className="flex items-start space-x-3.5">
                 <div className="w-10 h-10 rounded-xl bg-[#EBF6EF] border border-[#BBE5CD] flex items-center justify-center shrink-0 shadow-tactile-sm">
                   <Upload className="w-5 h-5 text-[#1B4938]" />
                 </div>
-                <div className="flex flex-col items-start gap-1">
-                  <span className="font-mono text-[11px] font-bold text-[#1B6C47] uppercase tracking-wider bg-[#EBF6EF] px-2.5 py-0.5 rounded-md border border-[#BBE5CD]">
-                    Tahap 3 dari 4
-                  </span>
-                  <h1 className="text-lg sm:text-xl font-bold text-[#13221C] tracking-tight">
-                    Unggah Berkas CV & Pipeline Ingestion
-                  </h1>
-                  <p className="text-xs sm:text-sm text-[#40564D] mt-0.5">
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <span className="font-mono text-[11px] font-bold text-[#1B6C47] uppercase tracking-wider bg-[#EBF6EF] px-2 py-0.5 rounded border border-[#BBE5CD]">
+                      Tahap 3 dari 4
+                    </span>
+                    <h1 className="text-lg sm:text-xl font-bold text-[#13221C] tracking-tight">
+                      Unggah Berkas CV & Pipeline Ingestion
+                    </h1>
+                  </div>
+                  <p className="text-xs sm:text-sm text-[#40564D] mt-1">
                     Unggah resume kandidat dalam format PDF, DOCX, scan dokumen, atau arsip ZIP. Sistem akan melakukan sanitasi, deteksi duplikasi hash, dan anonimisasi identitas (Blind Screening).
                   </p>
                 </div>

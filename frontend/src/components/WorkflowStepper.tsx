@@ -91,7 +91,7 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
           const badgeText = getStepBadge(step.id)
 
           let pillClasses =
-            'relative h-8 px-2.5 sm:px-3 rounded-lg text-xs flex items-center gap-1.5 sm:gap-2 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] focus-visible:ring-offset-1 select-none active:scale-[0.98] shrink-0'
+            'relative h-8 px-2.5 sm:px-3 rounded-lg text-xs flex items-center space-x-1.5 sm:space-x-2 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] focus-visible:ring-offset-1 select-none active:scale-[0.98] shrink-0'
 
           if (isActive) {
             pillClasses += ' bg-[#EBF1EE] text-[#13221C] border border-[#1B4938] shadow-tactile-sm font-bold'
