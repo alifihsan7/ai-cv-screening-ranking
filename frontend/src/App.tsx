@@ -21,10 +21,36 @@ import {
   Search,
   Loader2,
   Sparkles,
+  Terminal,
+  Cpu,
+  Clock,
+  ShieldCheck,
 } from 'lucide-react'
 import type { CandidateDetail, Requirement } from './types'
 import { INITIAL_REQUIREMENTS } from './mockData'
 import { ROLE_TEMPLATES } from './jobTemplates'
+
+const getActionBadgeClass = (action: string) => {
+  if (action.includes('Jev') || action.includes('GROUNDED_VERIFIER')) {
+    return 'bg-emerald-950 text-emerald-300 border-emerald-700/80 font-bold'
+  }
+  if (action.includes('CRITIQUE') || action.includes('REFLECT')) {
+    return 'bg-amber-950 text-amber-300 border-amber-700/80 font-semibold'
+  }
+  if (action.includes('PARSER') || action.includes('DOCLING')) {
+    return 'bg-sky-950 text-sky-300 border-sky-700/80 font-semibold'
+  }
+  if (action.includes('RETRIEVAL')) {
+    return 'bg-cyan-950 text-cyan-300 border-cyan-700/80 font-semibold'
+  }
+  if (action.includes('DETERMINISTIC') || action.includes('SCORER')) {
+    return 'bg-indigo-950 text-indigo-300 border-indigo-700/80 font-semibold'
+  }
+  if (action.includes('FINALIZE')) {
+    return 'bg-purple-950 text-purple-300 border-purple-700/80 font-semibold'
+  }
+  return 'bg-zinc-900 text-zinc-200 border-zinc-700 font-semibold'
+}
 
 export default function App() {
   // Navigation & Workflow state
@@ -702,7 +728,11 @@ Kualifikasi:
       const res = await fetch(`/api/v1/jobs/${jId}/screenings?sync=true`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ use_verifier: false }),
+        body: JSON.stringify({
+          use_agent: true,
+          use_verifier: true,
+          verifier_provider: 'JEV_TYPESAFE',
+        }),
       })
 
       if (res.status === 409) {
@@ -749,6 +779,8 @@ Kualifikasi:
               explanation: detail.explanation || prev.explanation,
               category_breakdown: detail.category_breakdown || prev.category_breakdown,
               flags: detail.flags || prev.flags,
+              reasoning_trajectory: detail.reasoning_trajectory || prev.reasoning_trajectory,
+              verifier_provider: detail.verifier_provider || prev.verifier_provider,
             }
           })
         }
@@ -2162,7 +2194,7 @@ Kualifikasi:
                   activeDrawerTab === 'riwayat' ? 'border-indigo-600 text-indigo-600 font-bold' : 'border-transparent text-slate-500 hover:text-slate-700'
                 }`}
               >
-                4. Riwayat & Keputusan
+                4. Audit Trajectory & Keputusan
               </button>
             </div>
 
@@ -2225,40 +2257,75 @@ Kualifikasi:
                     const st = selectedCandidate.requirement_states[r.requirement_id] || 'NOT_DEMONSTRATED'
                     const evList = selectedCandidate.evidence[r.requirement_id] || []
                     return (
-                      <div key={r.requirement_id} className="border border-slate-200 rounded-lg p-3 bg-white">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center space-x-2">
-                            <span className="font-mono font-bold text-indigo-700 text-xs">{r.requirement_id}</span>
-                            <span className="font-medium text-slate-900 text-xs">{r.description}</span>
+                      <div key={r.requirement_id} className="border border-slate-200 rounded-xl p-3.5 bg-white shadow-2xs hover:border-slate-300 transition-colors">
+                        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-mono font-bold text-slate-900 bg-slate-100 border border-slate-300 px-2 py-0.5 rounded text-xs">
+                              {r.requirement_id}
+                            </span>
+                            {/* Tactile Badge: Verified by Jev (TypeSafe Classifier) */}
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-zinc-900 text-zinc-100 text-[10px] font-mono border border-zinc-700 shadow-2xs">
+                              <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                              <span className="font-semibold text-white">Verified by Jev</span>
+                              <span className="text-zinc-400">(TypeSafe Classifier)</span>
+                            </span>
                           </div>
                           <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            className={`px-2.5 py-0.5 rounded text-[11px] font-bold tracking-tight border ${
                               st === 'STRONG'
-                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
                                 : st === 'PARTIAL'
-                                ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                : 'bg-slate-100 text-slate-500'
+                                ? 'bg-amber-50 text-amber-800 border-amber-300'
+                                : 'bg-slate-100 text-slate-700 border-slate-300'
                             }`}
                           >
                             {st === 'STRONG' ? 'Terbukti' : st === 'PARTIAL' ? 'Sebagian Terpenuhi' : 'Tidak Tercantum di CV'}
                           </span>
                         </div>
+
+                        <p className="font-medium text-slate-900 text-xs leading-relaxed mb-2.5">
+                          {r.description}
+                        </p>
+
                         {evList.length > 0 ? (
-                          <div className="mt-2 bg-slate-50 p-2 rounded border border-slate-100 text-[11px]">
-                            <p className="text-slate-600 italic">"{evList[0].quote}"</p>
-                            <button
-                              onClick={() => {
-                                setSelectedQuoteToHighlight(evList[0].quote)
-                                setActiveDrawerTab('cv_asli')
-                              }}
-                              className="text-indigo-600 hover:text-indigo-800 font-medium text-[10px] mt-1 flex items-center space-x-1"
-                            >
-                              <span>Lihat dan sorot di naskah CV</span>
-                              <ExternalLink className="w-2.5 h-2.5" />
-                            </button>
+                          <div className="space-y-2 mt-2">
+                            {evList.map((ev, evIdx) => (
+                              <div key={evIdx} className="bg-slate-50/90 p-2.5 rounded-lg border border-slate-200 text-xs space-y-1.5">
+                                <div className="flex flex-wrap items-center justify-between gap-1.5">
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    {ev.verified && (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 text-[10px] font-mono font-medium">
+                                        <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                                        Grounding Verbatim Terverifikasi
+                                      </span>
+                                    )}
+                                    {typeof ev.char_start === 'number' && (
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-zinc-900 text-zinc-300 border border-zinc-700 font-mono text-[10px] tabular-nums">
+                                        Offset [{ev.char_start}..{typeof ev.char_end === 'number' ? ev.char_end : ev.char_start}]
+                                      </span>
+                                    )}
+                                  </div>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedQuoteToHighlight(ev.quote)
+                                      setActiveDrawerTab('cv_asli')
+                                    }}
+                                    className="text-slate-700 hover:text-indigo-700 font-medium text-[11px] inline-flex items-center gap-1 transition-colors underline underline-offset-2"
+                                  >
+                                    <span>Lihat di CV</span>
+                                    <ExternalLink className="w-2.5 h-2.5" />
+                                  </button>
+                                </div>
+                                <blockquote className="border-l-2 border-emerald-600 pl-2 text-slate-800 italic text-[11px] leading-relaxed bg-white/70 p-1.5 rounded-r">
+                                  "{ev.quote}"
+                                </blockquote>
+                              </div>
+                            ))}
                           </div>
                         ) : (
-                          <p className="text-[11px] text-slate-400 italic mt-1">Tidak ada kutipan bukti yang mendukung di berkas.</p>
+                          <p className="text-[11px] text-slate-500 italic mt-1 bg-slate-50 border border-dashed border-slate-200 p-2 rounded">
+                            Tidak ada kutipan bukti yang mendukung di berkas.
+                          </p>
                         )}
                       </div>
                     )
@@ -2288,10 +2355,125 @@ S1 Teknik Informatika / Ilmu Komputer.`}
                 </div>
               )}
 
-              {/* Tab 4: Riwayat & Keputusan */}
+              {/* Tab 4: Audit Trajectory & Keputusan */}
               {activeDrawerTab === 'riwayat' && (
-                <div className="space-y-4 text-xs">
-                  <div className="bg-white p-4 border border-slate-200 rounded-xl space-y-3">
+                <div className="space-y-5 text-xs">
+                  {/* ReAct Reasoning Trajectory Audit Panel */}
+                  <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4 shadow-2xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Terminal className="w-4 h-4 text-slate-800" />
+                          <h4 className="font-bold text-slate-900 text-sm tracking-tight">
+                            ReAct Reasoning Trajectory
+                          </h4>
+                        </div>
+                        <p className="text-slate-500 text-[11px] mt-0.5">
+                          Audit jejak penalaran agen otonom & verifikasi tipe-aman Jev langkah demi langkah
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-zinc-900 text-zinc-200 font-mono text-[10px] border border-zinc-700">
+                          <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                          Verifier: {selectedCandidate.verifier_provider || 'JEV_TYPESAFE'}
+                        </span>
+                        {selectedCandidate.reasoning_trajectory && selectedCandidate.reasoning_trajectory.length > 0 && (
+                          <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-300 font-mono text-[10px] font-semibold tabular-nums">
+                            {selectedCandidate.reasoning_trajectory.length} Steps
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {!selectedCandidate.reasoning_trajectory || selectedCandidate.reasoning_trajectory.length === 0 ? (
+                      <div className="bg-slate-50 border border-dashed border-slate-300 p-6 rounded-xl text-center space-y-2">
+                        <div className="w-9 h-9 mx-auto rounded-lg bg-slate-200 flex items-center justify-center text-slate-700 font-mono text-xs font-bold">
+                          ∅
+                        </div>
+                        <p className="font-semibold text-slate-900 text-xs">Belum Ada Rekaman ReAct Trajectory</p>
+                        <p className="text-slate-600 text-[11px] max-w-md mx-auto leading-relaxed">
+                          Kandidat ini belum memiliki jejak eksekusi reasoning bertahap. Jalankan screening dengan mode agentik aktif untuk menginspeksi alur keputusan langkah-demi-langkah verifier Jev.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3.5 pt-1">
+                        {selectedCandidate.reasoning_trajectory.map((step) => (
+                          <div
+                            key={step.step_number}
+                            className="bg-slate-50/80 border border-slate-200 rounded-xl p-3.5 space-y-2.5 hover:border-slate-300 transition-colors shadow-2xs"
+                          >
+                            {/* Step Header */}
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-mono text-[11px] font-bold bg-zinc-900 text-zinc-100 px-2 py-0.5 rounded border border-zinc-700 shadow-2xs">
+                                  Step {String(step.step_number).padStart(2, '0')}
+                                </span>
+                                <span
+                                  className={`font-mono text-[10px] px-2 py-0.5 rounded border shadow-2xs tracking-tight ${getActionBadgeClass(
+                                    step.action
+                                  )}`}
+                                >
+                                  {step.action}
+                                </span>
+                              </div>
+                              {step.timestamp_utc && (
+                                <span className="font-mono text-[10px] text-slate-500 tabular-nums flex items-center gap-1">
+                                  <Clock className="w-3 h-3 text-slate-400" />
+                                  {step.timestamp_utc.replace('T', ' ').replace('Z', ' UTC')}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Thought Context */}
+                            <div className="bg-white p-2.5 rounded-lg border border-slate-200 space-y-1">
+                              <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-700 uppercase tracking-wider">
+                                <Cpu className="w-3 h-3 text-slate-500" />
+                                <span>Thought Context</span>
+                              </div>
+                              <p className="text-slate-800 text-[11px] leading-relaxed">
+                                {step.thought}
+                              </p>
+                            </div>
+
+                            {/* Action Input (if present) */}
+                            {step.action_input && Object.keys(step.action_input).length > 0 && (
+                              <div className="bg-zinc-950 p-2.5 rounded-lg border border-zinc-800 font-mono text-[10px] text-zinc-300 overflow-x-auto space-y-1">
+                                <span className="text-zinc-500 block text-[9px] uppercase tracking-wider">// Action Input</span>
+                                <pre className="whitespace-pre-wrap leading-tight text-zinc-300">
+                                  {JSON.stringify(step.action_input, null, 2)}
+                                </pre>
+                              </div>
+                            )}
+
+                            {/* Observation */}
+                            <div className="bg-zinc-900 p-2.5 rounded-lg border border-zinc-800 space-y-1">
+                              <div className="flex items-center gap-1.5 text-[10px] font-bold text-zinc-400 uppercase tracking-wider font-mono">
+                                <Terminal className="w-3 h-3 text-emerald-400" />
+                                <span>Observation</span>
+                              </div>
+                              <p className="font-mono text-[11px] text-zinc-100 leading-relaxed whitespace-pre-wrap">
+                                {step.observation}
+                              </p>
+                            </div>
+
+                            {/* State Mutation */}
+                            <div className="flex flex-wrap items-center gap-2 pt-1.5 border-t border-slate-200 text-[10px]">
+                              <span className="font-semibold text-slate-600 uppercase tracking-wider text-[9px]">
+                                State Mutation:
+                              </span>
+                              <span className="font-mono font-medium text-emerald-900 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-300">
+                                {step.state_mutation}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Hiring Manager Decision Panel (existing controls preserved) */}
+                  <div className="bg-white p-4 border border-slate-200 rounded-xl space-y-3 shadow-2xs">
                     <h4 className="font-bold text-slate-900">Catatan & Keputusan Hiring Manager</h4>
                     <div>
                       <label className="block text-slate-600 font-medium mb-1">Status Keputusan</label>

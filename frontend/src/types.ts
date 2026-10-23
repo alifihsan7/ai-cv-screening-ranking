@@ -33,9 +33,27 @@ export interface CandidateScore {
   eligibility_reasons?: string[]
 }
 
+export interface EvidenceItem {
+  quote: string
+  context: string
+  verified: boolean
+  char_start?: number
+  char_end?: number
+}
+
+export interface ReasoningStep {
+  step_number: number
+  timestamp_utc: string
+  thought: string
+  action: string
+  action_input: Record<string, any>
+  observation: string
+  state_mutation: string
+}
+
 export interface CandidateDetail extends CandidateScore {
   requirement_states: Record<string, 'STRONG' | 'PARTIAL' | 'NOT_DEMONSTRATED'>
-  evidence: Record<string, Array<{ quote: string; context: string; verified: boolean }>>
+  evidence: Record<string, EvidenceItem[]>
   explanation: {
     band: string
     recommendation: string
@@ -45,4 +63,6 @@ export interface CandidateDetail extends CandidateScore {
     interview_questions: Array<{ requirement_id: string; focus: string; question: string }>
   }
   full_text?: string
+  reasoning_trajectory?: ReasoningStep[]
+  verifier_provider?: string
 }
