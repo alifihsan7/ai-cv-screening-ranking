@@ -8,6 +8,7 @@ import { CriteriaStudio } from './components/CriteriaStudio'
 import { UploadStep } from './components/UploadStep'
 import { CandidateRoster } from './components/CandidateRoster'
 import { ForensicCanvas } from './components/ForensicCanvas'
+import { ForensicAuditDrawer } from './components/ForensicAuditDrawer'
 import { UploadModal } from './components/UploadModal'
 
 export default function App() {
@@ -78,6 +79,24 @@ Kualifikasi:
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateDetail | null>(
     MOCK_CANDIDATES[0] || null
   )
+
+  // Executive Studio (Option A): Slide-over Audit Drawer state
+  const [isAuditDrawerOpen, setIsAuditDrawerOpen] = useState<boolean>(false)
+  const [auditDrawerInitialTab, setAuditDrawerInitialTab] = useState<'trajectory' | 'grounding'>('trajectory')
+  const [auditDrawerHighlightQuote, setAuditDrawerHighlightQuote] = useState<string | null>(null)
+
+  const handleOpenAuditDrawer = useCallback(
+    (tab: 'trajectory' | 'grounding' = 'trajectory', quote?: string) => {
+      setAuditDrawerInitialTab(tab)
+      setAuditDrawerHighlightQuote(quote || null)
+      setIsAuditDrawerOpen(true)
+    },
+    []
+  )
+
+  const handleToggleAuditDrawer = useCallback(() => {
+    setIsAuditDrawerOpen((prev) => !prev)
+  }, [])
 
   // Non-blocking Toast notification state
   const [toast, setToast] = useState<{
@@ -463,48 +482,51 @@ Kualifikasi:
     }
   }
 
-  const handleSelectCandidate = async (cand: CandidateDetail) => {
-    setSelectedCandidate(cand)
-    if (currentJobId && currentRunId) {
-      try {
-        const res = await fetch(
-          `/api/v1/jobs/${currentJobId}/screenings/${currentRunId}/candidates/${cand.cv_id}`,
-          { headers: { ...getAuthHeaders() } }
-        )
-        if (res.ok) {
-          const detail = await res.json()
-          setSelectedCandidate((prev) => {
-            if (!prev) return null
-            return {
-              ...prev,
-              requirement_states: detail.requirement_states || prev.requirement_states,
-              evidence: detail.evidence || prev.evidence,
-              explanation: detail.explanation || prev.explanation,
-              category_breakdown: detail.category_breakdown || prev.category_breakdown,
-              flags: detail.flags || prev.flags,
-              reasoning_trajectory: detail.reasoning_trajectory || prev.reasoning_trajectory,
-              verifier_provider: detail.verifier_provider || prev.verifier_provider,
-            }
-          })
+  const handleSelectCandidate = useCallback(
+    async (cand: CandidateDetail) => {
+      setSelectedCandidate(cand)
+      if (currentJobId && currentRunId) {
+        try {
+          const res = await fetch(
+            `/api/v1/jobs/${currentJobId}/screenings/${currentRunId}/candidates/${cand.cv_id}`,
+            { headers: { ...getAuthHeaders() } }
+          )
+          if (res.ok) {
+            const detail = await res.json()
+            setSelectedCandidate((prev) => {
+              if (!prev) return null
+              return {
+                ...prev,
+                requirement_states: detail.requirement_states || prev.requirement_states,
+                evidence: detail.evidence || prev.evidence,
+                explanation: detail.explanation || prev.explanation,
+                category_breakdown: detail.category_breakdown || prev.category_breakdown,
+                flags: detail.flags || prev.flags,
+                reasoning_trajectory: detail.reasoning_trajectory || prev.reasoning_trajectory,
+                verifier_provider: detail.verifier_provider || prev.verifier_provider,
+              }
+            })
+          }
+        } catch (e) {
+          console.warn('Candidate detail fetch note:', e)
         }
-      } catch (e) {
-        console.warn('Candidate detail fetch note:', e)
       }
-    }
-  }
+    },
+    [currentJobId, currentRunId, getAuthHeaders]
+  )
 
-  const handleDecision = (
-    cv_id: string,
-    decision: 'SHORTLIST' | 'HOLD' | 'TIDAK_LANJUT'
-  ) => {
-    setCandidates((prev) =>
-      prev.map((c) => (c.cv_id === cv_id ? { ...c, decision } : c))
-    )
-    if (selectedCandidate && selectedCandidate.cv_id === cv_id) {
-      setSelectedCandidate((prev) => (prev ? { ...prev, decision } : null))
-    }
-    showToast(`Status kandidat diperbarui -> ${decision}`, 'success')
-  }
+  const handleDecision = useCallback(
+    (cv_id: string, decision: 'SHORTLIST' | 'HOLD' | 'TIDAK_LANJUT') => {
+      setCandidates((prev) =>
+        prev.map((c) => (c.cv_id === cv_id ? { ...c, decision } : c))
+      )
+      setSelectedCandidate((prev) =>
+        prev && prev.cv_id === cv_id ? { ...prev, decision } : prev
+      )
+      showToast(`Status kandidat diperbarui -> ${decision}`, 'success')
+    },
+    [showToast]
+  )
 
   const handleRevealCandidate = async (cv_id: string) => {
     const confirmed = window.confirm(
@@ -748,6 +770,11 @@ Kualifikasi:
       }
 
       if (e.key === 'Escape') {
+        if (isAuditDrawerOpen) {
+          e.preventDefault()
+          setIsAuditDrawerOpen(false)
+          return
+        }
         if (isUploadModalOpen) setIsUploadModalOpen(false)
         return
       }
@@ -786,6 +813,9 @@ Kualifikasi:
       } else if (e.key === 'b' || e.key === 'B') {
         e.preventDefault()
         setBlindMode((prev) => !prev)
+      } else if (e.key === 'd' || e.key === 'D') {
+        e.preventDefault()
+        setIsAuditDrawerOpen((prev) => !prev)
       }
     }
 
@@ -797,6 +827,9 @@ Kualifikasi:
     blindMode,
     currentStep,
     isUploadModalOpen,
+    isAuditDrawerOpen,
+    handleDecision,
+    handleSelectCandidate,
   ])
 
   // Lifecycle init
@@ -918,7 +951,7 @@ Kualifikasi:
         )}
 
         {currentStep === 'workbench' && (
-          <div className="flex-1 flex overflow-hidden">
+          <div className="flex-1 flex overflow-hidden relative">
             {/* Panel Kiri (38%): Candidate Roster */}
             <CandidateRoster
               candidates={candidates}
@@ -928,6 +961,7 @@ Kualifikasi:
               onToggleBlindMode={() => setBlindMode((prev) => !prev)}
               onDecision={handleDecision}
               onRevealCandidate={handleRevealCandidate}
+              onToggleAuditDrawer={handleToggleAuditDrawer}
             />
 
             {/* Panel Kanan (62%): Forensic Canvas */}
@@ -937,6 +971,17 @@ Kualifikasi:
               blindMode={blindMode}
               onDecision={handleDecision}
               onRevealCandidate={handleRevealCandidate}
+              onOpenAuditDrawer={handleOpenAuditDrawer}
+            />
+
+            {/* Slide-Over Audit Drawer (Option A: Executive Studio) */}
+            <ForensicAuditDrawer
+              isOpen={isAuditDrawerOpen}
+              onClose={() => setIsAuditDrawerOpen(false)}
+              candidate={selectedCandidate}
+              initialTab={auditDrawerInitialTab}
+              highlightedQuote={auditDrawerHighlightQuote}
+              blindMode={blindMode}
             />
           </div>
         )}
