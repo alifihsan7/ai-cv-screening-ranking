@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     STORAGE_VAULT_PATH: str = str(_REPO_ROOT / "data" / "cv-vault")
     MAX_UPLOAD_SIZE_MB: int = 10
 
+    # TypeSafe System One
+    TYPESAFE_API_KEY: str = ""
+    TYPESAFE_BASE_URL: str = ""
+    TYPESAFE_MODEL: str = "jev-latest"
+    TYPESAFE_TIMEOUT: float = 10.0
+
     # LLM Data Policy
     # 'redacted_dev_router' enables 9Router for development with automated PII pre-flight verification
     # 'paid_or_local_only' disables unmetered dev router and restricts calls to official metered APIs / local models

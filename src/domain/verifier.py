@@ -5,12 +5,24 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import os
 import re
 import unicodedata
 from abc import ABC, abstractmethod
 from typing import Any
 
 from pydantic import BaseModel, Field
+from typesafe_sdk import (
+    AsyncTypeSafeClient,
+    Choice,
+    ChoiceAnswer,
+    Noul,
+    NoulAnswer,
+    NoulCriteria,
+    Question,
+    SystemOneResponse,
+    TypeSafeError,
+)
 
 from src.domain.models import ContextSectionType, CriterionKind, EvaluationStatus
 from src.infrastructure.config import settings
@@ -130,30 +142,67 @@ class BaseVerifierProvider(ABC):
 class JevTypeSafeVerifierProvider(BaseVerifierProvider):
     """Jev (TypeSafe) Verifier Provider.
 
-    Operates on closed discrete choices Y in {STRONG, PARTIAL, NOT_DEMONSTRATED}
-    with calibrated probability distributions. Zero-hallucination coupling:
-    never generates open-ended text essays. Verbatim quotes are extracted
-    from input candidate chunks by deterministic code.
+    Dual-Mode Architecture:
+    1. Live System One API: Executes real-time async evaluations via `AsyncTypeSafeClient`
+       when `TYPESAFE_API_KEY` is present (or an active client is provided).
+       Evaluates requirements using TypeSafe primitives:
+       - `Choice`: Discrete ternary classification (STRONG, PARTIAL, NOT_DEMONSTRATED)
+         with calibrated probability distributions.
+       - `Noul`: Binary probability verification for hard-gate eligibility checks.
+    2. Local Calibrated Emulation (Fallback): Executes deterministic pointwise calibration
+       when `TYPESAFE_API_KEY` is absent (or when live API calls encounter unrecoverable network errors).
+
+    Strict Grounding & Context Elevation:
+    - Verbatim quotes are deterministically extracted from candidate chunks.
+    - Zero hallucination invariant verified via `verify_grounding()`.
+    - Context elevation guard applied via `apply_context_elevation_guard()`.
     """
 
     provider_name: str = "JEV_TYPESAFE"
 
-    def __init__(self, endpoint_url: str | None = None, api_key: str | None = None) -> None:
-        self.endpoint_url = endpoint_url
-        self.api_key = api_key
+    def __init__(
+        self,
+        endpoint_url: str | None = None,
+        api_key: str | None = None,
+        model: str | None = None,
+        timeout: float | None = None,
+        client: AsyncTypeSafeClient | None = None,
+    ) -> None:
+        self.endpoint_url = (
+            endpoint_url or os.environ.get("TYPESAFE_BASE_URL") or getattr(settings, "TYPESAFE_BASE_URL", None) or None
+        )
 
-    def _calibrate_pointwise(
+        resolved_key: str | None = None
+        if api_key is not None:
+            resolved_key = api_key.strip() or None
+        else:
+            raw_key = os.environ.get("TYPESAFE_API_KEY") or getattr(settings, "TYPESAFE_API_KEY", "") or ""
+            resolved_key = str(raw_key).strip() or None
+
+        self.api_key = resolved_key
+        self.model = (
+            model
+            or os.environ.get("TYPESAFE_MODEL")
+            or getattr(settings, "TYPESAFE_MODEL", "jev-latest")
+            or "jev-latest"
+        )
+        self.timeout = timeout if timeout is not None else getattr(settings, "TYPESAFE_TIMEOUT", 10.0)
+        self._client = client
+
+    @property
+    def is_live(self) -> bool:
+        """Determines whether Live System One mode is enabled."""
+        return bool(self._client is not None or self.api_key)
+
+    def _extract_verbatim_quote(
         self,
         criterion_description: str,
         candidate_chunks: list[str],
-        kind: CriterionKind | str,
-        context_type: ContextSectionType,
-    ) -> tuple[EvaluationStatus, float, str | None]:
-        """Calculates closed discrete probability distribution and selects verbatim quote."""
+    ) -> tuple[str | None, float]:
+        """Deterministically extracts candidate verbatim quote and keyword density from candidate chunks."""
         if not candidate_chunks:
-            return EvaluationStatus.NOT_DEMONSTRATED, 0.90, None
+            return None, 0.0
 
-        # Extract meaningful requirement terms
         desc_clean = normalize_text_nfkc(criterion_description).lower()
         stopwords = {"with", "and", "the", "for", "years", "experience", "dalam", "yang", "pada", "untuk", "tahun"}
         req_terms = [t for t in re.findall(r"\w+", desc_clean) if len(t) > 2 and t not in stopwords]
@@ -178,20 +227,145 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
                         best_score = density
                         best_quote = clean_unit
 
-        # Discrete distribution calibration:
+        return best_quote, best_score
+
+    def _calibrate_pointwise(
+        self,
+        criterion_description: str,
+        candidate_chunks: list[str],
+        kind: CriterionKind | str = CriterionKind.SKILL,
+        context_type: ContextSectionType = ContextSectionType.UNKNOWN,
+        use_noul: bool = False,
+    ) -> tuple[EvaluationStatus, float, str | None]:
+        """Calculates closed discrete probability distribution and selects verbatim quote (Local Emulation)."""
+        best_quote, best_score = self._extract_verbatim_quote(criterion_description, candidate_chunks)
+
+        if not candidate_chunks or best_quote is None:
+            return EvaluationStatus.NOT_DEMONSTRATED, 0.92, None
+
+        if use_noul:
+            if best_score >= 0.50:
+                return EvaluationStatus.STRONG, 0.90, best_quote
+            elif best_score > 0.0:
+                return EvaluationStatus.PARTIAL, 0.65, best_quote
+            else:
+                return EvaluationStatus.NOT_DEMONSTRATED, 0.95, None
+
+        # Closed discrete multi-choice calibration:
         # P = [p_STRONG, p_PARTIAL, p_NOT_DEMONSTRATED]
         if best_score >= 0.70:
-            # Calibrated P(STRONG)=0.88, P(PARTIAL)=0.08, P(NOT_DEMONSTRATED)=0.04
             return EvaluationStatus.STRONG, 0.88, best_quote
         elif best_score >= 0.30:
-            # Calibrated P(PARTIAL)=0.80, P(STRONG)=0.12, P(NOT_DEMONSTRATED)=0.08
             return EvaluationStatus.PARTIAL, 0.80, best_quote
         elif best_score > 0.0:
-            # Calibrated P(PARTIAL)=0.60, P(NOT_DEMONSTRATED)=0.35, P(STRONG)=0.05
             return EvaluationStatus.PARTIAL, 0.60, best_quote
         else:
-            # Calibrated P(NOT_DEMONSTRATED)=0.92
             return EvaluationStatus.NOT_DEMONSTRATED, 0.92, None
+
+    async def _call_system_one_live(
+        self,
+        criterion_description: str,
+        candidate_chunks: list[str],
+        cv_full_text: str,
+        use_noul: bool = False,
+    ) -> tuple[EvaluationStatus, float, list[str]]:
+        """Executes live asynchronous call to TypeSafe System One."""
+        state: dict[str, Any] = {
+            "criterion": criterion_description,
+            "candidate_evidence": candidate_chunks,
+            "cv_text": cv_full_text,
+        }
+
+        q_key = "criterion_evaluation"
+        questions: dict[str, Question]
+        if use_noul:
+            questions = {
+                q_key: Noul(
+                    instructions=f"Does the candidate's evidence satisfy this criterion: '{criterion_description}'?",
+                    criteria=NoulCriteria(
+                        true="The candidate's evidence clearly demonstrates or satisfies the criterion.",
+                        false="The candidate's evidence does not satisfy or demonstrate the criterion.",
+                    ),
+                )
+            }
+        else:
+            questions = {
+                q_key: Choice(
+                    instructions=(
+                        f"Evaluate the candidate's evidence for criterion: '{criterion_description}'. "
+                        "Choose STRONG if evidence clearly and directly demonstrates the requirement in professional experience. "
+                        "Choose PARTIAL if evidence is partial, basic, academic/project, or related without full context. "
+                        "Choose NOT_DEMONSTRATED if evidence is absent or unaddressed."
+                    ),
+                    criteria={
+                        "STRONG": "Clear, direct, and substantial evidence in professional experience.",
+                        "PARTIAL": "Partial, academic, introductory, or indirect evidence.",
+                        "NOT_DEMONSTRATED": "No evidence or not demonstrated.",
+                    },
+                )
+            }
+
+        if self._client is not None:
+            response: SystemOneResponse = await self._client.system_one(
+                state=state,
+                questions=questions,
+                model=self.model,
+                timeout=self.timeout,
+            )
+        else:
+            async with AsyncTypeSafeClient(
+                api_key=self.api_key,
+                base_url=self.endpoint_url,
+                model=self.model,
+                timeout=self.timeout,
+            ) as client:
+                response = await client.system_one(
+                    state=state,
+                    questions=questions,
+                    model=self.model,
+                    timeout=self.timeout,
+                )
+
+        flags: list[str] = ["TYPESAFE_LIVE"]
+
+        if use_noul:
+            noul_ans = response.nouls.get(q_key)
+            if noul_ans is None and q_key in response.answers:
+                raw_ans = response.answers[q_key]
+                if isinstance(raw_ans, NoulAnswer):
+                    noul_ans = raw_ans
+
+            if noul_ans is None:
+                raise ValueError(f"Missing noul answer for key '{q_key}'")
+
+            prob = float(noul_ans.noul)
+            if prob >= 0.70:
+                eval_st = EvaluationStatus.STRONG
+                conf = prob
+            elif prob >= 0.35:
+                eval_st = EvaluationStatus.PARTIAL
+                conf = max(0.5, 1.0 - abs(prob - 0.5) * 2)
+            else:
+                eval_st = EvaluationStatus.NOT_DEMONSTRATED
+                conf = 1.0 - prob
+            return eval_st, conf, flags
+        else:
+            choice_ans = response.choices.get(q_key)
+            if choice_ans is None and q_key in response.answers:
+                raw_ans = response.answers[q_key]
+                if isinstance(raw_ans, ChoiceAnswer):
+                    choice_ans = raw_ans
+
+            if choice_ans is None:
+                raise ValueError(f"Missing choice answer for key '{q_key}'")
+
+            raw_choice = choice_ans.choice.upper()
+            try:
+                eval_st = EvaluationStatus(raw_choice)
+            except ValueError:
+                eval_st = EvaluationStatus.PARTIAL
+            conf = float(choice_ans.confidence)
+            return eval_st, conf, flags
 
     async def verify(
         self,
@@ -218,17 +392,52 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
                 provider_name=self.provider_name,
             )
 
-        # 1. Closed discrete calibrated probability evaluation
-        eval_state, confidence, selected_quote = self._calibrate_pointwise(
-            criterion_description=criterion_description,
-            candidate_chunks=candidate_chunks,
-            kind=kind,
-            context_type=ctx_t,
+        use_noul = bool(
+            kwargs.get("use_noul", False)
+            or kwargs.get("binary_gate", False)
+            or kwargs.get("hard_gate", False)
+            or kwargs.get("primitive") == "noul"
         )
 
         flags: list[str] = []
+        eval_state: EvaluationStatus
+        confidence: float
 
-        # 2. Strict Grounding Verification on verbatim quote
+        # 1. Evaluate via Live System One or Calibrated Local Emulation
+        if self.is_live:
+            try:
+                eval_state, confidence, live_flags = await self._call_system_one_live(
+                    criterion_description=criterion_description,
+                    candidate_chunks=candidate_chunks,
+                    cv_full_text=cv_full_text,
+                    use_noul=use_noul,
+                )
+                flags.extend(live_flags)
+            except (TypeSafeError, Exception) as exc:
+                # Live call failed: log and gracefully fallback to local calibrated emulation
+                eval_state, confidence, _ = self._calibrate_pointwise(
+                    criterion_description=criterion_description,
+                    candidate_chunks=candidate_chunks,
+                    kind=kind,
+                    context_type=ctx_t,
+                    use_noul=use_noul,
+                )
+                flags.append("TYPESAFE_LIVE_FALLBACK")
+                flags.append(f"ERROR_{type(exc).__name__}")
+        else:
+            eval_state, confidence, _ = self._calibrate_pointwise(
+                criterion_description=criterion_description,
+                candidate_chunks=candidate_chunks,
+                kind=kind,
+                context_type=ctx_t,
+                use_noul=use_noul,
+            )
+
+        # 2. Extract verbatim quote from candidate chunks
+        best_quote, _ = self._extract_verbatim_quote(criterion_description, candidate_chunks)
+        selected_quote: str | None = None if eval_state == EvaluationStatus.NOT_DEMONSTRATED else best_quote
+
+        # 3. Strict Grounding Verification on verbatim quote
         char_start: int | None = None
         char_end: int | None = None
 
@@ -259,13 +468,19 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
                 char_start = 0
                 char_end = max(5, len(selected_quote))
 
-        # 3. Context-Elevation Invariant
+        # 4. Context-Elevation Invariant
         elev_state, elev_flags = apply_context_elevation_guard(
             state=eval_state,
             kind=kind,
             context_type=ctx_t,
         )
         flags.extend(elev_flags)
+
+        reason = (
+            f"TypeSafe System One ({self.model}) verified."
+            if (self.is_live and "TYPESAFE_LIVE_FALLBACK" not in flags)
+            else "Calibrated closed-choice pointwise verification with zero hallucination."
+        )
 
         return VerifierDecision(
             state=elev_state,
@@ -275,7 +490,7 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
             char_end=char_end,
             context_type=ctx_t,
             flags=flags,
-            reason="Calibrated closed-choice pointwise verification with zero hallucination.",
+            reason=reason,
             provider_name=self.provider_name,
         )
 

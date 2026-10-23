@@ -61,5 +61,6 @@ class GroundedVerifierTool(BaseTool):
             rule_state=rule_state,
             kind=kind,
             context_type=context_type,
+            **{k: v for k, v in ctx.items() if k in ("binary_gate", "use_noul", "primitive", "hard_gate")},
         )
         return decision
