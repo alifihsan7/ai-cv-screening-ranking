@@ -1482,11 +1482,13 @@ export default function App() {
         <WorkflowStepper
           currentStep={currentStep}
           onStepChange={setCurrentStep}
+          isSetupCompleted={Boolean(currentJobId || (jobTitle.trim() && jobDescription.trim()))}
           criteriaCount={requirements.length}
           criteriaApproved={criteriaApproved}
           uploadedCount={uploadedFiles.length}
           readyCvCount={uploadedFiles.filter((f) => f.status === 'ready').length}
           candidatesCount={candidates.length}
+          showToast={showToast}
         />
       </div>
 
