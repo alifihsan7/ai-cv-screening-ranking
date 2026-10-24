@@ -76,12 +76,10 @@ export default function App() {
   const [jobTitle, setJobTitleState] = useState(
     () => getCleanCachedValue('cv_screening_job_title', ['Senior Backend Engineer'])
   )
-  const setJobTitle = useCallback((val: string) => {
-    setJobTitleState(val)
-    try {
-      localStorage.setItem('cv_screening_job_title', val)
-    } catch {}
-  }, [])
+  const jobTitleRef = useRef(jobTitle)
+  useEffect(() => {
+    jobTitleRef.current = jobTitle
+  }, [jobTitle])
 
   const [jobLocation, setJobLocationState] = useState(
     () => getCleanCachedValue('cv_screening_job_location', ['Jakarta / Hybrid'])
@@ -143,8 +141,16 @@ export default function App() {
   const [currentJobId, setCurrentJobIdState] = useState<string | null>(() =>
     localStorage.getItem('cv_screening_job_id')
   )
+  const currentJobIdRef = useRef<string | null>(currentJobId)
+  useEffect(() => {
+    currentJobIdRef.current = currentJobId
+  }, [currentJobId])
+
+  const debounceTitleTimerRef = useRef<any>(null)
+
   const setCurrentJobId = useCallback((id: string | null) => {
     setCurrentJobIdState(id)
+    currentJobIdRef.current = id
     try {
       if (id) {
         localStorage.setItem('cv_screening_job_id', id)
@@ -254,6 +260,98 @@ export default function App() {
     }
     return null
   }, [])
+
+  const syncJobTitleToBackend = useCallback(
+    async (titleOverride?: string) => {
+      const jId = currentJobIdRef.current
+      const t = (titleOverride !== undefined ? titleOverride : jobTitleRef.current).trim()
+      if (!jId || !t) return
+
+      try {
+        let res = await fetch(`/api/v1/jobs/${jId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders(),
+          },
+          body: JSON.stringify({ title: t }),
+        })
+        if (res.status === 401) {
+          const freshToken = await loginRecruiter()
+          if (freshToken) {
+            res = await fetch(`/api/v1/jobs/${jId}`, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${freshToken}`,
+              },
+              body: JSON.stringify({ title: t }),
+            })
+          }
+        }
+        if (res.ok) {
+          const updated = await res.json()
+          if (updated && updated.title) {
+            setCurrentJobTitleState(updated.title)
+            setAvailableJobs((prev) => {
+              const next = prev.map((j) => (j.id === jId ? { ...j, title: updated.title } : j))
+              try {
+                localStorage.setItem('cv_screening_available_jobs', JSON.stringify(next))
+              } catch {}
+              return next
+            })
+          }
+        }
+      } catch (err) {
+        console.warn('Sync job title to backend note:', err)
+      }
+    },
+    [getAuthHeaders, loginRecruiter]
+  )
+
+  const setJobTitle = useCallback(
+    (val: string, syncBackend: boolean = true) => {
+      setJobTitleState(val)
+      try {
+        localStorage.setItem('cv_screening_job_title', val)
+      } catch {}
+
+      const displayTitle = val.trim() || 'Lowongan Baru'
+      setCurrentJobTitleState(displayTitle)
+
+      const jId = currentJobIdRef.current
+      if (jId) {
+        setAvailableJobs((prev) => {
+          const next = prev.map((j) => (j.id === jId ? { ...j, title: displayTitle } : j))
+          try {
+            localStorage.setItem('cv_screening_available_jobs', JSON.stringify(next))
+          } catch {}
+          return next
+        })
+
+        if (syncBackend) {
+          if (debounceTitleTimerRef.current) {
+            clearTimeout(debounceTitleTimerRef.current)
+          }
+          if (val.trim()) {
+            debounceTitleTimerRef.current = setTimeout(() => {
+              syncJobTitleToBackend(val.trim())
+            }, 600)
+          }
+        }
+      }
+    },
+    [syncJobTitleToBackend]
+  )
+
+  const handleBlurTitle = useCallback(() => {
+    if (debounceTitleTimerRef.current) {
+      clearTimeout(debounceTitleTimerRef.current)
+    }
+    if (jobTitleRef.current.trim() && currentJobIdRef.current) {
+      syncJobTitleToBackend(jobTitleRef.current.trim())
+    }
+  }, [syncJobTitleToBackend])
 
   const stopPollingJobCvs = useCallback(() => {
     if (pollTimerRef.current) {
@@ -448,7 +546,7 @@ export default function App() {
       setIsJobLoading(true)
       setCurrentJobId(jId)
       if (title) {
-        setJobTitle(title)
+        setJobTitle(title, false)
         setCurrentJobTitle(title)
       }
       setUploadedFiles([])
@@ -466,7 +564,7 @@ export default function App() {
         if (resJob.ok) {
           const data = await resJob.json()
           if (data.title) {
-            setJobTitle(data.title)
+            setJobTitle(data.title, false)
             setCurrentJobTitle(data.title)
           }
           setJobDescription(data.jd_text || '')
@@ -600,7 +698,7 @@ export default function App() {
       })
       if (res.ok) {
         const updated = await res.json()
-        setJobTitle(updated.title)
+        setJobTitle(updated.title, false)
         setCurrentJobTitle(updated.title)
         setAvailableJobs((prev) => {
           const next = prev.map((j) => (j.id === currentJobId ? { ...j, title: updated.title } : j))
@@ -673,25 +771,41 @@ export default function App() {
   }
 
   const handleCreateJob = async () => {
-    const title = window.prompt('Masukkan judul lowongan baru:', '')
-    if (!title || !title.trim()) return
-    const cleanTitle = title.trim()
     try {
-      const res = await fetch('/api/v1/jobs', {
+      let res = await fetch('/api/v1/jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({
-          title: cleanTitle,
+          title: 'Lowongan Baru',
           jd_text: '',
           location: '',
           employment_type: 'Full-time',
           external_ref: `JD-${Date.now().toString().slice(-6)}`,
         }),
       })
+      if (res.status === 401) {
+        const freshToken = await loginRecruiter()
+        if (freshToken) {
+          res = await fetch('/api/v1/jobs', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${freshToken}`,
+            },
+            body: JSON.stringify({
+              title: 'Lowongan Baru',
+              jd_text: '',
+              location: '',
+              employment_type: 'Full-time',
+              external_ref: `JD-${Date.now().toString().slice(-6)}`,
+            }),
+          })
+        }
+      }
       if (res.ok) {
         const newJob = await res.json()
         const jobId = newJob.id
-        const finalTitle = newJob.title || cleanTitle
+        const finalTitle = newJob.title || 'Lowongan Baru'
 
         // Stop background polling of previous job
         stopPollingJobCvs()
@@ -707,7 +821,11 @@ export default function App() {
 
         // 2. Direct clean purge of previous job state
         setCurrentJobId(jobId)
-        setJobTitle(finalTitle)
+        currentJobIdRef.current = jobId
+        setJobTitleState('')
+        try {
+          localStorage.setItem('cv_screening_job_title', '')
+        } catch {}
         setCurrentJobTitle(finalTitle)
         setJobDescription('')
         setRequirements([])
@@ -734,7 +852,7 @@ export default function App() {
         setCurrentStep('setup')
 
         // 4. Tactile toast notification
-        showToast('Lowongan baru berhasil dibuat. Silakan isi detail di Halaman Setup.', 'success')
+        showToast('Lowongan baru dibuat. Silakan isi judul & deskripsi di form setup.', 'success')
       } else {
         showToast('Gagal membuat lowongan baru. Silakan coba lagi.', 'warning')
       }
@@ -979,6 +1097,12 @@ export default function App() {
   }, [currentJobId, getAuthHeaders, showToast, uploadedFiles.length])
 
   const handleCompileFromJd = async () => {
+    if (debounceTitleTimerRef.current) {
+      clearTimeout(debounceTitleTimerRef.current)
+    }
+    if (jobTitleRef.current.trim() && currentJobIdRef.current) {
+      await syncJobTitleToBackend(jobTitleRef.current.trim())
+    }
     if (!jobDescription.trim()) return
     setIsCompiling(true)
     try {
@@ -1199,7 +1323,16 @@ export default function App() {
             isCompiling={isCompiling}
             isLoading={isJobLoading}
             onCompileFromJd={handleCompileFromJd}
-            onNext={() => setCurrentStep('criteria')}
+            onBlurTitle={handleBlurTitle}
+            onNext={() => {
+              if (debounceTitleTimerRef.current) {
+                clearTimeout(debounceTitleTimerRef.current)
+              }
+              if (jobTitleRef.current.trim() && currentJobIdRef.current) {
+                syncJobTitleToBackend(jobTitleRef.current.trim())
+              }
+              setCurrentStep('criteria')
+            }}
           />
         )}
 

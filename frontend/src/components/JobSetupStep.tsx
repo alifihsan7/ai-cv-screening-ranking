@@ -28,6 +28,7 @@ export interface JobSetupStepProps {
   isLoading?: boolean
   onCompileFromJd: () => Promise<void> | void
   onNext: () => void
+  onBlurTitle?: () => void
 }
 
 const JOB_TYPE_PRESETS = [
@@ -52,6 +53,7 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
   isLoading = false,
   onCompileFromJd,
   onNext,
+  onBlurTitle,
 }) => {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
 
@@ -64,6 +66,9 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
   }
 
   const handleExtractAndContinue = async () => {
+    if (onBlurTitle) {
+      onBlurTitle()
+    }
     if (onCompileFromJd) {
       await onCompileFromJd()
     }
@@ -223,6 +228,7 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
                 type="text"
                 value={jobTitle}
                 onChange={(e) => setJobTitle(e.target.value)}
+                onBlur={onBlurTitle}
                 placeholder="Misal: Senior Backend Engineer / AI Research Engineer"
                 className="w-full px-3.5 py-2.5 bg-[#FCFDFC] border border-[#D5DFD9] rounded-xl text-sm font-semibold text-[#13221C] placeholder-[#2D4439]/50 focus:border-[#1B4938] focus:ring-2 focus:ring-[#1B4938]/15 focus:outline-none transition-all duration-150 shadow-tactile-sm"
               />
@@ -309,7 +315,10 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
           <div className="mt-8 pt-5 border-t border-[#E2E9E5] flex flex-col sm:flex-row items-center justify-between gap-4">
             <button
               type="button"
-              onClick={onNext}
+              onClick={() => {
+                if (onBlurTitle) onBlurTitle()
+                onNext()
+              }}
               className="text-xs font-bold text-[#2D4439] hover:text-[#13221C] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] rounded-lg px-2 py-1"
             >
               Lewati ke Step 2 (Gunakan Kriteria yang Sudah Ada) →
