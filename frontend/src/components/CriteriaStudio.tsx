@@ -120,7 +120,7 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
     return JSON.stringify({
       reqs: requirements.map((r) => ({
         id: r.requirement_id,
-        desc: (r.description || '').trim(),
+        desc: r.description || '',
         cat: r.category,
         imp: r.importance,
         w: Number(r.weight) || 0,
@@ -208,15 +208,7 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
   }
 
   const handleSaveAndContinue = () => {
-    if (
-      !isLocked &&
-      prohibitedFlags.length === 0 &&
-      totalCategoryWeight === 100 &&
-      requirements.length > 0
-    ) {
-      onApproveCriteria()
-    }
-    if (onNext) {
+    if (isLocked && onNext) {
       onNext()
     }
   }
@@ -750,7 +742,17 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
         <button
           type="button"
           onClick={handleSaveAndContinue}
-          className="h-8 px-4 bg-[#1B4938] hover:bg-[#265B46] text-[#FCFDFC] text-xs font-bold rounded-lg transition-all flex items-center space-x-1.5 cursor-pointer shadow-tactile-sm active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938]"
+          disabled={!isLocked}
+          title={
+            !isLocked
+              ? 'Setujui kriteria terlebih dahulu sebelum lanjut ke tahap Unggah CV'
+              : 'Lanjut ke tahap Unggah Berkas CV'
+          }
+          className={`h-8 px-4 text-xs font-bold rounded-lg transition-all flex items-center space-x-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] ${
+            !isLocked
+              ? 'cursor-not-allowed opacity-40 bg-[#E2E9E5] text-[#52665A] border border-[#D5DFD9] shadow-none'
+              : 'cursor-pointer opacity-100 bg-[#1B4938] hover:bg-[#265B46] text-[#FCFDFC] shadow-tactile-sm active:scale-[0.98]'
+          }`}
         >
           <span>Simpan & Lanjut ke Unggah CV</span>
           <ChevronRight className="w-3.5 h-3.5" />

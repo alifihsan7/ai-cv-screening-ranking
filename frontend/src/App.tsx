@@ -18,7 +18,7 @@ const createCriteriaSnapshot = (
   return JSON.stringify({
     reqs: reqs.map((r) => ({
       id: r.requirement_id,
-      desc: (r.description || '').trim(),
+      desc: r.description || '',
       cat: r.category,
       imp: r.importance,
       w: Number(r.weight) || 0,
@@ -1189,6 +1189,8 @@ export default function App() {
         if (data.requirements && Array.isArray(data.requirements)) {
           setRequirements(data.requirements)
           if (data.category_weights) setCategoryWeights(data.category_weights)
+          setApprovedSnapshot(null)
+          setCriteriaVersion(1)
           showToast('Kriteria berhasil diekstraksi dari JD!', 'success')
           return
         }
