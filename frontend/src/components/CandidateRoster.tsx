@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo } from 'react'
 import {
   Search,
   Eye,
@@ -55,9 +55,7 @@ export interface CandidateRosterProps {
     decision?: 'SHORTLIST' | 'HOLD' | 'TIDAK_LANJUT' | 'NONE' | '' | null
   ) => void
   onRevealCandidate: (cv_id: string) => void
-  isInspectorOpen?: boolean
   onOpenInspector: (candidate?: CandidateDetail) => void
-  onCloseInspector?: () => void
 }
 
 export const CandidateRoster: React.FC<CandidateRosterProps> = ({
@@ -69,9 +67,7 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
   onToggleBlindMode,
   onDecision,
   onRevealCandidate,
-  isInspectorOpen = false,
   onOpenInspector,
-  onCloseInspector,
 }) => {
   const [searchQuery, setSearchQuery] = useState('')
   const [bandFilter, setBandFilter] = useState<'ALL' | 'A' | 'B' | 'C'>('ALL')
@@ -110,93 +106,6 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
   const mustHaveReqs = useMemo(() => {
     return requirements.filter((r) => r.importance === 'MUST_HAVE')
   }, [requirements])
-
-  // Power Keyboard Shortcuts (Linear-Style)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is currently typing inside an input or textarea
-      const target = e.target as HTMLElement
-      if (
-        target &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.isContentEditable)
-      ) {
-        return
-      }
-
-      if (filteredCandidates.length === 0) return
-
-      const currentIndex = filteredCandidates.findIndex(
-        (c) => c.cv_id === selectedCandidateId
-      )
-
-      if (e.key === 'j' || e.key === 'ArrowDown') {
-        e.preventDefault()
-        const nextIndex =
-          currentIndex === -1 || currentIndex === filteredCandidates.length - 1
-            ? 0
-            : currentIndex + 1
-        const nextCand = filteredCandidates[nextIndex]
-        onSelectCandidate(nextCand)
-      } else if (e.key === 'k' || e.key === 'ArrowUp') {
-        e.preventDefault()
-        const prevIndex =
-          currentIndex <= 0 ? filteredCandidates.length - 1 : currentIndex - 1
-        const prevCand = filteredCandidates[prevIndex]
-        onSelectCandidate(prevCand)
-      } else if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault()
-        if (isInspectorOpen && onCloseInspector) {
-          onCloseInspector()
-        } else {
-          const cand =
-            currentIndex !== -1
-              ? filteredCandidates[currentIndex]
-              : filteredCandidates[0]
-          if (cand) {
-            onSelectCandidate(cand)
-            onOpenInspector(cand)
-          }
-        }
-      } else if (e.key === 'Escape') {
-        if (isInspectorOpen && onCloseInspector) {
-          e.preventDefault()
-          onCloseInspector()
-        }
-      } else if (e.key === 's' || e.key === 'S') {
-        if (selectedCandidateId) {
-          e.preventDefault()
-          onDecision(selectedCandidateId, 'SHORTLIST')
-        }
-      } else if (e.key === 'h' || e.key === 'H') {
-        if (selectedCandidateId) {
-          e.preventDefault()
-          onDecision(selectedCandidateId, 'HOLD')
-        }
-      } else if (e.key === 'x' || e.key === 'X') {
-        if (selectedCandidateId) {
-          e.preventDefault()
-          onDecision(selectedCandidateId, 'TIDAK_LANJUT')
-        }
-      } else if (e.key === 'b' || e.key === 'B') {
-        e.preventDefault()
-        onToggleBlindMode()
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [
-    filteredCandidates,
-    selectedCandidateId,
-    isInspectorOpen,
-    onSelectCandidate,
-    onOpenInspector,
-    onCloseInspector,
-    onDecision,
-    onToggleBlindMode,
-  ])
 
   const getBandBadgeClass = (band: string) => {
     switch (band) {

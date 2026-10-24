@@ -203,7 +203,7 @@ export const Topbar: React.FC<TopbarProps> = ({
         </div>
       </div>
 
-      {/* Right: Quick Action Shortcuts & Tactile Blind Mode Switch */}
+      {/* Right: Quick Actions & Tactile Blind Mode Switch */}
       <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0">
         {onLoadGoldenSample && (
           <button

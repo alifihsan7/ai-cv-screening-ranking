@@ -1346,84 +1346,25 @@ export default function App() {
     }
   }
 
-  // Keyboard shortcut listener for power navigation
+  // Modal dismissal listener for Escape key (safe, standard dialog accessibility)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is typing in an input or textarea
-      if (
-        document.activeElement?.tagName === 'INPUT' ||
-        document.activeElement?.tagName === 'TEXTAREA' ||
-        document.activeElement?.tagName === 'SELECT'
-      ) {
-        return
-      }
-
       if (e.key === 'Escape') {
         if (isInspectorOpen) {
           e.preventDefault()
           setIsInspectorOpen(false)
           return
         }
-        if (isUploadModalOpen) setIsUploadModalOpen(false)
-        return
-      }
-
-      if (currentStep !== 'workbench') return
-
-      const currentIndex = candidates.findIndex(
-        (c) => c.cv_id === selectedCandidate?.cv_id
-      )
-
-      if (e.key === 'j' || e.key === 'ArrowDown') {
-        e.preventDefault()
-        if (currentIndex < candidates.length - 1) {
-          handleSelectCandidate(candidates[currentIndex + 1])
-        }
-      } else if (e.key === 'k' || e.key === 'ArrowUp') {
-        e.preventDefault()
-        if (currentIndex > 0) {
-          handleSelectCandidate(candidates[currentIndex - 1])
-        }
-      } else if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault()
-        if (isInspectorOpen) {
-          setIsInspectorOpen(false)
-        } else if (selectedCandidate) {
-          setIsInspectorOpen(true)
-        }
-      } else if (e.key === 's' || e.key === 'S') {
-        if (selectedCandidate) {
+        if (isUploadModalOpen) {
           e.preventDefault()
-          handleDecision(selectedCandidate.cv_id, 'SHORTLIST')
+          setIsUploadModalOpen(false)
         }
-      } else if (e.key === 'h' || e.key === 'H') {
-        if (selectedCandidate) {
-          e.preventDefault()
-          handleDecision(selectedCandidate.cv_id, 'HOLD')
-        }
-      } else if (e.key === 'x' || e.key === 'X') {
-        if (selectedCandidate) {
-          e.preventDefault()
-          handleDecision(selectedCandidate.cv_id, 'TIDAK_LANJUT')
-        }
-      } else if (e.key === 'b' || e.key === 'B') {
-        e.preventDefault()
-        setBlindMode((prev) => !prev)
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [
-    candidates,
-    selectedCandidate,
-    blindMode,
-    currentStep,
-    isUploadModalOpen,
-    isInspectorOpen,
-    handleDecision,
-    handleSelectCandidate,
-  ])
+  }, [isInspectorOpen, isUploadModalOpen])
 
   // Lifecycle init — non-blocking single execution on mount
   useEffect(() => {
@@ -1595,9 +1536,7 @@ export default function App() {
                 onToggleBlindMode={() => setBlindMode((prev) => !prev)}
                 onDecision={handleDecision}
                 onRevealCandidate={handleRevealCandidate}
-                isInspectorOpen={isInspectorOpen}
                 onOpenInspector={handleOpenInspector}
-                onCloseInspector={handleCloseInspector}
               />
             </div>
 
