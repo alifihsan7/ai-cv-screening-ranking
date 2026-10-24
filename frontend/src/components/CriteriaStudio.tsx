@@ -152,13 +152,13 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#F2F5F3]">
+    <div className="flex-1 w-full bg-[#FCFDFC] rounded-2xl border border-[#D5DFD9] shadow-tactile-sm overflow-hidden flex flex-col h-full min-h-0">
       {/* Dual Column Studio Body */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Kolom Kiri (60%): Editor Kriteria */}
-        <div className="w-[60%] border-r border-[#D5DFD9] bg-[#FCFDFC] flex flex-col h-full overflow-hidden">
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
+        {/* Kolom Kiri (~58-60%): Editor Kriteria */}
+        <div className="w-full lg:w-[58%] xl:w-[60%] border-b lg:border-b-0 lg:border-r border-[#D5DFD9] bg-[#FCFDFC] flex flex-col h-full overflow-hidden min-h-0">
           {/* Header Editor */}
-          <div className="px-5 py-3 border-b border-[#D5DFD9] bg-[#FCFDFC] flex items-center justify-between shrink-0">
+          <div className="px-4 sm:px-5 py-3 border-b border-[#D5DFD9] bg-[#FCFDFC] flex items-center justify-between shrink-0">
             <div>
               <div className="flex items-center space-x-2">
                 <h2 className="text-sm font-bold text-[#13221C] tracking-tight">
@@ -173,7 +173,7 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
               </p>
             </div>
 
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 shrink-0">
               <button
                 type="button"
                 onClick={onCompileFromJd}
@@ -228,7 +228,7 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
           </div>
 
           {/* Scrollable Criteria List */}
-          <div className="flex-1 overflow-y-auto p-5 space-y-3">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3 min-h-0">
             {filteredRequirements.map((r) => {
               const isMustHave = r.importance === 'MUST_HAVE'
               return (
@@ -379,10 +379,10 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
           </div>
         </div>
 
-        {/* Kolom Kanan (40%): Live Impact Simulator & Policy Linter */}
-        <div className="w-[40%] bg-[#F2F5F3] flex flex-col h-full overflow-y-auto p-5 space-y-5">
+        {/* Kolom Kanan (~40-42%): Live Impact Simulator & Policy Linter */}
+        <div className="w-full lg:w-[42%] xl:w-[40%] bg-[#F5F8F6] flex flex-col h-full overflow-y-auto p-4 sm:p-5 space-y-4 min-h-0">
           {/* Policy Linter Card */}
-          <section className="bg-[#FCFDFC] border border-[#D5DFD9] rounded-2xl p-4 shadow-tactile space-y-3">
+          <section className="bg-[#FCFDFC] border border-[#D5DFD9] rounded-xl p-4 shadow-tactile-sm space-y-3 shrink-0">
             <div className="flex items-center justify-between border-b border-[#E2E9E5] pb-2">
               <div className="flex items-center space-x-2">
                 {prohibitedFlags.length > 0 ? (
@@ -438,7 +438,7 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
           </section>
 
           {/* Live Impact Simulator: Distribusi Bobot Kategori */}
-          <section className="bg-[#FCFDFC] border border-[#D5DFD9] rounded-2xl p-4 shadow-tactile space-y-3">
+          <section className="bg-[#FCFDFC] border border-[#D5DFD9] rounded-xl p-4 shadow-tactile-sm space-y-3 shrink-0">
             <div className="flex items-center justify-between border-b border-[#E2E9E5] pb-2">
               <div className="flex items-center space-x-2">
                 <Layers className="w-4 h-4 text-[#1B4938]" />
@@ -510,7 +510,7 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
           </section>
 
           {/* Job Description Preview Card */}
-          <section className="bg-[#FCFDFC] border border-[#D5DFD9] rounded-2xl p-4 shadow-tactile space-y-3">
+          <section className="bg-[#FCFDFC] border border-[#D5DFD9] rounded-xl p-4 shadow-tactile-sm space-y-3 shrink-0">
             <div className="flex items-center justify-between border-b border-[#E2E9E5] pb-2">
               <div className="flex items-center space-x-2">
                 <FileText className="w-4 h-4 text-[#1B4938]" />
@@ -563,7 +563,7 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
                   Teks Job Description (JD)
                 </label>
                 <textarea
-                  rows={6}
+                  rows={5}
                   value={jobDescription}
                   onChange={(e) => setJobDescription(e.target.value)}
                   className="w-full px-2.5 py-2 bg-[#F5F8F6] focus:bg-[#FCFDFC] border border-[#D5DFD9] focus:border-[#1B4938] rounded-lg font-mono text-[11px] text-[#13221C] leading-relaxed focus:outline-none resize-none"

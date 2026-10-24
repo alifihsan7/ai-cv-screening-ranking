@@ -1090,27 +1090,32 @@ export default function App() {
         )}
 
         {currentStep === 'criteria' && (
-          <CriteriaStudio
-            jobTitle={jobTitle}
-            setJobTitle={setJobTitle}
-            jobLocation={jobLocation}
-            setJobLocation={setJobLocation}
-            jobType={jobType}
-            setJobType={setJobType}
-            jobDescription={jobDescription}
-            setJobDescription={setJobDescription}
-            requirements={requirements}
-            setRequirements={setRequirements}
-            categoryWeights={categoryWeights}
-            setCategoryWeights={setCategoryWeights}
-            criteriaApproved={criteriaApproved}
-            criteriaVersion={criteriaVersion}
-            isCompiling={isCompiling}
-            onCompileFromJd={handleCompileFromJd}
-            onApproveCriteria={handleApproveCriteria}
-            onBack={() => setCurrentStep('setup')}
-            onNext={() => setCurrentStep('upload')}
-          />
+          <div className="flex-1 flex flex-col overflow-hidden relative bg-[#F2F5F3]">
+            {/* Ergonomic Centered Criteria Studio Container */}
+            <div className="flex-1 flex flex-col overflow-hidden max-w-6xl 2xl:max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 min-h-0">
+              <CriteriaStudio
+                jobTitle={jobTitle}
+                setJobTitle={setJobTitle}
+                jobLocation={jobLocation}
+                setJobLocation={setJobLocation}
+                jobType={jobType}
+                setJobType={setJobType}
+                jobDescription={jobDescription}
+                setJobDescription={setJobDescription}
+                requirements={requirements}
+                setRequirements={setRequirements}
+                categoryWeights={categoryWeights}
+                setCategoryWeights={setCategoryWeights}
+                criteriaApproved={criteriaApproved}
+                criteriaVersion={criteriaVersion}
+                isCompiling={isCompiling}
+                onCompileFromJd={handleCompileFromJd}
+                onApproveCriteria={handleApproveCriteria}
+                onBack={() => setCurrentStep('setup')}
+                onNext={() => setCurrentStep('upload')}
+              />
+            </div>
+          </div>
         )}
 
         {currentStep === 'upload' && (
