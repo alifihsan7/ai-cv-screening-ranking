@@ -53,6 +53,12 @@ export default function App() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState<boolean>(false)
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false)
   const [isJobLoading, setIsJobLoading] = useState<boolean>(true)
+  const isJobLoadingRef = useRef<boolean>(true)
+  useEffect(() => {
+    isJobLoadingRef.current = isJobLoading
+  }, [isJobLoading])
+  const loadedJobIdRef = useRef<string | null>(null)
+  const hasInitializedRef = useRef<boolean>(false)
 
   // Pure initial state helper — purges any legacy mock data from browser localStorage
   const getCleanCachedValue = (key: string, dummyValues: string[] = []): string => {
@@ -127,16 +133,23 @@ export default function App() {
   const [authToken, setAuthTokenState] = useState<string | null>(() =>
     localStorage.getItem('cv_screening_token')
   )
-  const setAuthToken = useCallback((tok: string | null) => {
-    setAuthTokenState(tok)
-    try {
-      if (tok) {
-        localStorage.setItem('cv_screening_token', tok)
-      } else {
-        localStorage.removeItem('cv_screening_token')
-      }
-    } catch {}
-  }, [])
+  const setAuthToken = useCallback(
+    (tokOrUpdater: string | null | ((prev: string | null) => string | null)) => {
+      setAuthTokenState((prev) => {
+        const next = typeof tokOrUpdater === 'function' ? tokOrUpdater(prev) : tokOrUpdater
+        if (prev === next) return prev
+        try {
+          if (next) {
+            localStorage.setItem('cv_screening_token', next)
+          } else {
+            localStorage.removeItem('cv_screening_token')
+          }
+        } catch {}
+        return next
+      })
+    },
+    []
+  )
 
   const [currentJobId, setCurrentJobIdState] = useState<string | null>(() =>
     localStorage.getItem('cv_screening_job_id')
@@ -250,7 +263,7 @@ export default function App() {
       if (res.ok) {
         const data = await res.json()
         if (data.access_token) {
-          setAuthToken(data.access_token)
+          setAuthToken((prev) => (prev === data.access_token ? prev : data.access_token))
           localStorage.setItem('cv_screening_token', data.access_token)
           return data.access_token
         }
@@ -259,7 +272,7 @@ export default function App() {
       console.warn('Auto-login error:', e)
     }
     return null
-  }, [])
+  }, [setAuthToken])
 
   const syncJobTitleToBackend = useCallback(
     async (titleOverride?: string) => {
@@ -542,7 +555,20 @@ export default function App() {
 
   const selectJob = useCallback(
     async (jId: string, title?: string) => {
+      const isSameActiveJob = loadedJobIdRef.current === jId && !isJobLoadingRef.current
+
+      if (isSameActiveJob) {
+        // Data lowongan yang sama sudah aktif dan sedang ditampilkan.
+        // Hindari mereset state ke loading skeleton total; cukup perbarui data status CV dan leaderboard di background.
+        await Promise.all([
+          fetchJobCvsStatus(jId),
+          fetchLatestLeaderboard(jId, 1),
+        ])
+        return
+      }
+
       stopPollingJobCvs()
+      isJobLoadingRef.current = true
       setIsJobLoading(true)
       setCurrentJobId(jId)
       if (title) {
@@ -601,7 +627,9 @@ export default function App() {
       } catch (e) {
         console.warn('Error fetching job details:', e)
       } finally {
+        isJobLoadingRef.current = false
         setIsJobLoading(false)
+        loadedJobIdRef.current = jId
       }
 
       // Concurrently poll CVs status and initial leaderboard without blocking delays
@@ -739,6 +767,7 @@ export default function App() {
           await selectJob(remaining[0].id, remaining[0].title)
         } else {
           stopPollingJobCvs()
+          loadedJobIdRef.current = null
           setCurrentJobId(null)
           setCurrentJobTitle('')
           setJobTitle('')
@@ -820,6 +849,7 @@ export default function App() {
         })
 
         // 2. Direct clean purge of previous job state
+        loadedJobIdRef.current = jobId
         setCurrentJobId(jobId)
         currentJobIdRef.current = jobId
         setJobTitleState('')
@@ -1235,17 +1265,17 @@ export default function App() {
     handleSelectCandidate,
   ])
 
-  // Lifecycle init — non-blocking concurrent hydration
+  // Lifecycle init — non-blocking single execution on mount
   useEffect(() => {
+    if (hasInitializedRef.current) return
+    hasInitializedRef.current = true
+
     let isMounted = true
     const init = async () => {
       const existingToken = localStorage.getItem('cv_screening_token')
       if (existingToken) {
-        // Parallel non-blocking init: run fetchJobsList and re-authenticate recruiter concurrently
-        await Promise.all([
-          fetchJobsList(existingToken),
-          loginRecruiter(),
-        ])
+        // Gunakan token yang sudah ada secara langsung tanpa re-login paralel
+        await fetchJobsList(existingToken)
       } else {
         const freshToken = await loginRecruiter()
         if (isMounted) {
