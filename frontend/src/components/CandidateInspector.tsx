@@ -174,9 +174,9 @@ PENDIDIKAN & LATAR BELAKANG:
         />
       )}
 
-      {/* Slide-over Inspector Panel (50-54% width) */}
+      {/* Slide-over Inspector Panel (Focused 580px / max-w-xl width) */}
       <aside
-        className={`fixed inset-y-0 right-0 w-full md:w-[54%] lg:w-[50%] max-w-[880px] z-50 bg-[#FCFDFC] border-l border-[#D5DFD9] shadow-tactile-lg flex flex-col transform transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+        className={`fixed inset-y-0 right-0 w-full sm:w-[580px] max-w-full sm:max-w-xl z-50 bg-[#FCFDFC] border-l border-[#D5DFD9] shadow-tactile-lg flex flex-col transform transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           isOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'
         }`}
         aria-label="Panel Inspeksi Kandidat"

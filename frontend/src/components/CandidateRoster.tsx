@@ -245,9 +245,9 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
   }
 
   return (
-    <div className="flex-1 w-full bg-[#FCFDFC] flex flex-col h-full overflow-hidden select-none">
+    <div className="flex-1 w-full bg-[#FCFDFC] rounded-2xl border border-[#D5DFD9] shadow-tactile-sm overflow-hidden flex flex-col h-full min-h-0 select-none">
       {/* 1. Filter Band Taktil & Quick Stats Bar (Linear-Style Header) */}
-      <header className="p-3.5 sm:px-6 sm:py-3 border-b border-[#D5DFD9] bg-[#FCFDFC] space-y-3 shrink-0 shadow-tactile-sm">
+      <header className="p-3.5 sm:px-5 sm:py-3.5 border-b border-[#D5DFD9] bg-[#FCFDFC] space-y-3 shrink-0">
         {/* Top Row: Search Input + Band Filter + Blind Mode Toggle */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           {/* Search Input */}
@@ -356,7 +356,7 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
       </header>
 
       {/* 2. Full-Width Table / Roster */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto overflow-x-auto min-h-0">
         {filteredCandidates.length === 0 ? (
           <div className="py-16 px-4 text-center space-y-3 text-[#2D4439]">
             <HelpCircle className="w-10 h-10 mx-auto text-[#2D4439]/40" />
@@ -382,12 +382,12 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
             {/* Table Header */}
             <thead className="sticky top-0 z-10 bg-[#F7FAF8] border-b border-[#D5DFD9] text-[10px] font-mono uppercase tracking-wider text-[#2D4439] font-bold">
               <tr>
-                <th className="py-2.5 px-4 w-16 text-center">Rank</th>
-                <th className="py-2.5 px-4 min-w-[220px]">Kandidat & Berkas</th>
-                <th className="py-2.5 px-4 w-44">Kualifikasi Wajib</th>
-                <th className="py-2.5 px-4 w-32 text-right">Skor Fit</th>
-                <th className="py-2.5 px-4 w-40">Status Keputusan</th>
-                <th className="py-2.5 px-4 w-60 text-right">Aksi Cepat</th>
+                <th className="py-2.5 px-3 w-[60px] text-center">Rank</th>
+                <th className="py-2.5 px-4 min-w-[240px] max-w-[360px]">Kandidat & Berkas</th>
+                <th className="py-2.5 px-3.5 w-[160px]">Kualifikasi Wajib</th>
+                <th className="py-2.5 px-3.5 w-[120px] text-right">Skor Fit</th>
+                <th className="py-2.5 px-3.5 w-[140px]">Status Keputusan</th>
+                <th className="py-2.5 px-4 w-[180px] text-right">Aksi Cepat</th>
               </tr>
             </thead>
 
@@ -412,17 +412,17 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
                     }`}
                   >
                     {/* 1. Rank Badge */}
-                    <td className="py-3 px-4 text-center">
-                      <div className="w-9 h-7 mx-auto rounded-lg bg-[#EBF1EE] group-hover:bg-[#FCFDFC] border border-[#D5DFD9] flex items-center justify-center font-mono font-bold text-xs text-[#1B4938] shadow-tactile-sm transition-colors">
+                    <td className="py-3 px-3 w-[60px] text-center">
+                      <div className="w-8 h-6.5 mx-auto rounded-lg bg-[#EBF1EE] group-hover:bg-[#FCFDFC] border border-[#D5DFD9] flex items-center justify-center font-mono font-bold text-xs text-[#1B4938] shadow-tactile-sm transition-colors">
                         #{String(c.rank).padStart(2, '0')}
                       </div>
                     </td>
 
                     {/* 2. Kandidat: Name/Blind ID + File + Reveal */}
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-4 min-w-[240px] max-w-[360px]">
                       <div className="flex flex-col space-y-1">
                         <div className="flex items-center space-x-2">
-                          <span className="font-bold text-sm text-[#13221C] tracking-tight group-hover:text-[#1B4938] transition-colors">
+                          <span className="font-bold text-sm text-[#13221C] tracking-tight group-hover:text-[#1B4938] transition-colors truncate">
                             {displayName}
                           </span>
 
@@ -433,7 +433,7 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
                                 e.stopPropagation()
                                 onRevealCandidate(c.cv_id)
                               }}
-                              className="px-1.5 py-0.5 rounded bg-[#F2F5F3] hover:bg-[#EBF1EE] border border-[#D5DFD9] text-[10px] font-semibold text-[#1B4938] flex items-center space-x-1 cursor-pointer transition-colors shadow-tactile-sm"
+                              className="px-1.5 py-0.5 rounded bg-[#F2F5F3] hover:bg-[#EBF1EE] border border-[#D5DFD9] text-[10px] font-semibold text-[#1B4938] flex items-center space-x-1 cursor-pointer transition-colors shadow-tactile-sm shrink-0"
                               title="Buka Identitas Asli Kandidat"
                             >
                               <Eye className="w-2.5 h-2.5" />
@@ -442,7 +442,7 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
                           )}
 
                           <span
-                            className={`font-mono text-[9px] px-1.5 py-0.2 rounded border ${getBandBadgeClass(
+                            className={`font-mono text-[9px] px-1.5 py-0.2 rounded border shrink-0 ${getBandBadgeClass(
                               c.band
                             )}`}
                           >
@@ -452,18 +452,18 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
 
                         <div className="flex items-center space-x-1.5 text-[11px] text-[#2D4439] font-mono">
                           <FileText className="w-3 h-3 text-[#2D4439]/70 shrink-0" />
-                          <span className="truncate max-w-[240px]">{c.file_name}</span>
+                          <span className="truncate max-w-[260px]">{c.file_name}</span>
                         </div>
                       </div>
                     </td>
 
                     {/* 3. Kualifikasi Wajib Badge */}
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-3.5 w-[160px]">
                       {renderMustHaveStatus(c)}
                     </td>
 
                     {/* 4. Skor Fit */}
-                    <td className="py-3 px-4 text-right">
+                    <td className="py-3 px-3.5 w-[120px] text-right">
                       <div className="flex flex-col items-end">
                         <span className="font-mono tabular-nums font-bold text-base text-[#13221C] leading-none">
                           {c.final_score.toFixed(1)}
@@ -475,12 +475,12 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
                     </td>
 
                     {/* 5. Keputusan Status Pill */}
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-3.5 w-[140px]">
                       {renderDecisionPill(c)}
                     </td>
 
                     {/* 6. Aksi Cepat + Inspeksi Button */}
-                    <td className="py-3 px-4 text-right">
+                    <td className="py-3 px-4 w-[180px] text-right">
                       <div
                         className="flex items-center justify-end space-x-1.5"
                         onClick={(e) => e.stopPropagation()}
@@ -551,6 +551,34 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
           </table>
         )}
       </div>
+
+      {/* 3. Workbench Card Footer */}
+      <footer className="px-5 py-2.5 bg-[#F7FAF8] border-t border-[#D5DFD9] flex flex-wrap items-center justify-between gap-3 text-xs text-[#2D4439] shrink-0 font-mono">
+        <div className="flex items-center space-x-2">
+          <span className="font-bold text-[#13221C]">
+            {filteredCandidates.length}
+          </span>
+          <span className="text-[#2D4439]">
+            dari {candidates.length} kandidat
+          </span>
+          {bandFilter !== 'ALL' && (
+            <span className="px-1.5 py-0.5 rounded text-[10px] bg-[#EBF1EE] text-[#1B4938] border border-[#D5DFD9] font-bold">
+              Band {bandFilter}
+            </span>
+          )}
+          {searchQuery && (
+            <span className="px-1.5 py-0.5 rounded text-[10px] bg-[#EBF1EE] text-[#2D4439] border border-[#D5DFD9]">
+              Filter: &quot;{searchQuery}&quot;
+            </span>
+          )}
+        </div>
+
+        <div className="hidden sm:flex items-center space-x-3 text-[11px] text-[#2D4439]/80">
+          <span>
+            Klik baris atau tekan <kbd className="px-1.5 py-0.5 rounded bg-[#EBF1EE] border border-[#D5DFD9] font-bold text-[#13221C]">↵</kbd> untuk inspeksi
+          </span>
+        </div>
+      </footer>
     </div>
   )
 }

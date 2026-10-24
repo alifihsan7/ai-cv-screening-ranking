@@ -1131,21 +1131,24 @@ export default function App() {
         )}
 
         {currentStep === 'workbench' && (
-          <div className="flex-1 flex overflow-hidden relative">
-            {/* Linear-Style Full-Width Candidate Roster Table */}
-            <CandidateRoster
-              candidates={candidates}
-              requirements={requirements}
-              selectedCandidateId={selectedCandidate?.cv_id || null}
-              onSelectCandidate={handleSelectCandidate}
-              blindMode={blindMode}
-              onToggleBlindMode={() => setBlindMode((prev) => !prev)}
-              onDecision={handleDecision}
-              onRevealCandidate={handleRevealCandidate}
-              isInspectorOpen={isInspectorOpen}
-              onOpenInspector={handleOpenInspector}
-              onCloseInspector={handleCloseInspector}
-            />
+          <div className="flex-1 flex flex-col overflow-hidden relative bg-[#F2F5F3]">
+            {/* Ergonomic Centered Workbench Container */}
+            <div className="flex-1 flex flex-col overflow-hidden max-w-6xl 2xl:max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 min-h-0">
+              {/* Elevated Workbench Card */}
+              <CandidateRoster
+                candidates={candidates}
+                requirements={requirements}
+                selectedCandidateId={selectedCandidate?.cv_id || null}
+                onSelectCandidate={handleSelectCandidate}
+                blindMode={blindMode}
+                onToggleBlindMode={() => setBlindMode((prev) => !prev)}
+                onDecision={handleDecision}
+                onRevealCandidate={handleRevealCandidate}
+                isInspectorOpen={isInspectorOpen}
+                onOpenInspector={handleOpenInspector}
+                onCloseInspector={handleCloseInspector}
+              />
+            </div>
 
             {/* Focused Candidate Inspector (Slide-over with Progressive Disclosure) */}
             <CandidateInspector
