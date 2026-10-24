@@ -15,6 +15,7 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import type { Requirement } from '../types'
+import type { SelectOption } from './CustomSelect'
 import { CustomSelect } from './CustomSelect'
 
 export interface CriteriaStudioProps {
@@ -39,18 +40,39 @@ export interface CriteriaStudioProps {
   onNext?: () => void
 }
 
-const CATEGORY_OPTIONS = [
+const CATEGORY_OPTIONS: SelectOption[] = [
   { value: 'EXPERIENCE', label: 'Pengalaman Kerja' },
   { value: 'HARD_SKILLS', label: 'Hard Skill Teknis' },
   { value: 'EDUCATION_CERTIFICATION', label: 'Edukasi & Sertifikasi' },
   { value: 'ACHIEVEMENT_LEADERSHIP', label: 'Soft Skill & Prestasi' },
 ]
 
-const IMPORTANCE_OPTIONS = [
-  { value: 'MUST_HAVE', label: 'Must Have (Wajib)', badge: 'Gugur' },
-  { value: 'STRONG_PREFERENCE', label: 'Strong Preference', badge: 'Tinggi' },
-  { value: 'NICE_TO_HAVE', label: 'Nice to Have', badge: 'Nilai +' },
+const IMPORTANCE_OPTIONS: SelectOption[] = [
+  {
+    value: 'MUST_HAVE',
+    label: 'Wajib',
+    badge: 'Gugur',
+    badgeClassName: 'bg-[#FCEBEB] text-[#8C1819] border border-[#F6C1C1]',
+  },
+  {
+    value: 'STRONG_PREFERENCE',
+    label: 'Diutamakan',
+    badge: 'Prioritas',
+    badgeClassName: 'bg-[#FEF6E8] text-[#7A3E02] border border-[#F8D8A7]',
+  },
+  {
+    value: 'NICE_TO_HAVE',
+    label: 'Nilai Tambah',
+    badge: 'Bonus',
+    badgeClassName: 'bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD]',
+  },
 ]
+
+const normalizeCategory = (cat: string) => {
+  if (cat === 'EDUCATION_CERT' || cat === 'EDUCATION_CERTIFICATION') return 'EDUCATION_CERTIFICATION'
+  if (cat === 'ACHIEVEMENT' || cat === 'ACHIEVEMENT_LEADERSHIP') return 'ACHIEVEMENT_LEADERSHIP'
+  return cat
+}
 
 export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
   jobTitle,
@@ -74,6 +96,7 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
   onNext,
 }) => {
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('ALL')
+  const [isManualFormOpen, setIsManualFormOpen] = useState<boolean>(true)
   const [newDesc, setNewDesc] = useState('')
   const [newCategory, setNewCategory] = useState<string>('HARD_SKILLS')
   const [newImportance, setNewImportance] = useState<string>('MUST_HAVE')
@@ -109,7 +132,7 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
 
   const filteredRequirements = useMemo(() => {
     if (selectedCategoryFilter === 'ALL') return requirements
-    return requirements.filter((r) => r.category === selectedCategoryFilter)
+    return requirements.filter((r) => normalizeCategory(r.category) === selectedCategoryFilter)
   }, [requirements, selectedCategoryFilter])
 
   const handleAddCriteria = (e: React.FormEvent) => {
@@ -204,10 +227,10 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
           <div className="px-5 py-2 border-b border-[#E2E9E5] bg-[#F5F8F6] flex items-center space-x-1.5 shrink-0 overflow-x-auto">
             {[
               { id: 'ALL', label: 'Semua Kriteria', count: requirements.length },
-              { id: 'EXPERIENCE', label: 'Pengalaman', count: requirements.filter((r) => r.category === 'EXPERIENCE').length },
-              { id: 'HARD_SKILLS', label: 'Hard Skill', count: requirements.filter((r) => r.category === 'HARD_SKILLS').length },
-              { id: 'EDUCATION_CERTIFICATION', label: 'Edukasi', count: requirements.filter((r) => r.category.includes('EDUCATION')).length },
-              { id: 'ACHIEVEMENT_LEADERSHIP', label: 'Soft Skill & Prestasi', count: requirements.filter((r) => r.category.includes('ACHIEVEMENT')).length },
+              { id: 'EXPERIENCE', label: 'Pengalaman', count: requirements.filter((r) => normalizeCategory(r.category) === 'EXPERIENCE').length },
+              { id: 'HARD_SKILLS', label: 'Hard Skill', count: requirements.filter((r) => normalizeCategory(r.category) === 'HARD_SKILLS').length },
+              { id: 'EDUCATION_CERTIFICATION', label: 'Edukasi', count: requirements.filter((r) => normalizeCategory(r.category) === 'EDUCATION_CERTIFICATION').length },
+              { id: 'ACHIEVEMENT_LEADERSHIP', label: 'Soft Skill & Prestasi', count: requirements.filter((r) => normalizeCategory(r.category) === 'ACHIEVEMENT_LEADERSHIP').length },
             ].map((cat) => (
               <button
                 key={cat.id}
@@ -229,42 +252,138 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
 
           {/* Scrollable Criteria List */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3 min-h-0">
+            {/* Form Tambah Kriteria Spesifik Secara Manual (Diletakkan di Atas r1) */}
+            <div className="bg-[#F5F8F6] border border-[#D5DFD9] rounded-xl p-3.5 sm:p-4 shadow-tactile-sm transition-all mb-3">
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setIsManualFormOpen((prev) => !prev)}
+                  className="flex items-center space-x-2 text-xs font-bold text-[#13221C] hover:text-[#1B4938] transition-colors focus-visible:outline-none cursor-pointer"
+                >
+                  <div className="w-5 h-5 rounded-md bg-[#EBF1EE] border border-[#D5DFD9] flex items-center justify-center text-[#1B4938]">
+                    <Plus className={`w-3.5 h-3.5 transition-transform duration-200 ${isManualFormOpen ? 'rotate-45' : ''}`} />
+                  </div>
+                  <span>Tambah Kriteria Spesifik Secara Manual</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsManualFormOpen((prev) => !prev)}
+                  className="text-[11px] font-mono font-semibold text-[#2D4439] hover:text-[#13221C] cursor-pointer"
+                >
+                  {isManualFormOpen ? 'Lipat Form' : 'Buka Form'}
+                </button>
+              </div>
+
+              {isManualFormOpen && (
+                <form onSubmit={handleAddCriteria} className="mt-3 space-y-2.5">
+                  <input
+                    type="text"
+                    placeholder="Deskripsi kriteria (e.g. Mahir Redis & Celery, Pengalaman 5+ thn Python)..."
+                    value={newDesc}
+                    onChange={(e) => setNewDesc(e.target.value)}
+                    className="w-full text-xs bg-[#FCFDFC] border border-[#D5DFD9] focus:border-[#1B4938] px-3 py-2 rounded-xl focus:outline-none transition-all shadow-tactile-sm"
+                  />
+
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-center">
+                    <div className="sm:col-span-2">
+                      <CustomSelect
+                        value={newCategory}
+                        onChange={setNewCategory}
+                        options={CATEGORY_OPTIONS}
+                        size="sm"
+                        ariaLabel="Kategori Kriteria"
+                      />
+                    </div>
+
+                    <div>
+                      <CustomSelect
+                        value={newImportance}
+                        onChange={setNewImportance}
+                        options={IMPORTANCE_OPTIONS}
+                        size="sm"
+                        ariaLabel="Tingkat Kepentingan Kriteria"
+                      />
+                    </div>
+
+                    <div className="flex items-center space-x-1.5">
+                      <div className="flex items-center space-x-1 shrink-0 bg-[#FCFDFC] px-2 h-8 rounded-lg border border-[#D5DFD9]">
+                        <span className="text-[10px] font-mono text-[#2D4439]">Bobot:</span>
+                        <input
+                          type="number"
+                          min="1"
+                          max="50"
+                          value={newWeight}
+                          onChange={(e) => setNewWeight(parseInt(e.target.value) || 5)}
+                          className="w-10 text-center text-xs font-mono font-bold bg-transparent focus:outline-none"
+                          title="Bobot (%)"
+                        />
+                        <span className="text-[11px] font-mono text-[#2D4439] font-bold">%</span>
+                      </div>
+
+                      <button
+                        type="submit"
+                        className="h-8 px-3.5 bg-[#1B4938] hover:bg-[#265B46] text-[#FCFDFC] text-xs font-bold rounded-lg shrink-0 transition-all cursor-pointer shadow-tactile-sm active:scale-[0.98]"
+                      >
+                        Tambah
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              )}
+            </div>
+
+            {/* Empty state bila filter kriteria kosong */}
+            {filteredRequirements.length === 0 && (
+              <div className="text-center py-8 px-4 border border-dashed border-[#D5DFD9] rounded-xl bg-[#F5F8F6]">
+                <p className="text-xs text-[#2D4439] font-medium">
+                  Belum ada kriteria untuk kategori ini. Tambahkan secara manual di atas atau klik &quot;Ekstraksi dari JD&quot;.
+                </p>
+              </div>
+            )}
+
+            {/* List Kriteria dengan Dua Dropdown Interaktif */}
             {filteredRequirements.map((r) => {
-              const isMustHave = r.importance === 'MUST_HAVE'
               return (
                 <div
                   key={r.requirement_id}
                   className="bg-[#FCFDFC] border border-[#D5DFD9] rounded-xl p-3.5 space-y-3 shadow-tactile-sm hover:border-[#1B4938]/40 transition-colors"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center space-x-2">
-                      <span className="font-mono text-xs font-bold text-[#1B4938] bg-[#EBF1EE] px-2 py-0.5 rounded border border-[#D5DFD9]">
+                  <div className="flex flex-wrap items-center justify-between gap-2.5">
+                    <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
+                      <span className="font-mono text-xs font-bold text-[#1B4938] bg-[#EBF1EE] px-2.5 h-8 rounded-lg border border-[#D5DFD9] flex items-center shrink-0">
                         {r.requirement_id}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleUpdateRequirement(r.requirement_id, {
-                            importance: isMustHave ? 'NICE_TO_HAVE' : 'MUST_HAVE',
-                          })
-                        }
-                        className={`text-[10px] font-mono px-2 py-0.5 rounded border font-bold cursor-pointer transition-colors ${
-                          isMustHave
-                            ? 'bg-[#FCEBEB] text-[#8C1819] border-[#F6C1C1]'
-                            : 'bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD]'
-                        }`}
-                        title="Klik untuk beralih antara MUST HAVE dan NICE TO HAVE"
-                      >
-                        {isMustHave ? 'MUST HAVE' : 'NICE TO HAVE'}
-                      </button>
-                      <span className="text-[10px] font-mono text-[#2D4439] font-medium">
-                        {r.category}
-                      </span>
+
+                      {/* Dropdown Kategori Interaktif */}
+                      <div className="w-48 sm:w-52 shrink-0">
+                        <CustomSelect
+                          value={normalizeCategory(r.category)}
+                          onChange={(val) =>
+                            handleUpdateRequirement(r.requirement_id, { category: val })
+                          }
+                          options={CATEGORY_OPTIONS}
+                          size="sm"
+                          ariaLabel={`Kategori untuk ${r.requirement_id}`}
+                        />
+                      </div>
+
+                      {/* Dropdown Tingkat Interaktif */}
+                      <div className="w-40 sm:w-44 shrink-0">
+                        <CustomSelect
+                          value={r.importance || 'MUST_HAVE'}
+                          onChange={(val) =>
+                            handleUpdateRequirement(r.requirement_id, { importance: val })
+                          }
+                          options={IMPORTANCE_OPTIONS}
+                          size="sm"
+                          ariaLabel={`Tingkat kepentingan untuk ${r.requirement_id}`}
+                        />
+                      </div>
                     </div>
 
-                    <div className="flex items-center space-x-2">
-                      <div className="flex items-center space-x-1">
-                        <span className="text-[10px] font-mono text-[#2D4439]">Bobot:</span>
+                    <div className="flex items-center space-x-2 shrink-0">
+                      <div className="flex items-center space-x-1.5 bg-[#F5F8F6] px-2 h-8 rounded-lg border border-[#D5DFD9]">
+                        <span className="text-[10px] font-mono text-[#2D4439] font-medium">Bobot:</span>
                         <input
                           type="number"
                           min="1"
@@ -275,15 +394,15 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
                               weight: parseInt(e.target.value) || 0,
                             })
                           }
-                          className="w-12 px-1.5 py-0.5 text-center font-mono tabular-nums text-xs font-bold bg-[#F5F8F6] border border-[#D5DFD9] rounded-md focus:outline-none focus:border-[#1B4938]"
+                          className="w-10 px-1 py-0.5 text-center font-mono tabular-nums text-xs font-bold bg-[#FCFDFC] border border-[#D5DFD9] rounded focus:outline-none focus:border-[#1B4938]"
                         />
-                        <span className="text-[10px] font-mono text-[#2D4439]">%</span>
+                        <span className="text-[10px] font-mono text-[#2D4439] font-bold">%</span>
                       </div>
 
                       <button
                         type="button"
                         onClick={() => handleDeleteCriteria(r.requirement_id)}
-                        className="p-1 text-[#2D4439] hover:text-[#8C1819] hover:bg-[#FCEBEB] rounded transition-colors cursor-pointer"
+                        className="w-8 h-8 flex items-center justify-center text-[#2D4439] hover:text-[#8C1819] hover:bg-[#FCEBEB] rounded-lg border border-[#D5DFD9] hover:border-[#F6C1C1] bg-[#FCFDFC] transition-colors cursor-pointer shadow-tactile-sm"
                         title="Hapus Kriteria"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -311,71 +430,6 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
                 </div>
               )
             })}
-
-            {/* Form Tambah Kriteria Baru dengan CustomSelect Anti-Slop */}
-            <form
-              onSubmit={handleAddCriteria}
-              className="bg-[#F5F8F6] border border-dashed border-[#D5DFD9] rounded-xl p-4 space-y-3 mt-4 shadow-tactile-sm"
-            >
-              <div className="flex items-center space-x-2 text-xs font-bold text-[#13221C]">
-                <Plus className="w-4 h-4 text-[#1B4938]" />
-                <span>Tambah Kriteria Spesifik Secara Manual</span>
-              </div>
-
-              <div className="space-y-2.5">
-                <input
-                  type="text"
-                  placeholder="Deskripsi kriteria (e.g. Mahir Redis & Celery, Pengalaman 5+ thn Python)..."
-                  value={newDesc}
-                  onChange={(e) => setNewDesc(e.target.value)}
-                  className="w-full text-xs bg-[#FCFDFC] border border-[#D5DFD9] focus:border-[#1B4938] px-3 py-2 rounded-xl focus:outline-none transition-all shadow-tactile-sm"
-                />
-
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-center">
-                  <div className="sm:col-span-2">
-                    <CustomSelect
-                      value={newCategory}
-                      onChange={setNewCategory}
-                      options={CATEGORY_OPTIONS}
-                      size="sm"
-                      ariaLabel="Kategori Kriteria"
-                    />
-                  </div>
-
-                  <div>
-                    <CustomSelect
-                      value={newImportance}
-                      onChange={setNewImportance}
-                      options={IMPORTANCE_OPTIONS}
-                      size="sm"
-                      ariaLabel="Tingkat Kepentingan Kriteria"
-                    />
-                  </div>
-
-                  <div className="flex items-center space-x-1.5">
-                    <div className="flex items-center space-x-1 shrink-0">
-                      <input
-                        type="number"
-                        min="1"
-                        max="50"
-                        value={newWeight}
-                        onChange={(e) => setNewWeight(parseInt(e.target.value) || 5)}
-                        className="w-14 text-center text-xs font-mono font-bold bg-[#FCFDFC] border border-[#D5DFD9] rounded-lg py-1.5 focus:outline-none focus:border-[#1B4938]"
-                        title="Bobot (%)"
-                      />
-                      <span className="text-[11px] font-mono text-[#2D4439] font-bold">%</span>
-                    </div>
-
-                    <button
-                      type="submit"
-                      className="h-8 px-3.5 bg-[#1B4938] hover:bg-[#265B46] text-[#FCFDFC] text-xs font-bold rounded-lg shrink-0 transition-all cursor-pointer shadow-tactile-sm active:scale-[0.98]"
-                    >
-                      Tambah
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </form>
           </div>
         </div>
 

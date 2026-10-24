@@ -6,6 +6,7 @@ export interface SelectOption {
   label: string
   icon?: React.ReactNode
   badge?: string
+  badgeClassName?: string
   description?: string
 }
 
@@ -114,7 +115,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
   const isSmall = size === 'sm'
 
   return (
-    <div className={`relative ${className}`} ref={containerRef}>
+    <div className={`relative ${isOpen ? 'z-30' : ''} ${className}`} ref={containerRef}>
       {label && (
         <label
           htmlFor={selectId}
@@ -135,8 +136,8 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
         disabled={disabled}
         onClick={() => !disabled && setIsOpen((prev) => !prev)}
         onKeyDown={handleKeyDown}
-        className={`w-full bg-[#FCFDFC] border border-[#D5DFD9] rounded-xl text-[#13221C] flex items-center justify-between transition-all duration-150 cursor-pointer select-none shadow-tactile-sm hover:border-[#1B4938]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] focus-visible:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed ${
-          isSmall ? 'h-8 px-2.5 text-xs' : 'h-10 px-3.5 text-sm font-medium'
+        className={`w-full bg-[#FCFDFC] border border-[#D5DFD9] text-[#13221C] flex items-center justify-between transition-all duration-150 cursor-pointer select-none shadow-tactile-sm hover:border-[#1B4938]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] focus-visible:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed ${
+          isSmall ? 'h-8 px-2.5 text-xs rounded-lg' : 'h-10 px-3.5 text-sm font-medium rounded-xl'
         } ${isOpen ? 'border-[#1B4938] ring-2 ring-[#1B4938]/15' : ''} ${buttonClassName}`}
       >
         <div className="flex items-center space-x-2 truncate">
@@ -147,14 +148,18 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
             {selectedOption ? selectedOption.label : placeholder}
           </span>
           {selectedOption?.badge && (
-            <span className="bg-[#EBF1EE] text-[#2D4439] border border-[#D5DFD9] text-[10px] font-mono px-1.5 py-0.5 rounded font-semibold tabular-nums">
+            <span
+              className={`text-[10px] font-mono px-1.5 py-0.5 rounded font-semibold tabular-nums shrink-0 ${
+                selectedOption.badgeClassName || 'bg-[#EBF1EE] text-[#2D4439] border border-[#D5DFD9]'
+              }`}
+            >
               {selectedOption.badge}
             </span>
           )}
         </div>
 
         <ChevronDown
-          className={`w-4 h-4 text-[#2D4439] transition-transform duration-150 shrink-0 ml-2 ${
+          className={`w-4 h-4 text-[#2D4439] transition-transform duration-150 shrink-0 ml-1.5 ${
             isOpen ? 'rotate-180' : ''
           }`}
         />
@@ -165,7 +170,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
           ref={listboxRef}
           role="listbox"
           tabIndex={-1}
-          className="absolute z-50 left-0 right-0 mt-1.5 max-h-60 overflow-y-auto bg-[#FCFDFC] border border-[#D5DFD9] rounded-xl p-1 shadow-tactile-lg space-y-0.5 focus:outline-none animate-in fade-in zoom-in-95 duration-100"
+          className="absolute z-50 left-0 right-0 min-w-full mt-1.5 max-h-60 overflow-y-auto bg-[#FCFDFC] border border-[#D5DFD9] rounded-xl p-1 shadow-tactile-lg space-y-0.5 focus:outline-none animate-in fade-in zoom-in-95 duration-100"
         >
           {options.map((opt, idx) => {
             const isSelected = opt.value === value
@@ -204,7 +209,11 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
 
                 <div className="flex items-center space-x-1.5 shrink-0 ml-2">
                   {opt.badge && (
-                    <span className="bg-[#FCFDFC] text-[#2D4439] border border-[#D5DFD9] text-[10px] font-mono px-1.5 py-0.5 rounded font-semibold tabular-nums">
+                    <span
+                      className={`text-[10px] font-mono px-1.5 py-0.5 rounded font-semibold tabular-nums shrink-0 ${
+                        opt.badgeClassName || 'bg-[#FCFDFC] text-[#2D4439] border border-[#D5DFD9]'
+                      }`}
+                    >
                       {opt.badge}
                     </span>
                   )}
