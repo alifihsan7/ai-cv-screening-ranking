@@ -36,7 +36,7 @@ export interface CandidateInspectorProps {
 }
 
 const getActionBadgeClass = (action: string) => {
-  if (action.includes('Jev') || action.includes('GROUNDED_VERIFIER')) {
+  if (action.includes('Jev') || action.includes('GROUNDED_VERIFIER') || action.includes('AI')) {
     return 'bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD] font-bold'
   }
   if (action.includes('CRITIQUE') || action.includes('REFLECT')) {
@@ -143,7 +143,7 @@ export const CandidateInspector: React.FC<CandidateInspectorProps> = ({
     setActiveTab('grounding')
   }
 
-  const isJevVerified =
+  const isAiVerified =
     candidate.verifier_provider === 'JEV_TYPESAFE' ||
     (candidate.reasoning_trajectory && candidate.reasoning_trajectory.length > 0)
 
@@ -379,11 +379,11 @@ PENDIDIKAN & LATAR BELAKANG:
             </button>
           </div>
 
-          {isJevVerified && (
+          {isAiVerified && (
             <div className="flex items-center space-x-1.5 text-[10px] font-mono text-[#2D4439] shrink-0">
               <span className="inline-flex items-center gap-1 font-bold text-[#124B2E] bg-[#EBF6EF] px-1.5 py-0.5 rounded border border-[#BBE5CD] whitespace-nowrap">
                 <ShieldCheck className="w-3 h-3 text-[#124B2E] shrink-0" />
-                <span>Jev Verified</span>
+                <span>AI Verified</span>
               </span>
             </div>
           )}
@@ -431,7 +431,7 @@ PENDIDIKAN & LATAR BELAKANG:
                     )}
                   </div>
                   <span className="text-[10px] font-mono text-[#2D4439]">
-                    Evaluasi Tipe-Aman Jev
+                    Evaluasi Forensik AI
                   </span>
                 </div>
 
@@ -685,7 +685,7 @@ PENDIDIKAN & LATAR BELAKANG:
             <div className="space-y-4">
               <div className="bg-[#F5F8F6] p-3 rounded-xl border border-[#D5DFD9] text-xs text-[#2D4439] flex items-center justify-between">
                 <span>
-                  Jejak penalaran agen otonom & verifikasi tipe-aman Jev langkah demi langkah
+                  Jejak penalaran AI & verifikasi bukti kualifikasi langkah demi langkah
                   secara deterministik.
                 </span>
                 <span className="font-mono font-bold text-[10px] text-[#124B2E] bg-[#EBF6EF] px-2 py-0.5 rounded border border-[#BBE5CD]">
@@ -702,7 +702,7 @@ PENDIDIKAN & LATAR BELAKANG:
                     Belum Ada Rekaman ReAct Trajectory
                   </p>
                   <p className="text-[#2D4439] text-[11px] max-w-md mx-auto leading-relaxed">
-                    Kandidat ini dievaluasi langsung menggunakan verifier tipe-aman deterministik Jev.
+                    Kandidat ini dievaluasi langsung menggunakan verifikasi forensik bukti deterministik AI.
                   </p>
                 </div>
               ) : (

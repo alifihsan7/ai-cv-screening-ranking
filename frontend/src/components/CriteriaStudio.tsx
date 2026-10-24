@@ -303,7 +303,7 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
                 </span>
               </div>
               <p className="text-xs text-[#2D4439] mt-0.5">
-                Definisikan aturan kualifikasi deterministik yang dieksekusi oleh verifier Jev.
+                Definisikan aturan kualifikasi deterministik yang dieksekusi oleh verifikasi forensik AI.
               </p>
             </div>
 

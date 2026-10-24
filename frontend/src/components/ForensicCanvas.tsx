@@ -76,7 +76,7 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
     <main className="flex-1 bg-[#FCFDFC] flex flex-col h-full overflow-hidden">
       {/* Persistent Canvas Header */}
       <header className="px-5 py-3 border-b border-[#D5DFD9] bg-[#FCFDFC] flex flex-wrap items-center justify-between gap-3 shrink-0 shadow-tactile-sm">
-        {/* Candidate Identity + Action Button [ 🛡️ Buka Audit Jev (D) ] */}
+        {/* Candidate Identity + Action Button [ 🛡️ Buka Audit AI ] */}
         <div className="flex items-center space-x-3 min-w-0 flex-1">
           <div className="w-9 h-9 rounded-xl bg-[#EBF1EE] border border-[#D5DFD9] flex items-center justify-center font-mono font-bold text-sm text-[#1B4938] shadow-tactile-sm shrink-0">
             #{candidate.rank}
@@ -112,15 +112,15 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
                 Band {candidate.band}
               </span>
 
-              {/* Tactile Action Button: Buka Audit Jev */}
+              {/* Tactile Action Button: Buka Audit AI */}
               <button
                 type="button"
                 onClick={() => onOpenAuditDrawer?.('trajectory')}
                 className="bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD] hover:bg-[#DEF0E4] transition-all flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold cursor-pointer shadow-tactile-sm active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] shrink-0"
-                title="Buka Slide-Over Audit Telemetri Jev"
+                title="Buka Slide-Over Audit Telemetri AI"
               >
                 <ShieldCheck className="w-3.5 h-3.5 text-[#124B2E] shrink-0" />
-                <span className="whitespace-nowrap">Buka Audit Jev</span>
+                <span className="whitespace-nowrap">Buka Audit AI</span>
               </button>
             </div>
             <p
@@ -255,7 +255,7 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
             </div>
 
             <span className="text-[11px] font-mono text-[#2D4439] font-medium">
-              Evaluasi Deterministik Jev
+              Evaluasi Forensik AI
             </span>
           </div>
 

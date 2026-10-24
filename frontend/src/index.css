@@ -37,7 +37,11 @@
   --badge-reject-bg: #FCEBEB;
   --badge-reject-border: #F6C1C1;
 
-  --badge-jev-text: #0E432B;       /* Contrast >8.8:1 on #E6F4EA */
+  --badge-ai-text: #0E432B;        /* Contrast >8.8:1 on #E6F4EA */
+  --badge-ai-bg: #E6F4EA;
+  --badge-ai-border: #A5D6B6;
+
+  --badge-jev-text: #0E432B;       /* Contrast >8.8:1 on #E6F4EA (legacy alias) */
   --badge-jev-bg: #E6F4EA;
   --badge-jev-border: #A5D6B6;
 }

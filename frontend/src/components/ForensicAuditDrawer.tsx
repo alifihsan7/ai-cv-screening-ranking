@@ -23,7 +23,7 @@ export interface ForensicAuditDrawerProps {
 }
 
 const getActionBadgeClass = (action: string) => {
-  if (action.includes('Jev') || action.includes('GROUNDED_VERIFIER')) {
+  if (action.includes('Jev') || action.includes('GROUNDED_VERIFIER') || action.includes('AI')) {
     return 'bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD] font-bold'
   }
   if (action.includes('CRITIQUE') || action.includes('REFLECT')) {
@@ -79,7 +79,7 @@ export const ForensicAuditDrawer: React.FC<ForensicAuditDrawerProps> = ({
 
   const displayName =
     blindMode && !candidate.revealed ? candidate.blind_id : candidate.real_name
-  const isJevVerified =
+  const isAiVerified =
     candidate.verifier_provider === 'JEV_TYPESAFE' ||
     (candidate.reasoning_trajectory && candidate.reasoning_trajectory.length > 0)
 
@@ -134,15 +134,15 @@ PENDIDIKAN & LATAR BELAKANG:
                 <h3 className="text-sm font-bold text-[#13221C] truncate tracking-tight">
                   {displayName}
                 </h3>
-                {isJevVerified && (
+                {isAiVerified && (
                   <span className="font-mono text-[10px] px-1.5 py-0.2 rounded border font-bold bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD] flex items-center space-x-1 shrink-0">
                     <ShieldCheck className="w-3 h-3 text-[#124B2E]" />
-                    <span>Jev Verified</span>
+                    <span>AI Verified</span>
                   </span>
                 )}
               </div>
               <p className="text-[11px] text-[#2D4439] font-mono truncate mt-0.5">
-                Audit Telemetri Mesin Jev • {candidate.file_name}
+                Audit Telemetri AI • {candidate.file_name}
               </p>
             </div>
           </div>
@@ -193,7 +193,7 @@ PENDIDIKAN & LATAR BELAKANG:
           </div>
 
           <span className="text-[10px] font-mono text-[#2D4439] shrink-0 hidden sm:inline">
-            Provider: <strong>{candidate.verifier_provider || 'JEV_TYPESAFE'}</strong>
+            Provider: <strong>{candidate.verifier_provider === 'JEV_TYPESAFE' ? 'AI_FORENSIC' : (candidate.verifier_provider || 'AI_FORENSIC')}</strong>
           </span>
         </div>
 
@@ -204,7 +204,7 @@ PENDIDIKAN & LATAR BELAKANG:
             <div className="space-y-4">
               <div className="bg-[#F5F8F6] p-3 rounded-xl border border-[#D5DFD9] text-xs text-[#2D4439] flex items-center justify-between">
                 <span>
-                  Jejak penalaran agen otonom & verifikasi tipe-aman Jev langkah demi langkah
+                  Jejak penalaran AI & verifikasi bukti kualifikasi langkah demi langkah
                   secara deterministik.
                 </span>
               </div>
@@ -218,8 +218,8 @@ PENDIDIKAN & LATAR BELAKANG:
                     Belum Ada Rekaman ReAct Trajectory
                   </p>
                   <p className="text-[#2D4439] text-[11px] max-w-md mx-auto leading-relaxed">
-                    Kandidat ini belum memiliki jejak eksekusi reasoning bertahap. Verifier Jev
-                    mengevaluasi profil menggunakan aturan tipe-aman deterministik.
+                    Kandidat ini belum memiliki jejak eksekusi reasoning bertahap. Verifikasi AI
+                    mengevaluasi profil menggunakan aturan kualifikasi deterministik.
                   </p>
                 </div>
               ) : (

@@ -212,7 +212,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
             ) : (
               <Sparkles className="w-4 h-4 text-[#FCFDFC]" />
             )}
-            <span>Jalankan Skrining Agen Jev</span>
+            <span>Jalankan Skrining AI</span>
           </button>
         </div>
       </div>
