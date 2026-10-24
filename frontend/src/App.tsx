@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
+import { AlertCircle, AlertTriangle, CheckCircle2, Info, X } from 'lucide-react'
 import type { CandidateDetail, Requirement, WorkflowStep, UploadedCvFile } from './types'
 import type { JobTemplate } from './jobTemplates'
 import { MOCK_CANDIDATES } from './mockData'
@@ -316,6 +317,11 @@ export default function App() {
     },
     []
   )
+
+  const dismissToast = useCallback(() => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current)
+    setToast(null)
+  }, [])
 
   const getAuthHeaders = useCallback((): Record<string, string> => {
     const t = authToken || localStorage.getItem('cv_screening_token')
@@ -1627,7 +1633,8 @@ export default function App() {
         <div
           role="status"
           aria-live="polite"
-          className={`fixed bottom-5 right-5 z-50 px-4 py-2.5 rounded-xl border shadow-tactile-lg text-xs font-semibold flex items-center space-x-2 transition-all animate-in fade-in slide-in-from-bottom-2 ${
+          onClick={dismissToast}
+          className={`fixed top-5 left-1/2 -translate-x-1/2 z-50 pointer-events-auto max-w-[90vw] sm:max-w-md w-auto transition-all duration-200 animate-in fade-in slide-in-from-top-3 px-4 py-2.5 sm:px-5 sm:py-3 rounded-xl border text-xs sm:text-sm font-semibold flex items-center space-x-2.5 cursor-pointer shadow-tactile-lg ${
             toast.type === 'error'
               ? 'bg-[#FCEBEB] text-[#8C1819] border-[#F6C1C1]'
               : toast.type === 'success'
@@ -1637,7 +1644,22 @@ export default function App() {
               : 'bg-[#FCFDFC] text-[#13221C] border-[#D5DFD9]'
           }`}
         >
-          <span>{toast.message}</span>
+          {toast.type === 'error' && <AlertCircle className="w-4 h-4 shrink-0 text-[#8C1819]" />}
+          {toast.type === 'warning' && <AlertTriangle className="w-4 h-4 shrink-0 text-[#7A3E02]" />}
+          {toast.type === 'success' && <CheckCircle2 className="w-4 h-4 shrink-0 text-[#124B2E]" />}
+          {toast.type === 'info' && <Info className="w-4 h-4 shrink-0 text-[#1B4938]" />}
+          <span className="flex-1 leading-snug">{toast.message}</span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              dismissToast()
+            }}
+            aria-label="Tutup notifikasi"
+            className="p-0.5 -mr-1 rounded-md opacity-60 hover:opacity-100 transition-opacity focus:outline-none"
+          >
+            <X className="w-3.5 h-3.5 shrink-0" />
+          </button>
         </div>
       )}
     </div>
