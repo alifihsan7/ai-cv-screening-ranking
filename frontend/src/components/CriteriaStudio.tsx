@@ -11,6 +11,7 @@ import {
   Loader2,
   Layers,
   Lock,
+  LockOpen,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react'
@@ -34,6 +35,9 @@ export interface CriteriaStudioProps {
   criteriaApproved: boolean
   criteriaVersion: number
   isCompiling: boolean
+  isLocked?: boolean
+  isDirty?: boolean
+  approvedSnapshot?: string | null
   onCompileFromJd: () => void
   onApproveCriteria: () => void
   onBack?: () => void
@@ -93,9 +97,12 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
   setRequirements,
   categoryWeights,
   setCategoryWeights,
-  criteriaApproved,
+  criteriaApproved: _criteriaApproved,
   criteriaVersion,
   isCompiling,
+  isLocked: propIsLocked,
+  isDirty: propIsDirty,
+  approvedSnapshot,
   onCompileFromJd,
   onApproveCriteria,
   onBack,
@@ -107,6 +114,35 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
   const [newCategory, setNewCategory] = useState<string>('HARD_SKILLS')
   const [newImportance, setNewImportance] = useState<string>('MUST_HAVE')
   const [newWeight, setNewWeight] = useState<number>(10)
+
+  // Snapshot dirty-checking
+  const currentSnapshot = useMemo(() => {
+    return JSON.stringify({
+      reqs: requirements.map((r) => ({
+        id: r.requirement_id,
+        desc: (r.description || '').trim(),
+        cat: r.category,
+        imp: r.importance,
+        w: Number(r.weight) || 0,
+      })),
+      weights: {
+        EXPERIENCE: Number(categoryWeights?.EXPERIENCE) || 0,
+        HARD_SKILLS: Number(categoryWeights?.HARD_SKILLS) || 0,
+        EDUCATION_CERT: Number(categoryWeights?.EDUCATION_CERT) || 0,
+        ACHIEVEMENT: Number(categoryWeights?.ACHIEVEMENT) || 0,
+      },
+    })
+  }, [requirements, categoryWeights])
+
+  const computedLocked = Boolean(
+    approvedSnapshot && requirements.length > 0 && currentSnapshot === approvedSnapshot
+  )
+  const computedDirty = Boolean(
+    approvedSnapshot && currentSnapshot !== approvedSnapshot
+  )
+
+  const isLocked = propIsLocked !== undefined ? propIsLocked : computedLocked
+  const isDirty = propIsDirty !== undefined ? propIsDirty : computedDirty
 
   // Policy Linter: Bias & Prohibited Criteria Detection
   const prohibitedFlags = useMemo(() => {
@@ -172,7 +208,12 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
   }
 
   const handleSaveAndContinue = () => {
-    if (!criteriaApproved) {
+    if (
+      !isLocked &&
+      prohibitedFlags.length === 0 &&
+      totalCategoryWeight === 100 &&
+      requirements.length > 0
+    ) {
       onApproveCriteria()
     }
     if (onNext) {
@@ -220,11 +261,38 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
               <button
                 type="button"
                 onClick={onApproveCriteria}
-                disabled={prohibitedFlags.length > 0}
-                className="h-8 px-3 bg-[#1B4938] hover:bg-[#265B46] text-[#FCFDFC] text-xs font-bold rounded-lg flex items-center space-x-1.5 transition-all duration-150 cursor-pointer shadow-tactile-sm disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] active:scale-[0.98]"
+                disabled={isLocked || prohibitedFlags.length > 0 || totalCategoryWeight !== 100 || requirements.length === 0}
+                title={
+                  isLocked
+                    ? `Kriteria telah disetujui & dikunci (v${criteriaVersion}). Lakukan perubahan pada kriteria atau bobot untuk membuka kunci.`
+                    : prohibitedFlags.length > 0
+                    ? 'Perbaiki kriteria yang melanggar aturan anti-bias sebelum menyetujui.'
+                    : totalCategoryWeight !== 100
+                    ? `Total bobot kategori harus tepat 100% (saat ini ${totalCategoryWeight}%).`
+                    : requirements.length === 0
+                    ? 'Tambahkan minimal 1 kriteria sebelum menyetujui.'
+                    : isDirty
+                    ? 'Klik untuk menyetujui dan mengunci perubahan kriteria terbaru.'
+                    : 'Klik untuk menyetujui dan mengunci kriteria.'
+                }
+                className={
+                  isLocked
+                    ? 'h-8 px-3 bg-[#EBF6EF] border border-[#BBE5CD] text-[#124B2E] text-xs font-bold rounded-lg flex items-center space-x-1.5 cursor-not-allowed shadow-none opacity-90 transition-all duration-150'
+                    : 'h-8 px-3 bg-[#1B4938] hover:bg-[#265B46] text-[#FCFDFC] text-xs font-bold rounded-lg flex items-center space-x-1.5 transition-all duration-150 cursor-pointer shadow-tactile-sm disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] active:scale-[0.98]'
+                }
               >
-                <Lock className="w-3.5 h-3.5" />
-                <span>{criteriaApproved ? 'Kunci & Disetujui' : 'Setujui Kriteria'}</span>
+                {isLocked ? (
+                  <Lock className="w-3.5 h-3.5 text-[#124B2E]" />
+                ) : (
+                  <LockOpen className="w-3.5 h-3.5 text-[#FCFDFC]" />
+                )}
+                <span>
+                  {isLocked
+                    ? `Terkunci & Disetujui (v${criteriaVersion})`
+                    : isDirty
+                    ? 'Setujui Perubahan'
+                    : 'Setujui Kriteria'}
+                </span>
               </button>
             </div>
           </div>
@@ -669,8 +737,12 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
           <span className="text-[#D5DFD9]">|</span>
           <span className="text-[#2D4439]">
             Status:{' '}
-            <strong className={criteriaApproved ? 'text-[#124B2E]' : 'text-[#7A3E02]'}>
-              {criteriaApproved ? `Disetujui (v${criteriaVersion})` : 'Draf'}
+            <strong className={isLocked ? 'text-[#124B2E]' : 'text-[#7A3E02]'}>
+              {isLocked
+                ? `Disetujui (v${criteriaVersion})`
+                : isDirty
+                ? 'Draf (Perubahan Belum Disetujui)'
+                : 'Draf'}
             </strong>
           </span>
         </div>

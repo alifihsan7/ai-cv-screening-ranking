@@ -10,6 +10,28 @@ import { CandidateRoster } from './components/CandidateRoster'
 import { CandidateInspector } from './components/CandidateInspector'
 import { UploadModal } from './components/UploadModal'
 
+// Snapshot creation helper for criteria dirty-checking
+const createCriteriaSnapshot = (
+  reqs: Requirement[],
+  weights: Record<string, number>
+): string => {
+  return JSON.stringify({
+    reqs: reqs.map((r) => ({
+      id: r.requirement_id,
+      desc: (r.description || '').trim(),
+      cat: r.category,
+      imp: r.importance,
+      w: Number(r.weight) || 0,
+    })),
+    weights: {
+      EXPERIENCE: Number(weights?.EXPERIENCE) || 0,
+      HARD_SKILLS: Number(weights?.HARD_SKILLS) || 0,
+      EDUCATION_CERT: Number(weights?.EDUCATION_CERT) || 0,
+      ACHIEVEMENT: Number(weights?.ACHIEVEMENT) || 0,
+    },
+  })
+}
+
 export default function App() {
   // Navigation & 4-Step Workflow state (with URL hash & localStorage persistence)
   const getInitialStep = (): WorkflowStep => {
@@ -125,9 +147,28 @@ export default function App() {
     EDUCATION_CERT: 15,
     ACHIEVEMENT: 15,
   })
-  const [criteriaApproved, setCriteriaApproved] = useState<boolean>(false)
+  const [approvedSnapshot, setApprovedSnapshot] = useState<string | null>(null)
   const [criteriaVersion, setCriteriaVersion] = useState<number>(1)
   const [isCompiling, setIsCompiling] = useState<boolean>(false)
+
+  // Dirty checking & Locked state
+  const currentCriteriaSnapshot = useMemo(() => {
+    return createCriteriaSnapshot(requirements, categoryWeights)
+  }, [requirements, categoryWeights])
+
+  const isCriteriaLocked = useMemo(() => {
+    return Boolean(
+      approvedSnapshot && requirements.length > 0 && currentCriteriaSnapshot === approvedSnapshot
+    )
+  }, [approvedSnapshot, requirements.length, currentCriteriaSnapshot])
+
+  const isCriteriaDirty = useMemo(() => {
+    return Boolean(
+      approvedSnapshot && currentCriteriaSnapshot !== approvedSnapshot
+    )
+  }, [approvedSnapshot, currentCriteriaSnapshot])
+
+  const criteriaApproved = isCriteriaLocked
 
   // Auth & Backend Jobs state with instant stale-while-revalidate cache
   const [authToken, setAuthTokenState] = useState<string | null>(() =>
@@ -602,10 +643,12 @@ export default function App() {
           const reqList = await resReq.json()
           const catWeightsHdr = resReq.headers.get('X-Category-Weights')
           const verHdr = resReq.headers.get('X-Requirements-Version')
+          let activeWeights = categoryWeights
           if (catWeightsHdr) {
             try {
               const parsedWeights = JSON.parse(catWeightsHdr)
               if (parsedWeights && typeof parsedWeights === 'object') {
+                activeWeights = parsedWeights
                 setCategoryWeights(parsedWeights)
               }
             } catch (e) {
@@ -615,14 +658,14 @@ export default function App() {
           if (verHdr) setCriteriaVersion(parseInt(verHdr) || 1)
           if (Array.isArray(reqList) && reqList.length > 0) {
             setRequirements(reqList)
-            setCriteriaApproved(true)
+            setApprovedSnapshot(createCriteriaSnapshot(reqList, activeWeights))
           } else {
             setRequirements([])
-            setCriteriaApproved(false)
+            setApprovedSnapshot(null)
           }
         } else {
           setRequirements([])
-          setCriteriaApproved(false)
+          setApprovedSnapshot(null)
         }
       } catch (e) {
         console.warn('Error fetching job details:', e)
@@ -779,7 +822,7 @@ export default function App() {
             EDUCATION_CERT: 15,
             ACHIEVEMENT: 15,
           })
-          setCriteriaApproved(false)
+          setApprovedSnapshot(null)
           setCriteriaVersion(1)
           setUploadedFiles([])
           setCandidates([])
@@ -865,7 +908,7 @@ export default function App() {
           EDUCATION_CERT: 15,
           ACHIEVEMENT: 15,
         })
-        setCriteriaApproved(false)
+        setApprovedSnapshot(null)
         setCriteriaVersion(1)
         setUploadedFiles([])
         setCandidates([])
@@ -1146,7 +1189,6 @@ export default function App() {
         if (data.requirements && Array.isArray(data.requirements)) {
           setRequirements(data.requirements)
           if (data.category_weights) setCategoryWeights(data.category_weights)
-          setCriteriaApproved(false)
           showToast('Kriteria berhasil diekstraksi dari JD!', 'success')
           return
         }
@@ -1160,12 +1202,15 @@ export default function App() {
   }
 
   const handleApproveCriteria = async () => {
-    setCriteriaApproved(true)
-    const nextVer = criteriaVersion + 1
+    const nextVer = approvedSnapshot !== null ? criteriaVersion + 1 : criteriaVersion
     setCriteriaVersion(nextVer)
-    if (currentJobId) {
-      try {
-        await fetch(`/api/v1/jobs/${currentJobId}/requirements/import-approved`, {
+    const newSnapshot = createCriteriaSnapshot(requirements, categoryWeights)
+    setApprovedSnapshot(newSnapshot)
+
+    try {
+      const jId = currentJobId || (await ensureJobExists())
+      if (jId) {
+        await fetch(`/api/v1/jobs/${jId}/requirements/import-approved`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
           body: JSON.stringify({
@@ -1175,13 +1220,13 @@ export default function App() {
             status: 'DRAFT',
           }),
         })
-        await fetch(`/api/v1/jobs/${currentJobId}/requirements/approve`, {
+        await fetch(`/api/v1/jobs/${jId}/requirements/approve`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         })
-      } catch (e) {
-        console.warn('Requirements persist error:', e)
       }
+    } catch (e) {
+      console.warn('Requirements persist error:', e)
     }
     showToast(`Kriteria v${nextVer} berhasil disetujui & dikunci!`, 'success')
   }
@@ -1386,6 +1431,9 @@ export default function App() {
                 criteriaApproved={criteriaApproved}
                 criteriaVersion={criteriaVersion}
                 isCompiling={isCompiling}
+                isLocked={isCriteriaLocked}
+                isDirty={isCriteriaDirty}
+                approvedSnapshot={approvedSnapshot}
                 onCompileFromJd={handleCompileFromJd}
                 onApproveCriteria={handleApproveCriteria}
                 onBack={() => setCurrentStep('setup')}
