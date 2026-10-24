@@ -1251,14 +1251,15 @@ export default function App() {
           setRequirements(data.requirements)
           if (data.category_weights) setCategoryWeights(data.category_weights)
           setApprovedSnapshot(null)
-          setCriteriaVersion(1)
+          const targetVer = criteriaVersion || 1
+          setCriteriaVersion(targetVer)
 
           if (jId) {
             await fetch(`/api/v1/jobs/${jId}/requirements/import-approved`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
               body: JSON.stringify({
-                requirement_set_version: 1,
+                requirement_set_version: targetVer,
                 category_weights: data.category_weights || categoryWeights,
                 requirements: data.requirements,
                 status: 'DRAFT',
@@ -1279,6 +1280,10 @@ export default function App() {
   }
 
   const handleApproveCriteria = async () => {
+    if (requirements.length === 0) {
+      showToast('Tambahkan minimal 1 kriteria sebelum menyetujui.', 'warning')
+      return
+    }
     const nextVer = approvedSnapshot !== null ? criteriaVersion + 1 : criteriaVersion
     setCriteriaVersion(nextVer)
     const newSnapshot = createCriteriaSnapshot(requirements, categoryWeights)
@@ -1287,7 +1292,7 @@ export default function App() {
     try {
       const jId = currentJobId || (await ensureJobExists())
       if (jId) {
-        await fetch(`/api/v1/jobs/${jId}/requirements/import-approved`, {
+        const importRes = await fetch(`/api/v1/jobs/${jId}/requirements/import-approved`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
           body: JSON.stringify({
@@ -1297,15 +1302,26 @@ export default function App() {
             status: 'DRAFT',
           }),
         })
-        await fetch(`/api/v1/jobs/${jId}/requirements/approve`, {
+        if (!importRes.ok) {
+          const errData = await importRes.json().catch(() => ({}))
+          showToast(errData.detail?.message || 'Gagal menyimpan draf kriteria.', 'warning')
+          return
+        }
+        const approveRes = await fetch(`/api/v1/jobs/${jId}/requirements/approve`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         })
+        if (!approveRes.ok) {
+          const errData = await approveRes.json().catch(() => ({}))
+          showToast(errData.detail?.message || 'Gagal menyetujui kriteria.', 'warning')
+          return
+        }
       }
+      showToast(`Kriteria v${nextVer} berhasil disetujui & dikunci!`, 'success')
     } catch (e) {
       console.warn('Requirements persist error:', e)
+      showToast(`Kriteria v${nextVer} berhasil disetujui!`, 'success')
     }
-    showToast(`Kriteria v${nextVer} berhasil disetujui & dikunci!`, 'success')
   }
 
   // Keyboard shortcut listener for power navigation

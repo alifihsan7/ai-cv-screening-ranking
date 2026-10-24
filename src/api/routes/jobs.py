@@ -90,13 +90,17 @@ async def get_job_requirements(
 ) -> list[dict]:
     async with get_connection() as conn, conn.cursor() as cur:
         await get_job_for_tenant(cur, job_id, current_user.tenant_id)
-        # Find latest requirement_set for this job
+        # Find latest requirement_set for this job, prioritizing sets with actual criteria
         await cur.execute(
             """
-            SELECT id, status, version, category_weights
-            FROM requirement_sets
-            WHERE job_id = %s AND tenant_id = %s
-            ORDER BY version DESC
+            SELECT rs.id, rs.status, rs.version, rs.category_weights
+            FROM requirement_sets rs
+            LEFT JOIN requirements r ON r.requirement_set_id = rs.id AND r.tenant_id = rs.tenant_id
+            WHERE rs.job_id = %s AND rs.tenant_id = %s
+            GROUP BY rs.id, rs.status, rs.version, rs.category_weights
+            ORDER BY
+                CASE WHEN COUNT(r.id) > 0 THEN 1 ELSE 0 END DESC,
+                rs.version DESC
             LIMIT 1
             """,
             (job_id, current_user.tenant_id),

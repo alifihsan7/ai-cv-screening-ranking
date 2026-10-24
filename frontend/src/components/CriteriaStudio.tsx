@@ -213,7 +213,11 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
   const handleSaveAndContinue = () => {
     if (!isLocked) {
       if (showToast) {
-        showToast('Harap setujui kriteria terlebih dahulu sebelum lanjut ke tahap Unggah CV!', 'warning')
+        if (requirements.length === 0) {
+          showToast('Kriteria lowongan masih kosong. Ekstraksi dari JD atau tambahkan kriteria terlebih dahulu!', 'warning')
+        } else {
+          showToast('Harap setujui kriteria terlebih dahulu sebelum lanjut ke tahap Unggah CV!', 'warning')
+        }
       }
       setShowUnapprovedWarning(true)
       return
@@ -263,7 +267,10 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
 
               <button
                 type="button"
-                onClick={onApproveCriteria}
+                onClick={() => {
+                  setShowUnapprovedWarning(false)
+                  onApproveCriteria()
+                }}
                 disabled={isLocked || prohibitedFlags.length > 0 || totalCategoryWeight !== 100 || requirements.length === 0}
                 title={
                   isLocked
@@ -407,14 +414,61 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
               )}
             </div>
 
-            {/* Empty state bila filter kriteria kosong */}
-            {filteredRequirements.length === 0 && (
+            {/* Empty state: belum ada kriteria sama sekali atau filter kategori kosong */}
+            {requirements.length === 0 ? (
+              <div className="text-center py-10 px-6 border-2 border-dashed border-[#D5DFD9] rounded-2xl bg-[#F5F8F6] flex flex-col items-center justify-center space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-[#EBF1EE] border border-[#D5DFD9] flex items-center justify-center text-[#1B4938] shadow-tactile-sm">
+                  <Layers className="w-6 h-6 text-[#1B4938]" />
+                </div>
+                <div className="max-w-md space-y-1">
+                  <h3 className="text-sm font-bold text-[#13221C]">Belum Ada Kriteria Lowongan</h3>
+                  <p className="text-xs text-[#2D4439] leading-relaxed">
+                    Belum ada kriteria lowongan. Silakan kembali ke Langkah 1 untuk Ekstraksi dari JD, atau klik &apos;Tambah Kriteria Manual&apos;.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={onCompileFromJd}
+                    disabled={isCompiling}
+                    className="h-8 px-3.5 bg-[#1B4938] hover:bg-[#265B46] text-[#FCFDFC] text-xs font-bold rounded-lg flex items-center space-x-1.5 transition-all cursor-pointer shadow-tactile-sm disabled:opacity-50 active:scale-[0.98]"
+                  >
+                    {isCompiling ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-3.5 h-3.5" />
+                    )}
+                    <span>Ekstraksi dari JD</span>
+                  </button>
+                  {onBack && (
+                    <button
+                      type="button"
+                      onClick={onBack}
+                      className="h-8 px-3 bg-[#FCFDFC] hover:bg-[#EBF1EE] border border-[#D5DFD9] text-[#13221C] text-xs font-semibold rounded-lg flex items-center space-x-1 transition-all cursor-pointer shadow-tactile-sm active:scale-[0.98]"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                      <span>Kembali ke Langkah 1</span>
+                    </button>
+                  )}
+                  {!isManualFormOpen && (
+                    <button
+                      type="button"
+                      onClick={() => setIsManualFormOpen(true)}
+                      className="h-8 px-3 bg-[#FCFDFC] hover:bg-[#EBF1EE] border border-[#D5DFD9] text-[#13221C] text-xs font-semibold rounded-lg flex items-center space-x-1.5 transition-all cursor-pointer shadow-tactile-sm active:scale-[0.98]"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-[#1B4938]" />
+                      <span>Tambah Kriteria Manual</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : filteredRequirements.length === 0 ? (
               <div className="text-center py-8 px-4 border border-dashed border-[#D5DFD9] rounded-xl bg-[#F5F8F6]">
                 <p className="text-xs text-[#2D4439] font-medium">
-                  Belum ada kriteria untuk kategori ini. Tambahkan secara manual di atas atau klik &quot;Ekstraksi dari JD&quot;.
+                  Belum ada kriteria untuk kategori ini. Tambahkan secara manual di atas atau pilih filter kategori lainnya.
                 </p>
               </div>
-            )}
+            ) : null}
 
             {/* List Kriteria dengan Dua Dropdown Interaktif */}
             {filteredRequirements.map((r) => {
@@ -711,20 +765,55 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
 
       {/* Unapproved Warning Banner */}
       {showUnapprovedWarning && !isLocked && (
-        <div className="px-4 sm:px-6 py-2.5 bg-[#FEF6E8] border-t border-[#F8D8A7] flex items-center justify-between text-xs text-[#7A3E02] animate-in fade-in duration-150 shrink-0">
-          <div className="flex items-center space-x-2">
+        <div className="px-4 sm:px-6 py-2.5 bg-[#FEF6E8] border-t border-[#F8D8A7] flex flex-wrap items-center justify-between gap-2 text-xs text-[#7A3E02] animate-in fade-in duration-150 shrink-0">
+          <div className="flex items-center space-x-2 flex-1 min-w-[260px]">
             <AlertTriangle className="w-4 h-4 text-[#7A3E02] shrink-0" />
             <span>
-              <strong>Perhatian:</strong> Harap setujui kriteria terlebih dahulu sebelum lanjut ke tahap Unggah CV! Silakan klik tombol <strong>&ldquo;Setujui Kriteria&rdquo;</strong> di bilah atas.
+              {requirements.length === 0 ? (
+                <>
+                  <strong>Kriteria Kosong:</strong> Belum ada kriteria lowongan untuk disetujui. Silakan lakukan <strong>Ekstraksi dari JD</strong> atau kembali ke Langkah 1.
+                </>
+              ) : (
+                <>
+                  <strong>Perhatian:</strong> Harap setujui kriteria terlebih dahulu sebelum lanjut ke tahap Unggah CV! Silakan klik tombol <strong>&ldquo;Setujui Kriteria&rdquo;</strong> di bilah atas.
+                </>
+              )}
             </span>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowUnapprovedWarning(false)}
-            className="text-xs font-bold text-[#7A3E02] hover:text-[#502901] px-2 py-0.5 rounded cursor-pointer transition-colors"
-          >
-            Tutup
-          </button>
+          <div className="flex items-center space-x-2 shrink-0">
+            {requirements.length === 0 && onBack && (
+              <button
+                type="button"
+                onClick={onBack}
+                className="h-7 px-2.5 bg-[#FCFDFC] hover:bg-[#FEF6E8] border border-[#F8D8A7] text-[#7A3E02] text-xs font-bold rounded flex items-center space-x-1 cursor-pointer transition-colors shadow-tactile-sm"
+              >
+                <ChevronLeft className="w-3 h-3" />
+                <span>Kembali ke Langkah 1</span>
+              </button>
+            )}
+            {requirements.length === 0 && (
+              <button
+                type="button"
+                onClick={onCompileFromJd}
+                disabled={isCompiling}
+                className="h-7 px-2.5 bg-[#7A3E02] hover:bg-[#603001] text-[#FCFDFC] text-xs font-bold rounded flex items-center space-x-1 cursor-pointer transition-colors shadow-tactile-sm disabled:opacity-50"
+              >
+                {isCompiling ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Sparkles className="w-3 h-3" />
+                )}
+                <span>Ekstraksi JD</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowUnapprovedWarning(false)}
+              className="text-xs font-bold text-[#7A3E02] hover:text-[#502901] px-2 py-1 rounded cursor-pointer transition-colors"
+            >
+              Tutup
+            </button>
+          </div>
         </div>
       )}
 

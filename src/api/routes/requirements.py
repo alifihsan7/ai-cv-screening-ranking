@@ -183,6 +183,16 @@ async def import_approved_requirements(
                 ),
             )
 
+        # Bersihkan set kosong tanpa kriteria yang memiliki versi lebih tinggi
+        await cur.execute(
+            """
+            DELETE FROM requirement_sets
+            WHERE job_id = %s AND tenant_id = %s AND version > %s
+              AND id NOT IN (SELECT DISTINCT requirement_set_id FROM requirements WHERE tenant_id = %s)
+            """,
+            (job_id, current_user.tenant_id, req.requirement_set_version, current_user.tenant_id),
+        )
+
         await conn.commit()
         return {
             "requirement_set_id": str(actual_set_id),
