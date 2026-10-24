@@ -265,7 +265,10 @@ export default function App() {
 
   const fetchJobCvsStatus = useCallback(
     async (jId: string): Promise<boolean> => {
-      if (!jId) return true
+      if (!jId) {
+        setUploadedFiles([])
+        return true
+      }
       try {
         const res = await fetch(`/api/v1/jobs/${jId}/cvs/status`, {
           headers: { ...getAuthHeaders() },
@@ -293,10 +296,16 @@ export default function App() {
             return rawDocs.every(
               (f: any) => f.status !== 'RECEIVED' && f.status !== 'PROCESSING'
             )
+          } else {
+            setUploadedFiles([])
+            return true
           }
+        } else {
+          setUploadedFiles([])
         }
       } catch (e) {
         console.warn('Error polling status:', e)
+        setUploadedFiles([])
       }
       return false
     },
@@ -348,7 +357,12 @@ export default function App() {
     async (jId?: string, maxAttempts = 1) => {
       try {
         const targetJobId = jId || (await ensureJobExists())
-        if (!targetJobId) return
+        if (!targetJobId) {
+          setCurrentRunId(null)
+          setCandidates([])
+          setSelectedCandidate(null)
+          return
+        }
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
           const res = await fetch(`/api/v1/jobs/${targetJobId}/screenings/latest`, {
             headers: { ...getAuthHeaders() },
@@ -404,7 +418,15 @@ export default function App() {
                 setSelectedCandidate(mappedCandidates[0])
               }
               return
+            } else {
+              setCurrentRunId(null)
+              setCandidates([])
+              setSelectedCandidate(null)
             }
+          } else {
+            setCurrentRunId(null)
+            setCandidates([])
+            setSelectedCandidate(null)
           }
           if (attempt < maxAttempts) {
             await new Promise((res) => setTimeout(res, 800))
@@ -412,6 +434,9 @@ export default function App() {
         }
       } catch (e) {
         console.warn('Leaderboard fetch note:', e)
+        setCurrentRunId(null)
+        setCandidates([])
+        setSelectedCandidate(null)
       }
     },
     [ensureJobExists, getAuthHeaders]
@@ -419,12 +444,17 @@ export default function App() {
 
   const selectJob = useCallback(
     async (jId: string, title?: string) => {
+      stopPollingJobCvs()
       setIsJobLoading(true)
       setCurrentJobId(jId)
       if (title) {
         setJobTitle(title)
         setCurrentJobTitle(title)
       }
+      setUploadedFiles([])
+      setCandidates([])
+      setSelectedCandidate(null)
+      setCurrentRunId(null)
 
       try {
         const headers = { ...getAuthHeaders() }
@@ -439,9 +469,9 @@ export default function App() {
             setJobTitle(data.title)
             setCurrentJobTitle(data.title)
           }
-          if (data.jd_text) setJobDescription(data.jd_text)
-          if (data.location) setJobLocation(data.location)
-          if (data.employment_type) setJobType(data.employment_type)
+          setJobDescription(data.jd_text || '')
+          setJobLocation(data.location || '')
+          setJobType(data.employment_type || 'Full-time')
         }
 
         if (resReq.ok) {
@@ -463,8 +493,12 @@ export default function App() {
             setRequirements(reqList)
             setCriteriaApproved(true)
           } else {
+            setRequirements([])
             setCriteriaApproved(false)
           }
+        } else {
+          setRequirements([])
+          setCriteriaApproved(false)
         }
       } catch (e) {
         console.warn('Error fetching job details:', e)
@@ -488,6 +522,7 @@ export default function App() {
       setJobLocation,
       setJobTitle,
       setJobType,
+      stopPollingJobCvs,
     ]
   )
 
@@ -604,6 +639,32 @@ export default function App() {
         } catch {}
         if (remaining.length > 0) {
           await selectJob(remaining[0].id, remaining[0].title)
+        } else {
+          stopPollingJobCvs()
+          setCurrentJobId(null)
+          setCurrentJobTitle('')
+          setJobTitle('')
+          setJobDescription('')
+          setRequirements([])
+          setCategoryWeights({
+            EXPERIENCE: 40,
+            HARD_SKILLS: 30,
+            EDUCATION_CERT: 15,
+            ACHIEVEMENT: 15,
+          })
+          setCriteriaApproved(false)
+          setCriteriaVersion(1)
+          setUploadedFiles([])
+          setCandidates([])
+          setCurrentRunId(null)
+          setSelectedCandidate(null)
+          setIsInspectorOpen(false)
+          setIsUploadModalOpen(false)
+          setJobLocation('')
+          setJobType('Full-time')
+          setUploadStatusMsg('')
+          setIsJobLoading(false)
+          setCurrentStep('setup')
         }
       }
     } catch (e) {
@@ -614,32 +675,72 @@ export default function App() {
   const handleCreateJob = async () => {
     const title = window.prompt('Masukkan judul lowongan baru:', '')
     if (!title || !title.trim()) return
+    const cleanTitle = title.trim()
     try {
       const res = await fetch('/api/v1/jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({
-          title: title.trim(),
-          jd_text: jobDescription,
-          location: jobLocation || 'Jakarta / Hybrid',
-          employment_type: jobType || 'Full-time',
+          title: cleanTitle,
+          jd_text: '',
+          location: '',
+          employment_type: 'Full-time',
           external_ref: `JD-${Date.now().toString().slice(-6)}`,
         }),
       })
       if (res.ok) {
         const newJob = await res.json()
+        const jobId = newJob.id
+        const finalTitle = newJob.title || cleanTitle
+
+        // Stop background polling of previous job
+        stopPollingJobCvs()
+
+        // 1. Update available jobs dropdown list
         setAvailableJobs((prev) => {
-          const next = [{ id: newJob.id, title: newJob.title, cv_count: 0 }, ...prev]
+          const next = [{ id: jobId, title: finalTitle, cv_count: 0 }, ...prev]
           try {
             localStorage.setItem('cv_screening_available_jobs', JSON.stringify(next))
           } catch {}
           return next
         })
-        await selectJob(newJob.id, newJob.title)
-        showToast(`Lowongan "${title.trim()}" berhasil dibuat.`, 'success')
+
+        // 2. Direct clean purge of previous job state
+        setCurrentJobId(jobId)
+        setJobTitle(finalTitle)
+        setCurrentJobTitle(finalTitle)
+        setJobDescription('')
+        setRequirements([])
+        setCategoryWeights({
+          EXPERIENCE: 40,
+          HARD_SKILLS: 30,
+          EDUCATION_CERT: 15,
+          ACHIEVEMENT: 15,
+        })
+        setCriteriaApproved(false)
+        setCriteriaVersion(1)
+        setUploadedFiles([])
+        setCandidates([])
+        setCurrentRunId(null)
+        setSelectedCandidate(null)
+        setIsInspectorOpen(false)
+        setIsUploadModalOpen(false)
+        setJobLocation('')
+        setJobType('Full-time')
+        setUploadStatusMsg('')
+        setIsJobLoading(false)
+
+        // 3. Immediately direct navigation to Step 1 (Setup)
+        setCurrentStep('setup')
+
+        // 4. Tactile toast notification
+        showToast('Lowongan baru berhasil dibuat. Silakan isi detail di Halaman Setup.', 'success')
+      } else {
+        showToast('Gagal membuat lowongan baru. Silakan coba lagi.', 'warning')
       }
     } catch (e) {
       console.error(e)
+      showToast('Terjadi kesalahan saat membuat lowongan.', 'warning')
     }
   }
 
