@@ -4,14 +4,44 @@ import {
   Eye,
   SlidersHorizontal,
   CheckCircle2,
-  Clock,
-  XCircle,
   AlertTriangle,
   FileText,
   ShieldCheck,
   HelpCircle,
 } from 'lucide-react'
 import type { CandidateDetail, Requirement } from '../types'
+import { CustomSelect, type SelectOption } from './CustomSelect'
+
+const DECISION_OPTIONS: SelectOption[] = [
+  {
+    value: '',
+    label: 'Belum Diputuskan',
+    dotClassName: 'bg-[#8C9B93]',
+    labelClassName: 'text-[#2D4439] font-medium',
+    containerClassName: 'bg-[#FCFDFC] hover:bg-[#F2F5F3] border-[#D5DFD9] text-[#2D4439]',
+  },
+  {
+    value: 'SHORTLIST',
+    label: 'Shortlist',
+    dotClassName: 'bg-[#124B2E]',
+    labelClassName: 'text-[#124B2E] font-bold',
+    containerClassName: 'bg-[#EBF6EF] hover:bg-[#E2F1E7] border-[#BBE5CD] text-[#124B2E]',
+  },
+  {
+    value: 'HOLD',
+    label: 'Hold',
+    dotClassName: 'bg-[#7A3E02]',
+    labelClassName: 'text-[#7A3E02] font-bold',
+    containerClassName: 'bg-[#FEF6E8] hover:bg-[#FBEED7] border-[#F8D8A7] text-[#7A3E02]',
+  },
+  {
+    value: 'TIDAK_LANJUT',
+    label: 'Tidak Lanjut',
+    dotClassName: 'bg-[#8C1819]',
+    labelClassName: 'text-[#8C1819] font-bold',
+    containerClassName: 'bg-[#FCEBEB] hover:bg-[#F9DDDD] border-[#F6C1C1] text-[#8C1819]',
+  },
+]
 
 export interface CandidateRosterProps {
   candidates: CandidateDetail[]
@@ -20,7 +50,10 @@ export interface CandidateRosterProps {
   onSelectCandidate: (candidate: CandidateDetail) => void
   blindMode: boolean
   onToggleBlindMode: () => void
-  onDecision: (cv_id: string, decision: 'SHORTLIST' | 'HOLD' | 'TIDAK_LANJUT') => void
+  onDecision: (
+    cv_id: string,
+    decision?: 'SHORTLIST' | 'HOLD' | 'TIDAK_LANJUT' | 'NONE' | '' | null
+  ) => void
   onRevealCandidate: (cv_id: string) => void
   isInspectorOpen?: boolean
   onOpenInspector: (candidate?: CandidateDetail) => void
@@ -178,39 +211,6 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
     }
   }
 
-  const renderDecisionPill = (c: CandidateDetail) => {
-    if (c.decision === 'SHORTLIST') {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD] shadow-tactile-sm">
-          <span className="w-2 h-2 rounded-full bg-[#124B2E]" />
-          <span>Shortlist</span>
-        </span>
-      )
-    }
-    if (c.decision === 'HOLD') {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-[#FEF6E8] text-[#7A3E02] border border-[#F8D8A7] shadow-tactile-sm">
-          <span className="w-2 h-2 rounded-full bg-[#7A3E02]" />
-          <span>Hold</span>
-        </span>
-      )
-    }
-    if (c.decision === 'TIDAK_LANJUT') {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-[#FCEBEB] text-[#8C1819] border border-[#F6C1C1] shadow-tactile-sm">
-          <span className="w-2 h-2 rounded-full bg-[#8C1819]" />
-          <span>Tidak Lanjut</span>
-        </span>
-      )
-    }
-    return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[#F2F5F3] text-[#2D4439] border border-[#D5DFD9]">
-        <span className="w-2 h-2 rounded-full border border-[#2D4439]/40 bg-transparent" />
-        <span>Belum Diputuskan</span>
-      </span>
-    )
-  }
-
   const renderMustHaveStatus = (c: CandidateDetail) => {
     if (mustHaveReqs.length === 0) {
       return (
@@ -356,7 +356,7 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
       </header>
 
       {/* 2. Full-Width Table / Roster */}
-      <div className="flex-1 overflow-y-auto overflow-x-auto min-h-0">
+      <div className="flex-1 overflow-y-auto overflow-x-auto min-h-0 pb-20">
         {filteredCandidates.length === 0 ? (
           <div className="py-16 px-4 text-center space-y-3 text-[#2D4439]">
             <HelpCircle className="w-10 h-10 mx-auto text-[#2D4439]/40" />
@@ -386,8 +386,8 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
                 <th className="py-2.5 px-4 min-w-[240px] max-w-[360px]">Kandidat & Berkas</th>
                 <th className="py-2.5 px-3.5 w-[160px]">Kualifikasi Wajib</th>
                 <th className="py-2.5 px-3.5 w-[120px] text-right">Skor Fit</th>
-                <th className="py-2.5 px-3.5 w-[140px]">Status Keputusan</th>
-                <th className="py-2.5 px-4 w-[180px] text-right">Aksi Cepat</th>
+                <th className="py-2.5 px-3.5 w-[170px]">Status Keputusan</th>
+                <th className="py-2.5 px-4 w-[110px] text-right">Aksi</th>
               </tr>
             </thead>
 
@@ -474,73 +474,41 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
                       </div>
                     </td>
 
-                    {/* 5. Keputusan Status Pill */}
-                    <td className="py-3 px-3.5 w-[140px]">
-                      {renderDecisionPill(c)}
-                    </td>
-
-                    {/* 6. Aksi Cepat + Inspeksi Button */}
-                    <td className="py-3 px-4 w-[180px] text-right">
+                    {/* 5. Dropdown Status Keputusan */}
+                    <td className="py-3 px-3.5 w-[170px]">
                       <div
-                        className="flex items-center justify-end space-x-1.5"
+                        className="w-[165px]"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        {/* Shortlist [S] Button */}
-                        <button
-                          type="button"
-                          onClick={() => onDecision(c.cv_id, 'SHORTLIST')}
-                          className={`w-7 h-7 rounded-lg border flex items-center justify-center transition-all cursor-pointer shadow-tactile-sm ${
-                            c.decision === 'SHORTLIST'
-                              ? 'bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD]'
-                              : 'bg-[#FCFDFC] hover:bg-[#EBF6EF] text-[#2D4439] hover:text-[#124B2E] border-[#D5DFD9]'
-                          }`}
-                          title="Shortlist (Shortcut: S)"
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                        </button>
+                        <CustomSelect
+                          value={c.decision && c.decision !== 'NONE' ? c.decision : ''}
+                          onChange={(val) => {
+                            onDecision(c.cv_id, val ? (val as 'SHORTLIST' | 'HOLD' | 'TIDAK_LANJUT') : '')
+                          }}
+                          options={DECISION_OPTIONS}
+                          size="sm"
+                          ariaLabel={`Status keputusan untuk ${displayName}`}
+                        />
+                      </div>
+                    </td>
 
-                        {/* Hold [H] Button */}
-                        <button
-                          type="button"
-                          onClick={() => onDecision(c.cv_id, 'HOLD')}
-                          className={`w-7 h-7 rounded-lg border flex items-center justify-center transition-all cursor-pointer shadow-tactile-sm ${
-                            c.decision === 'HOLD'
-                              ? 'bg-[#FEF6E8] text-[#7A3E02] border-[#F8D8A7]'
-                              : 'bg-[#FCFDFC] hover:bg-[#FEF6E8] text-[#2D4439] hover:text-[#7A3E02] border-[#D5DFD9]'
-                          }`}
-                          title="Hold (Shortcut: H)"
-                        >
-                          <Clock className="w-3.5 h-3.5" />
-                        </button>
-
-                        {/* Tolak [X] Button */}
-                        <button
-                          type="button"
-                          onClick={() => onDecision(c.cv_id, 'TIDAK_LANJUT')}
-                          className={`w-7 h-7 rounded-lg border flex items-center justify-center transition-all cursor-pointer shadow-tactile-sm ${
-                            c.decision === 'TIDAK_LANJUT'
-                              ? 'bg-[#FCEBEB] text-[#8C1819] border-[#F6C1C1]'
-                              : 'bg-[#FCFDFC] hover:bg-[#FCEBEB] text-[#2D4439] hover:text-[#8C1819] border-[#D5DFD9]'
-                          }`}
-                          title="Tidak Lanjut / Tolak (Shortcut: X)"
-                        >
-                          <XCircle className="w-3.5 h-3.5" />
-                        </button>
-
-                        <div className="h-4 w-px bg-[#D5DFD9] mx-1" />
-
-                        {/* Inspeksi Forensik Button */}
+                    {/* 6. Aksi Detail / Inspeksi */}
+                    <td className="py-3 px-4 w-[110px] text-right">
+                      <div
+                        className="flex items-center justify-end"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <button
                           type="button"
                           onClick={() => {
                             onSelectCandidate(c)
                             onOpenInspector(c)
                           }}
-                          className="px-2.5 py-1 rounded-lg bg-[#EBF1EE] hover:bg-[#1B4938] text-[#1B4938] hover:text-[#FCFDFC] border border-[#D5DFD9] hover:border-[#1B4938] text-xs font-bold flex items-center space-x-1.5 transition-all shadow-tactile-sm cursor-pointer"
-                          title="Buka Panel Inspeksi Forensik (Enter)"
+                          className="h-8 px-3 rounded-lg bg-[#EBF1EE] hover:bg-[#1B4938] text-[#1B4938] hover:text-[#FCFDFC] border border-[#D5DFD9] hover:border-[#1B4938] text-xs font-bold inline-flex items-center space-x-1.5 transition-all shadow-tactile-sm cursor-pointer active:scale-[0.98]"
+                          title="Buka Panel Inspeksi Detail (Enter)"
                         >
-                          <SlidersHorizontal className="w-3 h-3" />
-                          <span>Inspeksi</span>
+                          <SlidersHorizontal className="w-3.5 h-3.5" />
+                          <span>Detail</span>
                         </button>
                       </div>
                     </td>

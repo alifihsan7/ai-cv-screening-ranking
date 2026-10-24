@@ -778,14 +778,27 @@ export default function App() {
   )
 
   const handleDecision = useCallback(
-    (cv_id: string, decision: 'SHORTLIST' | 'HOLD' | 'TIDAK_LANJUT') => {
+    (
+      cv_id: string,
+      decision?: 'SHORTLIST' | 'HOLD' | 'TIDAK_LANJUT' | 'NONE' | '' | null
+    ) => {
+      const normalizedDecision =
+        !decision || decision === 'NONE' ? undefined : decision
       setCandidates((prev) =>
-        prev.map((c) => (c.cv_id === cv_id ? { ...c, decision } : c))
+        prev.map((c) => (c.cv_id === cv_id ? { ...c, decision: normalizedDecision } : c))
       )
       setSelectedCandidate((prev) =>
-        prev && prev.cv_id === cv_id ? { ...prev, decision } : prev
+        prev && prev.cv_id === cv_id ? { ...prev, decision: normalizedDecision } : prev
       )
-      showToast(`Status kandidat diperbarui -> ${decision}`, 'success')
+      const labelMap: Record<string, string> = {
+        SHORTLIST: 'Shortlist',
+        HOLD: 'Hold',
+        TIDAK_LANJUT: 'Tidak Lanjut',
+      }
+      const label = normalizedDecision
+        ? labelMap[normalizedDecision] || normalizedDecision
+        : 'Belum Diputuskan'
+      showToast(`Status kandidat diperbarui -> ${label}`, 'success')
     },
     [showToast]
   )

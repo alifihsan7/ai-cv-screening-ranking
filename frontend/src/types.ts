@@ -26,7 +26,7 @@ export interface CandidateScore {
   metrics: Record<string, any>
   flags: string[]
   document_reasons?: string[]
-  decision?: 'SHORTLIST' | 'HOLD' | 'TIDAK_LANJUT' | 'NONE'
+  decision?: 'SHORTLIST' | 'HOLD' | 'TIDAK_LANJUT' | 'NONE' | null
   decision_notes?: string
   quality_status?: string
   eligibility_status?: 'ELIGIBLE' | 'NOT_ELIGIBLE' | 'UNKNOWN'

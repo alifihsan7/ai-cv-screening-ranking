@@ -290,8 +290,8 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
                     className="w-full text-xs bg-[#FCFDFC] border border-[#D5DFD9] focus:border-[#1B4938] px-3 py-2 rounded-xl focus:outline-none transition-all shadow-tactile-sm"
                   />
 
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-center">
-                    <div className="sm:col-span-2">
+                  <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+                    <div className="flex-1 min-w-[140px]">
                       <CustomSelect
                         value={newCategory}
                         onChange={setNewCategory}
@@ -301,7 +301,7 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
                       />
                     </div>
 
-                    <div>
+                    <div className="w-auto min-w-[130px]">
                       <CustomSelect
                         value={newImportance}
                         onChange={setNewImportance}
@@ -311,28 +311,26 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
                       />
                     </div>
 
-                    <div className="flex items-center space-x-1.5">
-                      <div className="flex items-center space-x-1 shrink-0 bg-[#FCFDFC] px-2 h-8 rounded-lg border border-[#D5DFD9]">
-                        <span className="text-[10px] font-mono text-[#2D4439]">Bobot:</span>
-                        <input
-                          type="number"
-                          min="1"
-                          max="50"
-                          value={newWeight}
-                          onChange={(e) => setNewWeight(parseInt(e.target.value) || 5)}
-                          className="w-10 text-center text-xs font-mono font-bold bg-transparent focus:outline-none"
-                          title="Bobot (%)"
-                        />
-                        <span className="text-[11px] font-mono text-[#2D4439] font-bold">%</span>
-                      </div>
-
-                      <button
-                        type="submit"
-                        className="h-8 px-3.5 bg-[#1B4938] hover:bg-[#265B46] text-[#FCFDFC] text-xs font-bold rounded-lg shrink-0 transition-all cursor-pointer shadow-tactile-sm active:scale-[0.98]"
-                      >
-                        Tambah
-                      </button>
+                    <div className="flex items-center space-x-1 shrink-0 bg-[#FCFDFC] px-2 h-8 rounded-lg border border-[#D5DFD9]">
+                      <span className="text-[10px] font-mono text-[#2D4439]">Bobot:</span>
+                      <input
+                        type="number"
+                        min="1"
+                        max="50"
+                        value={newWeight}
+                        onChange={(e) => setNewWeight(parseInt(e.target.value) || 5)}
+                        className="w-10 text-center text-xs font-mono font-bold bg-transparent focus:outline-none"
+                        title="Bobot (%)"
+                      />
+                      <span className="text-[11px] font-mono text-[#2D4439] font-bold">%</span>
                     </div>
+
+                    <button
+                      type="submit"
+                      className="h-8 px-4 bg-[#1B4938] hover:bg-[#265B46] text-[#FCFDFC] text-xs font-bold rounded-lg shrink-0 transition-all cursor-pointer shadow-tactile-sm active:scale-[0.98]"
+                    >
+                      Tambah
+                    </button>
                   </div>
                 </form>
               )}
