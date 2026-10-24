@@ -150,10 +150,9 @@ PENDIDIKAN & LATAR BELAKANG:
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE] transition-all duration-150 cursor-pointer border border-transparent hover:border-[#D5DFD9] flex items-center gap-1 text-xs font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938]"
-            title="Tutup Drawer (ESC)"
+            className="p-1.5 rounded-lg text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE] transition-all duration-150 cursor-pointer border border-transparent hover:border-[#D5DFD9] flex items-center justify-center text-xs font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938]"
+            title="Tutup Drawer"
           >
-            <span className="hidden sm:inline text-[10px] text-[#2D4439]/80 font-bold">ESC</span>
             <X className="w-4 h-4" />
           </button>
         </header>

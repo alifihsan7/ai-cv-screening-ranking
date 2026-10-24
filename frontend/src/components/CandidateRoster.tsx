@@ -298,14 +298,14 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
                 ? 'bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD]'
                 : 'bg-[#FCFDFC] text-[#2D4439] hover:text-[#13221C] border-[#D5DFD9]'
             }`}
-            title="Toggle Blind Screening Mode (Shortcut: 'B')"
+            title="Toggle Blind Screening Mode"
           >
             <Eye className="w-3.5 h-3.5" />
             <span>Blind Mode: {blindMode ? 'Aktif' : 'Non-aktif'}</span>
           </button>
         </div>
 
-        {/* Bottom Row: Quick Stats Metric Bar + Keyboard Hints */}
+        {/* Bottom Row: Quick Stats Metric Bar */}
         <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-[#E2E9E5]">
           {/* Quick Stats Metrics Bar */}
           <div className="flex flex-wrap items-center gap-3 text-xs font-mono">
@@ -340,17 +340,6 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
               <ShieldCheck className="w-3 h-3 text-[#124B2E]" />
               {stats.jevVerified} Jev Verified
             </span>
-          </div>
-
-          {/* Keyboard Ergonomics Indicator */}
-          <div className="hidden lg:flex items-center space-x-2 text-[10px] text-[#2D4439] font-mono">
-            <span>[J/K] Navigasi</span>
-            <span>·</span>
-            <span>[Enter] Inspeksi</span>
-            <span>·</span>
-            <span>[S/H/X] Keputusan</span>
-            <span>·</span>
-            <span>[Esc] Tutup</span>
           </div>
         </div>
       </header>
@@ -505,7 +494,7 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
                             onOpenInspector(c)
                           }}
                           className="h-8 px-3 rounded-lg bg-[#EBF1EE] hover:bg-[#1B4938] text-[#1B4938] hover:text-[#FCFDFC] border border-[#D5DFD9] hover:border-[#1B4938] text-xs font-bold inline-flex items-center space-x-1.5 transition-all shadow-tactile-sm cursor-pointer active:scale-[0.98]"
-                          title="Buka Panel Inspeksi Detail (Enter)"
+                          title="Buka Panel Inspeksi Detail"
                         >
                           <SlidersHorizontal className="w-3.5 h-3.5" />
                           <span>Detail</span>
@@ -542,9 +531,7 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
         </div>
 
         <div className="hidden sm:flex items-center space-x-3 text-[11px] text-[#2D4439]/80">
-          <span>
-            Klik baris atau tekan <kbd className="px-1.5 py-0.5 rounded bg-[#EBF1EE] border border-[#D5DFD9] font-bold text-[#13221C]">↵</kbd> untuk inspeksi
-          </span>
+          <span>Klik baris untuk inspeksi</span>
         </div>
       </footer>
     </div>

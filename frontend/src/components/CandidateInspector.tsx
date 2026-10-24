@@ -252,7 +252,7 @@ PENDIDIKAN & LATAR BELAKANG:
                     ? 'bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD] shadow-tactile-sm'
                     : 'text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE]'
                 }`}
-                title="Shortlist (Shortcut: 'S')"
+                title="Shortlist"
               >
                 <CheckCircle2 className="w-3.5 h-3.5 text-[#124B2E]" />
                 <span className="hidden sm:inline">Shortlist</span>
@@ -266,7 +266,7 @@ PENDIDIKAN & LATAR BELAKANG:
                     ? 'bg-[#FEF6E8] text-[#7A3E02] border border-[#F8D8A7] shadow-tactile-sm'
                     : 'text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE]'
                 }`}
-                title="Hold / Talent Pool (Shortcut: 'H')"
+                title="Hold / Talent Pool"
               >
                 <Clock className="w-3.5 h-3.5 text-[#7A3E02]" />
                 <span className="hidden sm:inline">Hold</span>
@@ -280,7 +280,7 @@ PENDIDIKAN & LATAR BELAKANG:
                     ? 'bg-[#FCEBEB] text-[#8C1819] border border-[#F6C1C1] shadow-tactile-sm'
                     : 'text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE]'
                 }`}
-                title="Tidak Lanjut (Shortcut: 'X')"
+                title="Tidak Lanjut"
               >
                 <XCircle className="w-3.5 h-3.5 text-[#8C1819]" />
                 <span className="hidden sm:inline">Tolak</span>
@@ -291,10 +291,9 @@ PENDIDIKAN & LATAR BELAKANG:
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-lg text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE] transition-all duration-150 cursor-pointer border border-transparent hover:border-[#D5DFD9] flex items-center gap-1 text-xs font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938]"
-              title="Tutup Panel Inspeksi (Shortcut: 'Escape')"
+              className="p-1.5 rounded-lg text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE] transition-all duration-150 cursor-pointer border border-transparent hover:border-[#D5DFD9] flex items-center justify-center text-xs font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938]"
+              title="Tutup Panel Inspeksi"
             >
-              <span className="hidden sm:inline text-[10px] text-[#2D4439]/80 font-bold">ESC</span>
               <X className="w-4 h-4" />
             </button>
           </div>

@@ -40,19 +40,7 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
           Pilih Kandidat untuk Membuka Forensic Canvas
         </h3>
         <p className="text-xs text-[#2D4439] max-w-md leading-relaxed">
-          Gunakan panel di sebelah kiri untuk memilih kandidat, atau gunakan shortcut keyboard{' '}
-          <span className="font-mono bg-[#EBF1EE] px-1.5 py-0.5 rounded text-[#13221C] border border-[#D5DFD9] font-bold">
-            [J]
-          </span>{' '}
-          dan{' '}
-          <span className="font-mono bg-[#EBF1EE] px-1.5 py-0.5 rounded text-[#13221C] border border-[#D5DFD9] font-bold">
-            [K]
-          </span>{' '}
-          untuk navigasi cepat, dan{' '}
-          <span className="font-mono bg-[#EBF1EE] px-1.5 py-0.5 rounded text-[#13221C] border border-[#D5DFD9] font-bold">
-            [D]
-          </span>{' '}
-          untuk membuka Audit Drawer.
+          Pilih kandidat di panel sebelah kiri untuk melihat evaluasi forensik dan telemetri verifikasi.
         </p>
       </main>
     )
@@ -117,15 +105,15 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
                 Band {candidate.band}
               </span>
 
-              {/* Tactile Action Button: Buka Audit Jev (D) */}
+              {/* Tactile Action Button: Buka Audit Jev */}
               <button
                 type="button"
                 onClick={() => onOpenAuditDrawer?.('trajectory')}
                 className="bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD] hover:bg-[#DEF0E4] transition-all flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold cursor-pointer shadow-tactile-sm active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938]"
-                title="Buka Slide-Over Audit Telemetri Jev (Shortcut: 'D')"
+                title="Buka Slide-Over Audit Telemetri Jev"
               >
                 <ShieldCheck className="w-3.5 h-3.5 text-[#124B2E]" />
-                <span>Buka Audit Jev (D)</span>
+                <span>Buka Audit Jev</span>
               </button>
             </div>
             <p className="text-[11px] text-[#2D4439] font-mono truncate mt-0.5">
@@ -162,7 +150,7 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
                   ? 'bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD] shadow-tactile-sm'
                   : 'text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE]'
               }`}
-              title="Disarankan untuk tahap wawancara (Shortcut: 'S')"
+              title="Disarankan untuk tahap wawancara"
             >
               <CheckCircle2 className="w-3.5 h-3.5 text-[#124B2E]" />
               <span>Shortlist</span>
@@ -176,7 +164,7 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
                   ? 'bg-[#FEF6E8] text-[#7A3E02] border border-[#F8D8A7] shadow-tactile-sm'
                   : 'text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE]'
               }`}
-              title="Simpan sementara di Talent Pool (Shortcut: 'H')"
+              title="Simpan sementara di Talent Pool"
             >
               <Clock className="w-3.5 h-3.5 text-[#7A3E02]" />
               <span>Hold</span>
@@ -190,7 +178,7 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
                   ? 'bg-[#FCEBEB] text-[#8C1819] border border-[#F6C1C1] shadow-tactile-sm'
                   : 'text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE]'
               }`}
-              title="Tidak lanjut ke tahap berikutnya (Shortcut: 'X')"
+              title="Tidak lanjut ke tahap berikutnya"
             >
               <XCircle className="w-3.5 h-3.5 text-[#8C1819]" />
               <span>Tidak Lanjut</span>

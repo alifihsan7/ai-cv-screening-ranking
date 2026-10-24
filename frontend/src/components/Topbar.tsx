@@ -226,7 +226,7 @@ export const Topbar: React.FC<TopbarProps> = ({
               ? 'bg-[#EBF6EF] border-[#BBE5CD] text-[#124B2E]'
               : 'bg-[#FCFDFC] border-[#D5DFD9] text-[#2D4439] hover:text-[#13221C]'
           }`}
-          title="Pencegahan Bias Demografis & Kognitif (Shortcut: 'B')"
+          title="Pencegahan Bias Demografis & Kognitif"
         >
           {blindMode ? (
             <EyeOff className="w-3.5 h-3.5 text-[#124B2E] shrink-0" />
