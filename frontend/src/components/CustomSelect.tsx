@@ -8,6 +8,10 @@ export interface SelectOption {
   badge?: string
   badgeClassName?: string
   description?: string
+  labelClassName?: string
+  colorClassName?: string
+  dotClassName?: string
+  containerClassName?: string
 }
 
 export interface CustomSelectProps {
@@ -136,7 +140,9 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
         disabled={disabled}
         onClick={() => !disabled && setIsOpen((prev) => !prev)}
         onKeyDown={handleKeyDown}
-        className={`w-full bg-[#FCFDFC] border border-[#D5DFD9] text-[#13221C] flex items-center justify-between transition-all duration-150 cursor-pointer select-none shadow-tactile-sm hover:border-[#1B4938]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] focus-visible:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed ${
+        className={`w-full border flex items-center justify-between transition-all duration-150 cursor-pointer select-none shadow-tactile-sm hover:border-[#1B4938]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] focus-visible:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed ${
+          selectedOption?.containerClassName || 'bg-[#FCFDFC] border-[#D5DFD9]'
+        } ${
           isSmall ? 'h-8 px-2.5 text-xs rounded-lg' : 'h-10 px-3.5 text-sm font-medium rounded-xl'
         } ${isOpen ? 'border-[#1B4938] ring-2 ring-[#1B4938]/15' : ''} ${buttonClassName}`}
       >
@@ -144,7 +150,18 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
           {selectedOption?.icon && (
             <span className="shrink-0 text-[#1B4938]">{selectedOption.icon}</span>
           )}
-          <span className={`truncate ${!selectedOption ? 'text-[#2D4439]/60' : 'font-semibold'}`}>
+          {selectedOption?.dotClassName && (
+            <span className={`w-2 h-2 rounded-full shrink-0 ${selectedOption.dotClassName}`} />
+          )}
+          <span
+            className={`truncate ${
+              !selectedOption
+                ? 'text-[#2D4439]/60'
+                : selectedOption.labelClassName ||
+                  selectedOption.colorClassName ||
+                  'font-semibold text-[#13221C]'
+            }`}
+          >
             {selectedOption ? selectedOption.label : placeholder}
           </span>
           {selectedOption?.badge && (
@@ -175,6 +192,10 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
           {options.map((opt, idx) => {
             const isSelected = opt.value === value
             const isFocused = idx === focusedIndex
+            const labelColor =
+              opt.labelClassName ||
+              opt.colorClassName ||
+              (isSelected ? 'text-[#124B2E] font-bold' : 'text-[#13221C]')
 
             return (
               <li
@@ -187,18 +208,25 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                   buttonRef.current?.focus()
                 }}
                 onMouseEnter={() => setFocusedIndex(idx)}
-                className={`px-3 py-2 rounded-lg text-xs sm:text-sm cursor-pointer flex items-center justify-between transition-colors select-none ${
+                className={`px-3 py-2 rounded-lg text-xs sm:text-sm cursor-pointer flex items-center justify-between transition-colors select-none border ${
                   isSelected
-                    ? 'bg-[#EBF6EF] text-[#124B2E] font-bold'
+                    ? opt.containerClassName
+                      ? `${opt.containerClassName} ${labelColor}`
+                      : 'bg-[#EBF6EF] border-[#BBE5CD] text-[#124B2E] font-bold'
                     : isFocused
-                    ? 'bg-[#EBF1EE] text-[#13221C] font-semibold'
-                    : 'text-[#13221C] hover:bg-[#F2F5F3]'
+                    ? 'bg-[#EBF1EE] border-transparent text-[#13221C] font-semibold'
+                    : 'border-transparent text-[#13221C] hover:bg-[#F2F5F3]'
                 }`}
               >
                 <div className="flex items-center space-x-2 truncate">
                   {opt.icon && <span className="shrink-0">{opt.icon}</span>}
+                  {opt.dotClassName && (
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${opt.dotClassName}`} />
+                  )}
                   <div>
-                    <span className="block truncate">{opt.label}</span>
+                    <span className={`block truncate ${labelColor}`}>
+                      {opt.label}
+                    </span>
                     {opt.description && (
                       <span className="block text-[11px] font-normal text-[#2D4439] mt-0.5">
                         {opt.description}
@@ -217,7 +245,15 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                       {opt.badge}
                     </span>
                   )}
-                  {isSelected && <Check className="w-4 h-4 text-[#124B2E] shrink-0" />}
+                  {isSelected && (
+                    <Check
+                      className={`w-4 h-4 shrink-0 ${
+                        opt.labelClassName || opt.colorClassName
+                          ? 'text-current'
+                          : 'text-[#124B2E]'
+                      }`}
+                    />
+                  )}
                 </div>
               </li>
             )

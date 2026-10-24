@@ -51,20 +51,26 @@ const IMPORTANCE_OPTIONS: SelectOption[] = [
   {
     value: 'MUST_HAVE',
     label: 'Wajib',
-    badge: 'Gugur',
-    badgeClassName: 'bg-[#FCEBEB] text-[#8C1819] border border-[#F6C1C1]',
+    labelClassName: 'text-[#8C1819] font-bold',
+    colorClassName: 'text-[#8C1819] font-bold',
+    dotClassName: 'bg-[#8C1819]',
+    containerClassName: 'bg-[#FCEBEB] border-[#F6C1C1]',
   },
   {
     value: 'STRONG_PREFERENCE',
     label: 'Diutamakan',
-    badge: 'Prioritas',
-    badgeClassName: 'bg-[#FEF6E8] text-[#7A3E02] border border-[#F8D8A7]',
+    labelClassName: 'text-[#7A3E02] font-bold',
+    colorClassName: 'text-[#7A3E02] font-bold',
+    dotClassName: 'bg-[#7A3E02]',
+    containerClassName: 'bg-[#FEF6E8] border-[#F8D8A7]',
   },
   {
     value: 'NICE_TO_HAVE',
     label: 'Nilai Tambah',
-    badge: 'Bonus',
-    badgeClassName: 'bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD]',
+    labelClassName: 'text-[#124B2E] font-bold',
+    colorClassName: 'text-[#124B2E] font-bold',
+    dotClassName: 'bg-[#124B2E]',
+    containerClassName: 'bg-[#EBF6EF] border-[#BBE5CD]',
   },
 ]
 
