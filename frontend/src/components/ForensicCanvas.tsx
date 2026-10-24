@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Clock,
   XCircle,
+  CircleDot,
   Award,
   Eye,
   FileCheck,
@@ -17,7 +18,10 @@ export interface ForensicCanvasProps {
   candidate: CandidateDetail | null
   requirements: Requirement[]
   blindMode: boolean
-  onDecision: (cv_id: string, decision: 'SHORTLIST' | 'HOLD' | 'TIDAK_LANJUT') => void
+  onDecision: (
+    cv_id: string,
+    decision: 'SHORTLIST' | 'HOLD' | 'TIDAK_LANJUT' | 'NONE'
+  ) => void
   onRevealCandidate?: (cv_id: string) => void
   onOpenAuditDrawer?: (tab?: 'trajectory' | 'grounding', quote?: string) => void
 }
@@ -73,28 +77,31 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
       {/* Persistent Canvas Header */}
       <header className="px-5 py-3 border-b border-[#D5DFD9] bg-[#FCFDFC] flex flex-wrap items-center justify-between gap-3 shrink-0 shadow-tactile-sm">
         {/* Candidate Identity + Action Button [ 🛡️ Buka Audit Jev (D) ] */}
-        <div className="flex items-center space-x-3 min-w-0">
+        <div className="flex items-center space-x-3 min-w-0 flex-1">
           <div className="w-9 h-9 rounded-xl bg-[#EBF1EE] border border-[#D5DFD9] flex items-center justify-center font-mono font-bold text-sm text-[#1B4938] shadow-tactile-sm shrink-0">
             #{candidate.rank}
           </div>
-          <div className="min-w-0">
-            <div className="flex items-center space-x-2">
-              <h2 className="text-sm font-bold text-[#13221C] truncate tracking-tight">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center space-x-2 min-w-0">
+              <h2
+                className="text-sm font-bold text-[#13221C] truncate tracking-tight"
+                title={displayName}
+              >
                 {displayName}
               </h2>
               {blindMode && !candidate.revealed && onRevealCandidate && (
                 <button
                   type="button"
                   onClick={() => onRevealCandidate(candidate.cv_id)}
-                  className="h-5 px-1.5 rounded bg-[#F2F5F3] hover:bg-[#EBF1EE] border border-[#D5DFD9] text-[10px] font-semibold text-[#1B4938] flex items-center space-x-1 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#1B4938]"
+                  className="h-5 px-1.5 rounded bg-[#F2F5F3] hover:bg-[#EBF1EE] border border-[#D5DFD9] text-[10px] font-semibold text-[#1B4938] flex items-center space-x-1 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#1B4938] shrink-0"
                   title="Buka Identitas Kandidat (Audit Log)"
                 >
-                  <Eye className="w-2.5 h-2.5" />
+                  <Eye className="w-2.5 h-2.5 shrink-0" />
                   <span>Reveal</span>
                 </button>
               )}
               <span
-                className={`font-mono text-[10px] px-1.5 py-0.2 rounded border font-bold ${
+                className={`font-mono text-[10px] px-1.5 py-0.2 rounded border font-bold shrink-0 ${
                   candidate.band === 'A'
                     ? 'bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD]'
                     : candidate.band === 'B'
@@ -109,16 +116,20 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
               <button
                 type="button"
                 onClick={() => onOpenAuditDrawer?.('trajectory')}
-                className="bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD] hover:bg-[#DEF0E4] transition-all flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold cursor-pointer shadow-tactile-sm active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938]"
+                className="bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD] hover:bg-[#DEF0E4] transition-all flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold cursor-pointer shadow-tactile-sm active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] shrink-0"
                 title="Buka Slide-Over Audit Telemetri Jev"
               >
-                <ShieldCheck className="w-3.5 h-3.5 text-[#124B2E]" />
-                <span>Buka Audit Jev</span>
+                <ShieldCheck className="w-3.5 h-3.5 text-[#124B2E] shrink-0" />
+                <span className="whitespace-nowrap">Buka Audit Jev</span>
               </button>
             </div>
-            <p className="text-[11px] text-[#2D4439] font-mono truncate mt-0.5">
-              {candidate.file_name} •{' '}
-              <span className="text-[#13221C] font-semibold">
+            <p
+              className="text-[11px] text-[#2D4439] font-mono flex items-center gap-1.5 truncate mt-0.5"
+              title={`${candidate.file_name} • ${getDecileText(candidate.final_score)}`}
+            >
+              <span className="truncate">{candidate.file_name}</span>
+              <span className="shrink-0 text-[#8C9B93]">•</span>
+              <span className="shrink-0 text-[#13221C] font-semibold whitespace-nowrap">
                 {getDecileText(candidate.final_score)}
               </span>
             </p>
@@ -126,9 +137,9 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
         </div>
 
         {/* Right Header Area: Total Score Pill + Segmented Tactile Decision Switch */}
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-4 shrink-0">
           {/* Total Score Pill */}
-          <div className="text-right">
+          <div className="text-right shrink-0">
             <div className="text-[10px] font-mono text-[#2D4439] uppercase tracking-wider font-bold">
               Skor Total
             </div>
@@ -138,49 +149,64 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
             </div>
           </div>
 
-          <div className="h-8 w-px bg-[#D5DFD9]" />
+          <div className="h-8 w-px bg-[#D5DFD9] shrink-0" />
 
           {/* Segmented Tactile Decision Switch */}
-          <div className="flex items-center bg-[#F2F5F3] p-1 rounded-xl border border-[#D5DFD9] shadow-tactile-sm">
+          <div className="flex items-center bg-[#F2F5F3] p-1 rounded-xl border border-[#D5DFD9] shadow-tactile-sm shrink-0">
+            {/* Belum Diputuskan */}
+            <button
+              type="button"
+              onClick={() => onDecision(candidate.cv_id, 'NONE')}
+              className={`h-7 px-3 rounded-lg text-xs font-bold transition-all duration-150 flex items-center space-x-1.5 cursor-pointer active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2D4439] shrink-0 ${
+                !candidate.decision || candidate.decision === 'NONE'
+                  ? 'bg-[#EBF1EE] text-[#13221C] border border-[#D5DFD9] shadow-tactile-sm'
+                  : 'text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE] border border-transparent'
+              }`}
+              title="Belum Diputuskan (Status Awal / Reset)"
+            >
+              <CircleDot className="w-3.5 h-3.5 text-[#2D4439] shrink-0" />
+              <span>Belum Diputuskan</span>
+            </button>
+
             <button
               type="button"
               onClick={() => onDecision(candidate.cv_id, 'SHORTLIST')}
-              className={`h-7 px-3 rounded-lg text-xs font-bold transition-all duration-150 flex items-center space-x-1.5 cursor-pointer active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#124B2E] ${
+              className={`h-7 px-3 rounded-lg text-xs font-bold transition-all duration-150 flex items-center space-x-1.5 cursor-pointer active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#124B2E] shrink-0 ${
                 candidate.decision === 'SHORTLIST'
                   ? 'bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD] shadow-tactile-sm'
-                  : 'text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE]'
+                  : 'text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE] border border-transparent'
               }`}
               title="Disarankan untuk tahap wawancara"
             >
-              <CheckCircle2 className="w-3.5 h-3.5 text-[#124B2E]" />
+              <CheckCircle2 className="w-3.5 h-3.5 text-[#124B2E] shrink-0" />
               <span>Shortlist</span>
             </button>
 
             <button
               type="button"
               onClick={() => onDecision(candidate.cv_id, 'HOLD')}
-              className={`h-7 px-3 rounded-lg text-xs font-bold transition-all duration-150 flex items-center space-x-1.5 cursor-pointer active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7A3E02] ${
+              className={`h-7 px-3 rounded-lg text-xs font-bold transition-all duration-150 flex items-center space-x-1.5 cursor-pointer active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7A3E02] shrink-0 ${
                 candidate.decision === 'HOLD'
                   ? 'bg-[#FEF6E8] text-[#7A3E02] border border-[#F8D8A7] shadow-tactile-sm'
-                  : 'text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE]'
+                  : 'text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE] border border-transparent'
               }`}
               title="Simpan sementara di Talent Pool"
             >
-              <Clock className="w-3.5 h-3.5 text-[#7A3E02]" />
+              <Clock className="w-3.5 h-3.5 text-[#7A3E02] shrink-0" />
               <span>Hold</span>
             </button>
 
             <button
               type="button"
               onClick={() => onDecision(candidate.cv_id, 'TIDAK_LANJUT')}
-              className={`h-7 px-3 rounded-lg text-xs font-bold transition-all duration-150 flex items-center space-x-1.5 cursor-pointer active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8C1819] ${
+              className={`h-7 px-3 rounded-lg text-xs font-bold transition-all duration-150 flex items-center space-x-1.5 cursor-pointer active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8C1819] shrink-0 ${
                 candidate.decision === 'TIDAK_LANJUT'
                   ? 'bg-[#FCEBEB] text-[#8C1819] border border-[#F6C1C1] shadow-tactile-sm'
-                  : 'text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE]'
+                  : 'text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE] border border-transparent'
               }`}
               title="Tidak lanjut ke tahap berikutnya"
             >
-              <XCircle className="w-3.5 h-3.5 text-[#8C1819]" />
+              <XCircle className="w-3.5 h-3.5 text-[#8C1819] shrink-0" />
               <span>Tidak Lanjut</span>
             </button>
           </div>

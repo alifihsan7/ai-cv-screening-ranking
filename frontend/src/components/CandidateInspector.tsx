@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Clock,
   XCircle,
+  CircleDot,
   AlertTriangle,
   ChevronRight,
   ChevronDown,
@@ -26,7 +27,10 @@ export interface CandidateInspectorProps {
   candidate: CandidateDetail | null
   requirements: Requirement[]
   blindMode: boolean
-  onDecision: (cv_id: string, decision: 'SHORTLIST' | 'HOLD' | 'TIDAK_LANJUT') => void
+  onDecision: (
+    cv_id: string,
+    decision: 'SHORTLIST' | 'HOLD' | 'TIDAK_LANJUT' | 'NONE'
+  ) => void
   onRevealCandidate?: (cv_id: string) => void
   initialTab?: 'evaluation' | 'trajectory' | 'grounding'
 }
@@ -174,9 +178,9 @@ PENDIDIKAN & LATAR BELAKANG:
         />
       )}
 
-      {/* Slide-over Inspector Panel (Focused 580px / max-w-xl width) */}
+      {/* Slide-over Inspector Panel (Focused 600px / max-w-2xl width) */}
       <aside
-        className={`fixed inset-y-0 right-0 w-full sm:w-[580px] max-w-full sm:max-w-xl z-50 bg-[#FCFDFC] border-l border-[#D5DFD9] shadow-tactile-lg flex flex-col transform transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+        className={`fixed inset-y-0 right-0 w-full sm:w-[600px] max-w-full sm:max-w-2xl z-50 bg-[#FCFDFC] border-l border-[#D5DFD9] shadow-tactile-lg flex flex-col transform transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           isOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'
         }`}
         aria-label="Panel Inspeksi Kandidat"
@@ -184,30 +188,33 @@ PENDIDIKAN & LATAR BELAKANG:
         aria-modal="true"
       >
         {/* Header: Candidate Identity & Segmented Decision Bar */}
-        <header className="px-5 py-3 border-b border-[#D5DFD9] bg-[#FCFDFC] flex flex-wrap items-center justify-between gap-3 shrink-0 shadow-tactile-sm">
+        <header className="px-4 sm:px-5 py-2.5 sm:py-3 border-b border-[#D5DFD9] bg-[#FCFDFC] flex items-center justify-between gap-2.5 sm:gap-3 shrink-0 shadow-tactile-sm">
           {/* Identity */}
-          <div className="flex items-center space-x-3 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-[#EBF1EE] border border-[#D5DFD9] flex items-center justify-center font-mono font-bold text-sm text-[#1B4938] shadow-tactile-sm shrink-0">
+          <div className="flex items-center space-x-2.5 sm:space-x-3 min-w-0 flex-1">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#EBF1EE] border border-[#D5DFD9] flex items-center justify-center font-mono font-bold text-xs sm:text-sm text-[#1B4938] shadow-tactile-sm shrink-0">
               #{candidate.rank}
             </div>
-            <div className="min-w-0">
-              <div className="flex items-center space-x-2">
-                <h2 className="text-sm font-bold text-[#13221C] truncate tracking-tight">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center space-x-1.5 sm:space-x-2 min-w-0">
+                <h2
+                  className="text-xs sm:text-sm font-bold text-[#13221C] truncate tracking-tight"
+                  title={displayName}
+                >
                   {displayName}
                 </h2>
                 {blindMode && !candidate.revealed && onRevealCandidate && (
                   <button
                     type="button"
                     onClick={() => onRevealCandidate(candidate.cv_id)}
-                    className="h-5 px-1.5 rounded bg-[#F2F5F3] hover:bg-[#EBF1EE] border border-[#D5DFD9] text-[10px] font-semibold text-[#1B4938] flex items-center space-x-1 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#1B4938]"
+                    className="h-5 px-1.5 rounded bg-[#F2F5F3] hover:bg-[#EBF1EE] border border-[#D5DFD9] text-[10px] font-semibold text-[#1B4938] flex items-center space-x-1 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#1B4938] shrink-0"
                     title="Buka Identitas Asli Kandidat"
                   >
-                    <Eye className="w-2.5 h-2.5" />
+                    <Eye className="w-2.5 h-2.5 shrink-0" />
                     <span>Reveal</span>
                   </button>
                 )}
                 <span
-                  className={`font-mono text-[10px] px-1.5 py-0.2 rounded border font-bold ${
+                  className={`font-mono text-[10px] px-1.5 py-0.2 rounded border font-bold shrink-0 ${
                     candidate.band === 'A'
                       ? 'bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD]'
                       : candidate.band === 'B'
@@ -218,9 +225,13 @@ PENDIDIKAN & LATAR BELAKANG:
                   Band {candidate.band}
                 </span>
               </div>
-              <p className="text-[11px] text-[#2D4439] font-mono truncate mt-0.5">
-                {candidate.file_name} •{' '}
-                <span className="text-[#13221C] font-semibold">
+              <p
+                className="text-[11px] text-[#2D4439] font-mono flex items-center gap-1.5 truncate mt-0.5"
+                title={`${candidate.file_name} • ${getDecileText(candidate.final_score)}`}
+              >
+                <span className="truncate">{candidate.file_name}</span>
+                <span className="shrink-0 text-[#8C9B93]">•</span>
+                <span className="shrink-0 text-[#13221C] font-semibold whitespace-nowrap">
                   {getDecileText(candidate.final_score)}
                 </span>
               </p>
@@ -228,61 +239,79 @@ PENDIDIKAN & LATAR BELAKANG:
           </div>
 
           {/* Right Header Area: Total Score + Decision Switch + Close Button */}
-          <div className="flex items-center space-x-3 shrink-0">
+          <div className="flex items-center space-x-2 sm:space-x-2.5 shrink-0">
             {/* Skor Total */}
-            <div className="text-right pr-2">
+            <div className="text-right pr-1 sm:pr-1.5 shrink-0">
               <div className="text-[9px] font-mono text-[#2D4439] uppercase tracking-wider font-bold">
                 Skor Fit
               </div>
-              <div className="font-mono tabular-nums font-bold text-base text-[#1B4938] leading-tight">
+              <div className="font-mono tabular-nums font-bold text-sm sm:text-base text-[#1B4938] leading-tight">
                 {candidate.final_score.toFixed(1)}{' '}
                 <span className="text-[10px] text-[#2D4439] font-normal">/ 100</span>
               </div>
             </div>
 
-            <div className="h-7 w-px bg-[#D5DFD9]" />
+            <div className="h-7 w-px bg-[#D5DFD9] shrink-0" />
 
             {/* Segmented Decision Switch */}
-            <div className="flex items-center bg-[#F2F5F3] p-0.5 rounded-xl border border-[#D5DFD9] shadow-tactile-sm">
+            <div className="flex items-center bg-[#F2F5F3] p-0.5 rounded-xl border border-[#D5DFD9] shadow-tactile-sm shrink-0">
+              {/* Belum Diputuskan */}
+              <button
+                type="button"
+                onClick={() => onDecision(candidate.cv_id, 'NONE')}
+                className={`h-7 px-2 rounded-lg text-xs font-bold transition-all duration-150 flex items-center space-x-1 cursor-pointer active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2D4439] shrink-0 ${
+                  !candidate.decision || candidate.decision === 'NONE'
+                    ? 'bg-[#EBF1EE] text-[#13221C] border border-[#D5DFD9] shadow-tactile-sm'
+                    : 'text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE] border border-transparent'
+                }`}
+                title="Belum Diputuskan (Status Awal / Reset)"
+              >
+                <CircleDot className="w-3.5 h-3.5 text-[#2D4439] shrink-0" />
+                <span className="hidden sm:inline">Belum Diputuskan</span>
+              </button>
+
+              {/* Shortlist */}
               <button
                 type="button"
                 onClick={() => onDecision(candidate.cv_id, 'SHORTLIST')}
-                className={`h-7 px-2 sm:px-2.5 rounded-lg text-xs font-bold transition-all duration-150 flex items-center space-x-1 cursor-pointer active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#124B2E] ${
+                className={`h-7 px-2 rounded-lg text-xs font-bold transition-all duration-150 flex items-center space-x-1 cursor-pointer active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#124B2E] shrink-0 ${
                   candidate.decision === 'SHORTLIST'
                     ? 'bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD] shadow-tactile-sm'
-                    : 'text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE]'
+                    : 'text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE] border border-transparent'
                 }`}
                 title="Shortlist"
               >
-                <CheckCircle2 className="w-3.5 h-3.5 text-[#124B2E]" />
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#124B2E] shrink-0" />
                 <span className="hidden sm:inline">Shortlist</span>
               </button>
 
+              {/* Hold */}
               <button
                 type="button"
                 onClick={() => onDecision(candidate.cv_id, 'HOLD')}
-                className={`h-7 px-2 sm:px-2.5 rounded-lg text-xs font-bold transition-all duration-150 flex items-center space-x-1 cursor-pointer active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7A3E02] ${
+                className={`h-7 px-2 rounded-lg text-xs font-bold transition-all duration-150 flex items-center space-x-1 cursor-pointer active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7A3E02] shrink-0 ${
                   candidate.decision === 'HOLD'
                     ? 'bg-[#FEF6E8] text-[#7A3E02] border border-[#F8D8A7] shadow-tactile-sm'
-                    : 'text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE]'
+                    : 'text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE] border border-transparent'
                 }`}
                 title="Hold / Talent Pool"
               >
-                <Clock className="w-3.5 h-3.5 text-[#7A3E02]" />
+                <Clock className="w-3.5 h-3.5 text-[#7A3E02] shrink-0" />
                 <span className="hidden sm:inline">Hold</span>
               </button>
 
+              {/* Tolak */}
               <button
                 type="button"
                 onClick={() => onDecision(candidate.cv_id, 'TIDAK_LANJUT')}
-                className={`h-7 px-2 sm:px-2.5 rounded-lg text-xs font-bold transition-all duration-150 flex items-center space-x-1 cursor-pointer active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8C1819] ${
+                className={`h-7 px-2 rounded-lg text-xs font-bold transition-all duration-150 flex items-center space-x-1 cursor-pointer active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8C1819] shrink-0 ${
                   candidate.decision === 'TIDAK_LANJUT'
                     ? 'bg-[#FCEBEB] text-[#8C1819] border border-[#F6C1C1] shadow-tactile-sm'
-                    : 'text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE]'
+                    : 'text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE] border border-transparent'
                 }`}
                 title="Tidak Lanjut"
               >
-                <XCircle className="w-3.5 h-3.5 text-[#8C1819]" />
+                <XCircle className="w-3.5 h-3.5 text-[#8C1819] shrink-0" />
                 <span className="hidden sm:inline">Tolak</span>
               </button>
             </div>
@@ -291,7 +320,7 @@ PENDIDIKAN & LATAR BELAKANG:
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-lg text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE] transition-all duration-150 cursor-pointer border border-transparent hover:border-[#D5DFD9] flex items-center justify-center text-xs font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938]"
+              className="p-1.5 rounded-lg text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE] transition-all duration-150 cursor-pointer border border-transparent hover:border-[#D5DFD9] flex items-center justify-center text-xs font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] shrink-0"
               title="Tutup Panel Inspeksi"
             >
               <X className="w-4 h-4" />
@@ -300,20 +329,20 @@ PENDIDIKAN & LATAR BELAKANG:
         </header>
 
         {/* Integrated Tab Bar: Evaluasi Forensik · ReAct Trajectory · Kutipan CV */}
-        <div className="px-5 py-2 bg-[#F7FAF8] border-b border-[#D5DFD9] flex items-center justify-between gap-2 shrink-0">
-          <div className="flex items-center space-x-1 bg-[#EBF1EE] p-0.5 rounded-xl border border-[#D5DFD9]">
+        <div className="px-4 sm:px-5 py-2 bg-[#F7FAF8] border-b border-[#D5DFD9] flex items-center justify-between gap-3 shrink-0 overflow-x-auto">
+          <div className="flex items-center space-x-1 bg-[#EBF1EE] p-0.5 rounded-xl border border-[#D5DFD9] shrink-0">
             <button
               type="button"
               onClick={() => setActiveTab('evaluation')}
-              className={`h-7 px-2.5 sm:px-3 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all duration-150 cursor-pointer ${
+              className={`h-7 px-2.5 sm:px-3 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all duration-150 cursor-pointer whitespace-nowrap shrink-0 ${
                 activeTab === 'evaluation'
                   ? 'bg-[#FCFDFC] text-[#1B4938] shadow-tactile-sm font-bold border border-[#D5DFD9]'
-                  : 'text-[#2D4439] hover:text-[#13221C]'
+                  : 'text-[#2D4439] hover:text-[#13221C] border border-transparent'
               }`}
             >
-              <Award className="w-3.5 h-3.5 text-[#1B4938]" />
-              <span>Evaluasi Forensik</span>
-              <span className="font-mono tabular-nums text-[10px] bg-[#EBF1EE] text-[#1B4938] font-bold px-1 rounded">
+              <Award className="w-3.5 h-3.5 text-[#1B4938] shrink-0" />
+              <span className="whitespace-nowrap">Evaluasi Forensik</span>
+              <span className="font-mono tabular-nums text-[10px] bg-[#EBF1EE] text-[#1B4938] font-bold px-1 rounded shrink-0">
                 {requirements.length}
               </span>
             </button>
@@ -321,16 +350,16 @@ PENDIDIKAN & LATAR BELAKANG:
             <button
               type="button"
               onClick={() => setActiveTab('trajectory')}
-              className={`h-7 px-2.5 sm:px-3 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all duration-150 cursor-pointer ${
+              className={`h-7 px-2.5 sm:px-3 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all duration-150 cursor-pointer whitespace-nowrap shrink-0 ${
                 activeTab === 'trajectory'
                   ? 'bg-[#FCFDFC] text-[#1B4938] shadow-tactile-sm font-bold border border-[#D5DFD9]'
-                  : 'text-[#2D4439] hover:text-[#13221C]'
+                  : 'text-[#2D4439] hover:text-[#13221C] border border-transparent'
               }`}
             >
-              <Terminal className="w-3.5 h-3.5 text-[#1B4938]" />
-              <span>ReAct Telemetry</span>
+              <Terminal className="w-3.5 h-3.5 text-[#1B4938] shrink-0" />
+              <span className="whitespace-nowrap">ReAct Telemetry</span>
               {candidate.reasoning_trajectory && candidate.reasoning_trajectory.length > 0 && (
-                <span className="font-mono tabular-nums text-[10px] bg-[#EBF1EE] text-[#124B2E] font-bold px-1 rounded">
+                <span className="font-mono tabular-nums text-[10px] bg-[#EBF1EE] text-[#124B2E] font-bold px-1 rounded shrink-0">
                   {candidate.reasoning_trajectory.length}
                 </span>
               )}
@@ -339,25 +368,25 @@ PENDIDIKAN & LATAR BELAKANG:
             <button
               type="button"
               onClick={() => setActiveTab('grounding')}
-              className={`h-7 px-2.5 sm:px-3 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all duration-150 cursor-pointer ${
+              className={`h-7 px-2.5 sm:px-3 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all duration-150 cursor-pointer whitespace-nowrap shrink-0 ${
                 activeTab === 'grounding'
                   ? 'bg-[#FCFDFC] text-[#1B4938] shadow-tactile-sm font-bold border border-[#D5DFD9]'
-                  : 'text-[#2D4439] hover:text-[#13221C]'
+                  : 'text-[#2D4439] hover:text-[#13221C] border border-transparent'
               }`}
             >
-              <FileText className="w-3.5 h-3.5 text-[#1B4938]" />
-              <span>Kutipan CV (Grounding)</span>
+              <FileText className="w-3.5 h-3.5 text-[#1B4938] shrink-0" />
+              <span className="whitespace-nowrap">Kutipan CV (Grounding)</span>
             </button>
           </div>
 
-          <div className="flex items-center space-x-1.5 text-[10px] font-mono text-[#2D4439] shrink-0">
-            {isJevVerified && (
-              <span className="inline-flex items-center gap-1 font-bold text-[#124B2E] bg-[#EBF6EF] px-1.5 py-0.5 rounded border border-[#BBE5CD]">
-                <ShieldCheck className="w-3 h-3 text-[#124B2E]" />
+          {isJevVerified && (
+            <div className="flex items-center space-x-1.5 text-[10px] font-mono text-[#2D4439] shrink-0">
+              <span className="inline-flex items-center gap-1 font-bold text-[#124B2E] bg-[#EBF6EF] px-1.5 py-0.5 rounded border border-[#BBE5CD] whitespace-nowrap">
+                <ShieldCheck className="w-3 h-3 text-[#124B2E] shrink-0" />
                 <span>Jev Verified</span>
               </span>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Scrollable Inspector Body */}
