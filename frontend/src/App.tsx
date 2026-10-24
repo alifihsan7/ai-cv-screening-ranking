@@ -7,8 +7,7 @@ import { JobSetupStep } from './components/JobSetupStep'
 import { CriteriaStudio } from './components/CriteriaStudio'
 import { UploadStep } from './components/UploadStep'
 import { CandidateRoster } from './components/CandidateRoster'
-import { ForensicCanvas } from './components/ForensicCanvas'
-import { ForensicAuditDrawer } from './components/ForensicAuditDrawer'
+import { CandidateInspector } from './components/CandidateInspector'
 import { UploadModal } from './components/UploadModal'
 
 export default function App() {
@@ -191,22 +190,21 @@ export default function App() {
   const [candidates, setCandidates] = useState<CandidateDetail[]>([])
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateDetail | null>(null)
 
-  // Executive Studio (Option A): Slide-over Audit Drawer state
-  const [isAuditDrawerOpen, setIsAuditDrawerOpen] = useState<boolean>(false)
-  const [auditDrawerInitialTab, setAuditDrawerInitialTab] = useState<'trajectory' | 'grounding'>('trajectory')
-  const [auditDrawerHighlightQuote, setAuditDrawerHighlightQuote] = useState<string | null>(null)
+  // Linear-Style Focused Candidate Inspector state (Option B)
+  const [isInspectorOpen, setIsInspectorOpen] = useState<boolean>(false)
+  const [inspectorInitialTab, setInspectorInitialTab] = useState<'evaluation' | 'trajectory' | 'grounding'>('evaluation')
 
-  const handleOpenAuditDrawer = useCallback(
-    (tab: 'trajectory' | 'grounding' = 'trajectory', quote?: string) => {
-      setAuditDrawerInitialTab(tab)
-      setAuditDrawerHighlightQuote(quote || null)
-      setIsAuditDrawerOpen(true)
+  const handleOpenInspector = useCallback(
+    (cand?: CandidateDetail, tab: 'evaluation' | 'trajectory' | 'grounding' = 'evaluation') => {
+      if (cand) setSelectedCandidate(cand)
+      setInspectorInitialTab(tab)
+      setIsInspectorOpen(true)
     },
     []
   )
 
-  const handleToggleAuditDrawer = useCallback(() => {
-    setIsAuditDrawerOpen((prev) => !prev)
+  const handleCloseInspector = useCallback(() => {
+    setIsInspectorOpen(false)
   }, [])
 
   // Non-blocking Toast notification state
@@ -933,9 +931,9 @@ export default function App() {
       }
 
       if (e.key === 'Escape') {
-        if (isAuditDrawerOpen) {
+        if (isInspectorOpen) {
           e.preventDefault()
-          setIsAuditDrawerOpen(false)
+          setIsInspectorOpen(false)
           return
         }
         if (isUploadModalOpen) setIsUploadModalOpen(false)
@@ -958,6 +956,13 @@ export default function App() {
         if (currentIndex > 0) {
           handleSelectCandidate(candidates[currentIndex - 1])
         }
+      } else if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        if (isInspectorOpen) {
+          setIsInspectorOpen(false)
+        } else if (selectedCandidate) {
+          setIsInspectorOpen(true)
+        }
       } else if (e.key === 's' || e.key === 'S') {
         if (selectedCandidate) {
           e.preventDefault()
@@ -976,9 +981,6 @@ export default function App() {
       } else if (e.key === 'b' || e.key === 'B') {
         e.preventDefault()
         setBlindMode((prev) => !prev)
-      } else if (e.key === 'd' || e.key === 'D') {
-        e.preventDefault()
-        setIsAuditDrawerOpen((prev) => !prev)
       }
     }
 
@@ -990,7 +992,7 @@ export default function App() {
     blindMode,
     currentStep,
     isUploadModalOpen,
-    isAuditDrawerOpen,
+    isInspectorOpen,
     handleDecision,
     handleSelectCandidate,
   ])
@@ -1130,36 +1132,31 @@ export default function App() {
 
         {currentStep === 'workbench' && (
           <div className="flex-1 flex overflow-hidden relative">
-            {/* Panel Kiri (38%): Candidate Roster */}
+            {/* Linear-Style Full-Width Candidate Roster Table */}
             <CandidateRoster
               candidates={candidates}
+              requirements={requirements}
               selectedCandidateId={selectedCandidate?.cv_id || null}
               onSelectCandidate={handleSelectCandidate}
               blindMode={blindMode}
               onToggleBlindMode={() => setBlindMode((prev) => !prev)}
               onDecision={handleDecision}
               onRevealCandidate={handleRevealCandidate}
-              onToggleAuditDrawer={handleToggleAuditDrawer}
+              isInspectorOpen={isInspectorOpen}
+              onOpenInspector={handleOpenInspector}
+              onCloseInspector={handleCloseInspector}
             />
 
-            {/* Panel Kanan (62%): Forensic Canvas */}
-            <ForensicCanvas
+            {/* Focused Candidate Inspector (Slide-over with Progressive Disclosure) */}
+            <CandidateInspector
+              isOpen={isInspectorOpen}
+              onClose={handleCloseInspector}
               candidate={selectedCandidate}
               requirements={requirements}
               blindMode={blindMode}
               onDecision={handleDecision}
               onRevealCandidate={handleRevealCandidate}
-              onOpenAuditDrawer={handleOpenAuditDrawer}
-            />
-
-            {/* Slide-Over Audit Drawer (Option A: Executive Studio) */}
-            <ForensicAuditDrawer
-              isOpen={isAuditDrawerOpen}
-              onClose={() => setIsAuditDrawerOpen(false)}
-              candidate={selectedCandidate}
-              initialTab={auditDrawerInitialTab}
-              highlightedQuote={auditDrawerHighlightQuote}
-              blindMode={blindMode}
+              initialTab={inspectorInitialTab}
             />
           </div>
         )}
