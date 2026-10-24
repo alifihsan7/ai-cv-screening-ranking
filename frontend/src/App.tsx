@@ -286,12 +286,28 @@ export default function App() {
   // Non-blocking Toast notification state
   const [toast, setToast] = useState<{
     message: string
-    type: 'info' | 'warning' | 'success'
+    type: 'info' | 'warning' | 'success' | 'error'
   } | null>(null)
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const showToast = useCallback(
-    (message: string, type: 'info' | 'warning' | 'success' = 'info') => {
+    (arg1: string, arg2?: string) => {
+      let type: 'info' | 'warning' | 'success' | 'error' = 'info'
+      let message = arg1
+
+      const validTypes = ['info', 'warning', 'success', 'error'] as const
+      if (arg2 !== undefined) {
+        if ((validTypes as readonly string[]).includes(arg1)) {
+          type = arg1 as 'info' | 'warning' | 'success' | 'error'
+          message = arg2
+        } else if ((validTypes as readonly string[]).includes(arg2)) {
+          type = arg2 as 'info' | 'warning' | 'success' | 'error'
+          message = arg1
+        } else {
+          message = arg1
+        }
+      }
+
       if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current)
       setToast({ message, type })
       toastTimeoutRef.current = setTimeout(() => {
@@ -1610,7 +1626,9 @@ export default function App() {
           role="status"
           aria-live="polite"
           className={`fixed bottom-5 right-5 z-50 px-4 py-2.5 rounded-xl border shadow-tactile-lg text-xs font-semibold flex items-center space-x-2 transition-all animate-in fade-in slide-in-from-bottom-2 ${
-            toast.type === 'success'
+            toast.type === 'error'
+              ? 'bg-[#FCEBEB] text-[#8C1819] border-[#F6C1C1]'
+              : toast.type === 'success'
               ? 'bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD]'
               : toast.type === 'warning'
               ? 'bg-[#FEF6E8] text-[#7A3E02] border-[#F8D8A7]'

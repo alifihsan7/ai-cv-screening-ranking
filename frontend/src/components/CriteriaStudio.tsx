@@ -42,7 +42,7 @@ export interface CriteriaStudioProps {
   onApproveCriteria: () => void
   onBack?: () => void
   onNext?: () => void
-  showToast?: (msg: string, type?: 'info' | 'success' | 'warning') => void
+  showToast?: (arg1: string, arg2?: string) => void
 }
 
 const CATEGORY_OPTIONS: SelectOption[] = [
@@ -108,8 +108,13 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
   onApproveCriteria,
   onBack,
   onNext,
-  showToast,
+  showToast: propShowToast,
 }) => {
+  const showToast = (arg1: string, arg2?: string) => {
+    if (propShowToast) {
+      propShowToast(arg1, arg2)
+    }
+  }
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('ALL')
   const [isManualFormOpen, setIsManualFormOpen] = useState<boolean>(true)
   const [newDesc, setNewDesc] = useState('')
@@ -224,6 +229,44 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
     )
   }
 
+  const handleApprovalClick = () => {
+    if (isLocked) {
+      showToast(
+        'info',
+        `Kriteria telah disetujui & dikunci resmi (v${criteriaVersion}). Ubah salah satu kriteria atau bobot jika ingin menyetujui versi baru.`
+      )
+      return
+    }
+
+    if (requirements.length === 0) {
+      showToast(
+        'error',
+        'Belum ada kriteria! Tambahkan minimal 1 kriteria manual atau klik "Ekstraksi dari JD".'
+      )
+      return
+    }
+
+    if (prohibitedFlags.length > 0) {
+      showToast(
+        'error',
+        `Terdapat ${prohibitedFlags.length} kriteria yang melanggar aturan anti-bias. Silakan periksa panel Policy Linter dan sesuaikan kriteria tersebut.`
+      )
+      return
+    }
+
+    if (!isWeightValid) {
+      showToast(
+        'error',
+        `Total bobot kategori harus tepat 100% (saat ini ${totalCategoryWeight}%). Silakan sesuaikan bobot pada panel kiri.`
+      )
+      return
+    }
+
+    // Jika semua validasi lolos:
+    setShowUnapprovedWarning(false)
+    onApproveCriteria()
+  }
+
   const handleSaveAndContinue = () => {
     if (!isLocked) {
       if (showToast) {
@@ -281,11 +324,7 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
 
               <button
                 type="button"
-                onClick={() => {
-                  setShowUnapprovedWarning(false)
-                  onApproveCriteria()
-                }}
-                disabled={isLocked || prohibitedFlags.length > 0 || !isWeightValid || requirements.length === 0}
+                onClick={handleApprovalClick}
                 title={
                   isLocked
                     ? `Kriteria telah disetujui & dikunci (v${criteriaVersion}). Lakukan perubahan pada kriteria atau bobot untuk membuka kunci.`
@@ -301,8 +340,8 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
                 }
                 className={
                   isLocked
-                    ? 'h-8 px-3 bg-[#EBF6EF] border border-[#BBE5CD] text-[#124B2E] text-xs font-bold rounded-lg flex items-center space-x-1.5 cursor-not-allowed shadow-none opacity-90 transition-all duration-150'
-                    : 'h-8 px-3 bg-[#1B4938] hover:bg-[#265B46] text-[#FCFDFC] text-xs font-bold rounded-lg flex items-center space-x-1.5 transition-all duration-150 cursor-pointer shadow-tactile-sm disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] active:scale-[0.98]'
+                    ? 'h-8 px-3 bg-[#EBF6EF] hover:bg-[#DDF0E4] border border-[#BBE5CD] text-[#124B2E] text-xs font-bold rounded-lg flex items-center space-x-1.5 cursor-pointer shadow-tactile-sm transition-all duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#124B2E]'
+                    : 'h-8 px-3 bg-[#1B4938] hover:bg-[#265B46] text-[#FCFDFC] text-xs font-bold rounded-lg flex items-center space-x-1.5 transition-all duration-150 cursor-pointer shadow-tactile-sm active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938]'
                 }
               >
                 {isLocked ? (
