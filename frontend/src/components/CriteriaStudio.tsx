@@ -41,10 +41,10 @@ export interface CriteriaStudioProps {
 }
 
 const CATEGORY_OPTIONS: SelectOption[] = [
-  { value: 'EXPERIENCE', label: 'Pengalaman Kerja' },
-  { value: 'HARD_SKILLS', label: 'Hard Skill Teknis' },
-  { value: 'EDUCATION_CERTIFICATION', label: 'Edukasi & Sertifikasi' },
-  { value: 'ACHIEVEMENT_LEADERSHIP', label: 'Soft Skill & Prestasi' },
+  { value: 'EXPERIENCE', label: 'Pengalaman' },
+  { value: 'HARD_SKILLS', label: 'Hard Skill' },
+  { value: 'EDUCATION_CERT', label: 'Pendidikan' },
+  { value: 'ACHIEVEMENT', label: 'Pencapaian' },
 ]
 
 const IMPORTANCE_OPTIONS: SelectOption[] = [
@@ -75,8 +75,8 @@ const IMPORTANCE_OPTIONS: SelectOption[] = [
 ]
 
 const normalizeCategory = (cat: string) => {
-  if (cat === 'EDUCATION_CERT' || cat === 'EDUCATION_CERTIFICATION') return 'EDUCATION_CERTIFICATION'
-  if (cat === 'ACHIEVEMENT' || cat === 'ACHIEVEMENT_LEADERSHIP') return 'ACHIEVEMENT_LEADERSHIP'
+  if (cat === 'EDUCATION_CERT' || cat === 'EDUCATION_CERTIFICATION') return 'EDUCATION_CERT'
+  if (cat === 'ACHIEVEMENT' || cat === 'ACHIEVEMENT_LEADERSHIP') return 'ACHIEVEMENT'
   return cat
 }
 
@@ -232,11 +232,11 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
           {/* Category Pills Filter */}
           <div className="px-5 py-2 border-b border-[#E2E9E5] bg-[#F5F8F6] flex items-center space-x-1.5 shrink-0 overflow-x-auto">
             {[
-              { id: 'ALL', label: 'Semua Kriteria', count: requirements.length },
+              { id: 'ALL', label: 'Semua', count: requirements.length },
               { id: 'EXPERIENCE', label: 'Pengalaman', count: requirements.filter((r) => normalizeCategory(r.category) === 'EXPERIENCE').length },
               { id: 'HARD_SKILLS', label: 'Hard Skill', count: requirements.filter((r) => normalizeCategory(r.category) === 'HARD_SKILLS').length },
-              { id: 'EDUCATION_CERTIFICATION', label: 'Edukasi', count: requirements.filter((r) => normalizeCategory(r.category) === 'EDUCATION_CERTIFICATION').length },
-              { id: 'ACHIEVEMENT_LEADERSHIP', label: 'Soft Skill & Prestasi', count: requirements.filter((r) => normalizeCategory(r.category) === 'ACHIEVEMENT_LEADERSHIP').length },
+              { id: 'EDUCATION_CERT', label: 'Pendidikan', count: requirements.filter((r) => normalizeCategory(r.category) === 'EDUCATION_CERT').length },
+              { id: 'ACHIEVEMENT', label: 'Pencapaian', count: requirements.filter((r) => normalizeCategory(r.category) === 'ACHIEVEMENT').length },
             ].map((cat) => (
               <button
                 key={cat.id}
@@ -519,17 +519,22 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
 
             <div className="space-y-3">
               {[
-                { key: 'EXPERIENCE', label: 'Pengalaman Kerja', color: '#1B4938' },
-                { key: 'HARD_SKILLS', label: 'Hard Skill Teknis', color: '#265B46' },
-                { key: 'EDUCATION_CERT', label: 'Pendidikan & Sertifikasi', color: '#7A3E02' },
-                { key: 'ACHIEVEMENT', label: 'Prestasi & Kepemimpinan', color: '#2D4439' },
+                { key: 'EXPERIENCE', label: 'Pengalaman', code: 'EXPERIENCE', color: '#1B4938' },
+                { key: 'HARD_SKILLS', label: 'Hard Skill', code: 'HARD_SKILLS', color: '#265B46' },
+                { key: 'EDUCATION_CERT', label: 'Pendidikan', code: 'EDUCATION_CERT', color: '#7A3E02' },
+                { key: 'ACHIEVEMENT', label: 'Pencapaian', code: 'ACHIEVEMENT', color: '#2D4439' },
               ].map((cat) => {
                 const val = categoryWeights[cat.key] || 0
                 return (
                   <div key={cat.key} className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-semibold text-[#13221C]">{cat.label}</span>
-                      <div className="flex items-center space-x-1">
+                      <div className="flex items-center space-x-2 min-w-0">
+                        <span className="font-semibold text-[#13221C] truncate">{cat.label}</span>
+                        <span className="font-mono text-[10px] text-[#2D4439] bg-[#EBF1EE] px-1.5 py-0.5 rounded border border-[#D5DFD9] font-medium tracking-tight shrink-0 select-all">
+                          {cat.code}
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-1 shrink-0">
                         <input
                           type="number"
                           min="0"
@@ -541,7 +546,8 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
                               [cat.key]: Math.max(0, Math.min(100, parseInt(e.target.value) || 0)),
                             })
                           }
-                          className="w-12 px-1 py-0.5 text-center font-mono tabular-nums text-xs font-bold bg-[#F5F8F6] border border-[#D5DFD9] rounded-md focus:outline-none focus:border-[#1B4938]"
+                          className="w-12 px-1 py-0.5 text-center font-mono tabular-nums text-xs font-bold bg-[#F5F8F6] border border-[#D5DFD9] rounded-md focus:outline-none focus:border-[#1B4938] transition-colors"
+                          aria-label={`Bobot persentase ${cat.label} (${cat.code})`}
                         />
                         <span className="font-mono text-[11px] text-[#2D4439] font-bold">%</span>
                       </div>

@@ -70,7 +70,7 @@ export const INITIAL_REQUIREMENTS: Requirement[] = [
   {
     requirement_id: 'R7',
     description: 'S1 Teknik Informatika, Ilmu Komputer, Sistem Informasi, atau terkait',
-    category: 'EDUCATION_CERTIFICATION',
+    category: 'EDUCATION_CERT',
     kind: 'EDUCATION',
     importance: 'STRONG_PREFERENCE',
     weight: 10,
@@ -81,7 +81,7 @@ export const INITIAL_REQUIREMENTS: Requirement[] = [
   {
     requirement_id: 'R8',
     description: 'Sertifikasi cloud (AWS, Google Cloud, Azure)',
-    category: 'EDUCATION_CERTIFICATION',
+    category: 'EDUCATION_CERT',
     kind: 'CERTIFICATION',
     importance: 'NICE_TO_HAVE',
     weight: 5,
@@ -92,7 +92,7 @@ export const INITIAL_REQUIREMENTS: Requirement[] = [
   {
     requirement_id: 'R9',
     description: 'Pencapaian terukur di bidang backend (performa, skala, efisiensi)',
-    category: 'ACHIEVEMENT_LEADERSHIP',
+    category: 'ACHIEVEMENT',
     kind: 'ACHIEVEMENT',
     importance: 'NICE_TO_HAVE',
     weight: 5,
@@ -103,7 +103,7 @@ export const INITIAL_REQUIREMENTS: Requirement[] = [
   {
     requirement_id: 'R10',
     description: 'Memimpin atau membimbing tim teknis',
-    category: 'ACHIEVEMENT_LEADERSHIP',
+    category: 'ACHIEVEMENT',
     kind: 'LEADERSHIP',
     importance: 'NICE_TO_HAVE',
     weight: 5,
