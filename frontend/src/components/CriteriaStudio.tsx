@@ -42,6 +42,7 @@ export interface CriteriaStudioProps {
   onApproveCriteria: () => void
   onBack?: () => void
   onNext?: () => void
+  showToast?: (msg: string, type?: 'info' | 'success' | 'warning') => void
 }
 
 const CATEGORY_OPTIONS: SelectOption[] = [
@@ -107,6 +108,7 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
   onApproveCriteria,
   onBack,
   onNext,
+  showToast,
 }) => {
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('ALL')
   const [isManualFormOpen, setIsManualFormOpen] = useState<boolean>(true)
@@ -114,6 +116,7 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
   const [newCategory, setNewCategory] = useState<string>('HARD_SKILLS')
   const [newImportance, setNewImportance] = useState<string>('MUST_HAVE')
   const [newWeight, setNewWeight] = useState<number>(10)
+  const [showUnapprovedWarning, setShowUnapprovedWarning] = useState<boolean>(false)
 
   // Snapshot dirty-checking
   const currentSnapshot = useMemo(() => {
@@ -208,7 +211,15 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
   }
 
   const handleSaveAndContinue = () => {
-    if (isLocked && onNext) {
+    if (!isLocked) {
+      if (showToast) {
+        showToast('Harap setujui kriteria terlebih dahulu sebelum lanjut ke tahap Unggah CV!', 'warning')
+      }
+      setShowUnapprovedWarning(true)
+      return
+    }
+    setShowUnapprovedWarning(false)
+    if (onNext) {
       onNext()
     }
   }
@@ -698,15 +709,34 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
         </div>
       </div>
 
-      {/* Tactile Workflow Navigation Footer */}
-      <footer className="h-12 border-t border-[#D5DFD9] bg-[#FCFDFC] px-4 sm:px-6 flex items-center justify-between shrink-0 shadow-tactile-sm z-10">
+      {/* Unapproved Warning Banner */}
+      {showUnapprovedWarning && !isLocked && (
+        <div className="px-4 sm:px-6 py-2.5 bg-[#FEF6E8] border-t border-[#F8D8A7] flex items-center justify-between text-xs text-[#7A3E02] animate-in fade-in duration-150 shrink-0">
+          <div className="flex items-center space-x-2">
+            <AlertTriangle className="w-4 h-4 text-[#7A3E02] shrink-0" />
+            <span>
+              <strong>Perhatian:</strong> Harap setujui kriteria terlebih dahulu sebelum lanjut ke tahap Unggah CV! Silakan klik tombol <strong>&ldquo;Setujui Kriteria&rdquo;</strong> di bilah atas.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowUnapprovedWarning(false)}
+            className="text-xs font-bold text-[#7A3E02] hover:text-[#502901] px-2 py-0.5 rounded cursor-pointer transition-colors"
+          >
+            Tutup
+          </button>
+        </div>
+      )}
+
+      {/* Footer Status Bar */}
+      <footer className="px-4 sm:px-6 py-2.5 bg-[#FCFDFC] border-t border-[#D5DFD9] flex items-center justify-between shrink-0">
         <button
           type="button"
           onClick={onBack}
-          className="h-8 px-3 text-xs font-semibold text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE] border border-[#D5DFD9] rounded-lg transition-colors flex items-center space-x-1.5 cursor-pointer shadow-tactile-sm active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938]"
+          className="text-xs font-bold text-[#2D4439] hover:text-[#13221C] transition-colors flex items-center space-x-1 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] rounded-lg px-2 py-1"
         >
           <ChevronLeft className="w-3.5 h-3.5" />
-          <span>Kembali ke Setup Lowongan</span>
+          <span>Kembali ke Setup Posisi</span>
         </button>
 
         <div className="hidden md:flex items-center space-x-3 text-xs font-mono">
@@ -742,17 +772,12 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
         <button
           type="button"
           onClick={handleSaveAndContinue}
-          disabled={!isLocked}
           title={
             !isLocked
-              ? 'Setujui kriteria terlebih dahulu sebelum lanjut ke tahap Unggah CV'
+              ? 'Harap setujui kriteria terlebih dahulu sebelum lanjut ke tahap Unggah CV'
               : 'Lanjut ke tahap Unggah Berkas CV'
           }
-          className={`h-8 px-4 text-xs font-bold rounded-lg transition-all flex items-center space-x-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] ${
-            !isLocked
-              ? 'cursor-not-allowed opacity-40 bg-[#E2E9E5] text-[#52665A] border border-[#D5DFD9] shadow-none'
-              : 'cursor-pointer opacity-100 bg-[#1B4938] hover:bg-[#265B46] text-[#FCFDFC] shadow-tactile-sm active:scale-[0.98]'
-          }`}
+          className="h-8 px-4 bg-[#1B4938] hover:bg-[#265B46] text-[#FCFDFC] text-xs font-bold rounded-lg transition-all flex items-center space-x-1.5 cursor-pointer shadow-tactile-sm active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938]"
         >
           <span>Simpan & Lanjut ke Unggah CV</span>
           <ChevronRight className="w-3.5 h-3.5" />

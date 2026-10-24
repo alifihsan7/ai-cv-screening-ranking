@@ -29,6 +29,8 @@ export interface JobSetupStepProps {
   onCompileFromJd: () => Promise<void> | void
   onNext: () => void
   onBlurTitle?: () => void
+  onBlurDetails?: () => void
+  onSelectTemplate?: (tmpl: JobTemplate) => void
 }
 
 const JOB_TYPE_PRESETS = [
@@ -54,6 +56,8 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
   onCompileFromJd,
   onNext,
   onBlurTitle,
+  onBlurDetails,
+  onSelectTemplate,
 }) => {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
 
@@ -63,11 +67,17 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
     setJobLocation(tmpl.location)
     setJobType(tmpl.employmentType)
     setJobDescription(tmpl.jd_text)
+    if (onSelectTemplate) {
+      onSelectTemplate(tmpl)
+    }
   }
 
   const handleExtractAndContinue = async () => {
     if (onBlurTitle) {
       onBlurTitle()
+    }
+    if (onBlurDetails) {
+      onBlurDetails()
     }
     if (onCompileFromJd) {
       await onCompileFromJd()
@@ -244,6 +254,7 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
                   type="text"
                   value={jobLocation}
                   onChange={(e) => setJobLocation(e.target.value)}
+                  onBlur={onBlurDetails}
                   placeholder="Misal: Jakarta / Hybrid, Remote ID"
                   className="w-full px-3.5 py-2 bg-[#FCFDFC] border border-[#D5DFD9] rounded-xl text-sm font-medium text-[#13221C] placeholder-[#2D4439]/50 focus:border-[#1B4938] focus:ring-2 focus:ring-[#1B4938]/15 focus:outline-none transition-all duration-150 shadow-tactile-sm"
                 />
@@ -258,6 +269,7 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
                   type="text"
                   value={jobType}
                   onChange={(e) => setJobType(e.target.value)}
+                  onBlur={onBlurDetails}
                   placeholder="Penuh Waktu (Full-time) / Kontrak"
                   className="w-full px-3.5 py-2 bg-[#FCFDFC] border border-[#D5DFD9] rounded-xl text-sm font-medium text-[#13221C] placeholder-[#2D4439]/50 focus:border-[#1B4938] focus:ring-2 focus:ring-[#1B4938]/15 focus:outline-none transition-all duration-150 shadow-tactile-sm"
                 />
@@ -267,7 +279,10 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
                     <button
                       key={preset}
                       type="button"
-                      onClick={() => setJobType(preset)}
+                      onClick={() => {
+                        setJobType(preset)
+                        if (onBlurDetails) onBlurDetails()
+                      }}
                       className={`text-[11px] px-2 py-0.5 rounded-md border font-medium transition-all duration-150 cursor-pointer ${
                         jobType === preset
                           ? 'bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD] font-bold'
@@ -299,6 +314,7 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
                 rows={10}
                 value={jobDescription}
                 onChange={(e) => setJobDescription(e.target.value)}
+                onBlur={onBlurDetails}
                 placeholder="Tempel atau ketik teks Job Description lengkap di sini (Tanggung Jawab, Kualifikasi Wajib, Kualifikasi Nilai Tambah)..."
                 className="w-full px-3.5 py-3 bg-[#FCFDFC] border border-[#D5DFD9] rounded-xl text-xs sm:text-sm font-mono text-[#13221C] placeholder-[#2D4439]/50 focus:border-[#1B4938] focus:ring-2 focus:ring-[#1B4938]/15 focus:outline-none leading-relaxed transition-all duration-150 shadow-tactile-sm resize-y"
               />
@@ -317,6 +333,7 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
               type="button"
               onClick={() => {
                 if (onBlurTitle) onBlurTitle()
+                if (onBlurDetails) onBlurDetails()
                 onNext()
               }}
               className="text-xs font-bold text-[#2D4439] hover:text-[#13221C] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] rounded-lg px-2 py-1"

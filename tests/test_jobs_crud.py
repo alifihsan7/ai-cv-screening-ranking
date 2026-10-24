@@ -33,14 +33,55 @@ async def test_job_update_rename_and_delete():
         job_id = job_data["id"]
         assert job_data["title"] == "Temporary Test Job for Deletion"
 
-        # 2. Rename the job
+        # 2. Rename and update JD text of the job
         res_patch = await ac.patch(
             f"/api/v1/jobs/{job_id}",
             headers=headers,
-            json={"title": "Renamed Test Job"},
+            json={
+                "title": "Renamed Test Job",
+                "jd_text": "Updated JD Text with deterministic requirements.",
+                "location": "Bandung",
+                "employment_type": "Remote",
+            },
         )
         assert res_patch.status_code == 200
-        assert res_patch.json()["title"] == "Renamed Test Job"
+        patched_data = res_patch.json()
+        assert patched_data["title"] == "Renamed Test Job"
+        assert patched_data["jd_text"] == "Updated JD Text with deterministic requirements."
+        assert patched_data["location"] == "Bandung"
+        assert patched_data["employment_type"] == "Remote"
+
+        # Verify GET returns updated jd_text
+        res_get = await ac.get(f"/api/v1/jobs/{job_id}", headers=headers)
+        assert res_get.status_code == 200
+        assert res_get.json()["jd_text"] == "Updated JD Text with deterministic requirements."
+
+        # Import draft requirements and check X-Requirements-Status header
+        res_import = await ac.post(
+            f"/api/v1/jobs/{job_id}/requirements/import-approved",
+            headers=headers,
+            json={
+                "requirement_set_version": 1,
+                "category_weights": {"HARD_SKILLS": 100},
+                "requirements": [
+                    {
+                        "requirement_id": "R1",
+                        "description": "Python mastery",
+                        "category": "HARD_SKILLS",
+                        "kind": "SKILL",
+                        "importance": "MUST_HAVE",
+                        "weight": 10.0,
+                    }
+                ],
+                "status": "DRAFT",
+            },
+        )
+        assert res_import.status_code == 201
+        assert res_import.json()["status"] == "DRAFT"
+
+        res_reqs = await ac.get(f"/api/v1/jobs/{job_id}/requirements", headers=headers)
+        assert res_reqs.status_code == 200
+        assert res_reqs.headers.get("X-Requirements-Status") == "DRAFT"
 
         # 3. Delete the job
         res_del = await ac.delete(f"/api/v1/jobs/{job_id}", headers=headers)

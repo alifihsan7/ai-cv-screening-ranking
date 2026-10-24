@@ -109,7 +109,9 @@ async def get_job_requirements(
             response.headers["X-Category-Weights"] = json.dumps(rs["category_weights"])
         if rs.get("version"):
             response.headers["X-Requirements-Version"] = str(rs["version"])
-        response.headers["Access-Control-Expose-Headers"] = "X-Category-Weights, X-Requirements-Version"
+        if rs.get("status"):
+            response.headers["X-Requirements-Status"] = str(rs["status"])
+        response.headers["Access-Control-Expose-Headers"] = "X-Category-Weights, X-Requirements-Version, X-Requirements-Status"
 
         await cur.execute(
             """
@@ -200,7 +202,7 @@ async def update_job(
     async with get_connection() as conn, conn.cursor() as cur:
         await cur.execute(
             """
-            SELECT id, tenant_id, title, status, location, employment_type, external_ref, created_at
+            SELECT id, tenant_id, title, jd_text, status, location, employment_type, external_ref, created_at
             FROM jobs
             WHERE id = %s AND tenant_id = %s
             """,
@@ -224,6 +226,9 @@ async def update_job(
         if req.status is not None:
             updates.append("status = %s")
             params.append(req.status.strip())
+        if req.jd_text is not None:
+            updates.append("jd_text = %s")
+            params.append(req.jd_text)
 
         if updates:
             params.extend([job_id, current_user.tenant_id])
@@ -232,7 +237,7 @@ async def update_job(
                 UPDATE jobs
                 SET {", ".join(updates)}
                 WHERE id = %s AND tenant_id = %s
-                RETURNING id, tenant_id, title, status, location, employment_type, external_ref, created_at
+                RETURNING id, tenant_id, title, status, location, employment_type, external_ref, jd_text, created_at
                 """,
                 tuple(params),
             )
@@ -256,6 +261,7 @@ async def update_job(
             location=row["location"],
             employment_type=row["employment_type"],
             external_ref=row["external_ref"],
+            jd_text=row.get("jd_text"),
             created_at=row["created_at"],
             cv_count=cv_count,
         )

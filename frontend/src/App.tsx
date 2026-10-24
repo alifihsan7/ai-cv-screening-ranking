@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import type { CandidateDetail, Requirement, WorkflowStep, UploadedCvFile } from './types'
+import type { JobTemplate } from './jobTemplates'
 import { MOCK_CANDIDATES } from './mockData'
 import { Topbar } from './components/Topbar'
 import { WorkflowStepper } from './components/WorkflowStepper'
@@ -112,6 +113,11 @@ export default function App() {
   const [jobLocation, setJobLocationState] = useState(
     () => getCleanCachedValue('cv_screening_job_location', ['Jakarta / Hybrid'])
   )
+  const jobLocationRef = useRef(jobLocation)
+  useEffect(() => {
+    jobLocationRef.current = jobLocation
+  }, [jobLocation])
+
   const setJobLocation = useCallback((val: string) => {
     setJobLocationState(val)
     try {
@@ -122,6 +128,11 @@ export default function App() {
   const [jobType, setJobTypeState] = useState(
     () => getCleanCachedValue('cv_screening_job_type', ['Penuh Waktu (Full-time)'])
   )
+  const jobTypeRef = useRef(jobType)
+  useEffect(() => {
+    jobTypeRef.current = jobType
+  }, [jobType])
+
   const setJobType = useCallback((val: string) => {
     setJobTypeState(val)
     try {
@@ -132,6 +143,11 @@ export default function App() {
   const [jobDescription, setJobDescriptionState] = useState(
     () => getCleanCachedValue('cv_screening_job_description')
   )
+  const jobDescriptionRef = useRef(jobDescription)
+  useEffect(() => {
+    jobDescriptionRef.current = jobDescription
+  }, [jobDescription])
+
   const setJobDescription = useCallback((val: string) => {
     setJobDescriptionState(val)
     try {
@@ -505,6 +521,37 @@ export default function App() {
     return ''
   }, [currentJobId, getAuthHeaders])
 
+  const syncJobDetailsToBackend = useCallback(async (loc: string, typ: string, jd: string) => {
+    try {
+      const jId = currentJobIdRef.current || (await ensureJobExists())
+      if (jId) {
+        await fetch(`/api/v1/jobs/${jId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+          body: JSON.stringify({
+            location: loc,
+            employment_type: typ,
+            jd_text: jd,
+          }),
+        })
+      }
+    } catch (err) {
+      console.warn('Sync job details error:', err)
+    }
+  }, [ensureJobExists, getAuthHeaders])
+
+  const handleBlurDetails = useCallback(() => {
+    syncJobDetailsToBackend(
+      jobLocationRef.current,
+      jobTypeRef.current,
+      jobDescriptionRef.current
+    )
+  }, [syncJobDetailsToBackend])
+
+  const handleSelectTemplate = useCallback((tmpl: JobTemplate) => {
+    syncJobDetailsToBackend(tmpl.location, tmpl.employmentType, tmpl.jd_text)
+  }, [syncJobDetailsToBackend])
+
   const fetchLatestLeaderboard = useCallback(
     async (jId?: string, maxAttempts = 1) => {
       try {
@@ -643,6 +690,7 @@ export default function App() {
           const reqList = await resReq.json()
           const catWeightsHdr = resReq.headers.get('X-Category-Weights')
           const verHdr = resReq.headers.get('X-Requirements-Version')
+          const statusHdr = resReq.headers.get('X-Requirements-Status')
           let activeWeights = categoryWeights
           if (catWeightsHdr) {
             try {
@@ -658,7 +706,11 @@ export default function App() {
           if (verHdr) setCriteriaVersion(parseInt(verHdr) || 1)
           if (Array.isArray(reqList) && reqList.length > 0) {
             setRequirements(reqList)
-            setApprovedSnapshot(createCriteriaSnapshot(reqList, activeWeights))
+            if (statusHdr === 'APPROVED') {
+              setApprovedSnapshot(createCriteriaSnapshot(reqList, activeWeights))
+            } else {
+              setApprovedSnapshot(null)
+            }
           } else {
             setRequirements([])
             setApprovedSnapshot(null)
@@ -1179,6 +1231,15 @@ export default function App() {
     if (!jobDescription.trim()) return
     setIsCompiling(true)
     try {
+      const jId = currentJobId || (await ensureJobExists())
+      if (jId) {
+        await fetch(`/api/v1/jobs/${jId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+          body: JSON.stringify({ jd_text: jobDescription }),
+        })
+      }
+
       const res = await fetch('/api/v1/requirements/compile-preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
@@ -1191,6 +1252,20 @@ export default function App() {
           if (data.category_weights) setCategoryWeights(data.category_weights)
           setApprovedSnapshot(null)
           setCriteriaVersion(1)
+
+          if (jId) {
+            await fetch(`/api/v1/jobs/${jId}/requirements/import-approved`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+              body: JSON.stringify({
+                requirement_set_version: 1,
+                category_weights: data.category_weights || categoryWeights,
+                requirements: data.requirements,
+                status: 'DRAFT',
+              }),
+            })
+          }
+
           showToast('Kriteria berhasil diekstraksi dari JD!', 'success')
           return
         }
@@ -1401,6 +1476,8 @@ export default function App() {
             isLoading={isJobLoading}
             onCompileFromJd={handleCompileFromJd}
             onBlurTitle={handleBlurTitle}
+            onBlurDetails={handleBlurDetails}
+            onSelectTemplate={handleSelectTemplate}
             onNext={() => {
               if (debounceTitleTimerRef.current) {
                 clearTimeout(debounceTitleTimerRef.current)
@@ -1408,6 +1485,7 @@ export default function App() {
               if (jobTitleRef.current.trim() && currentJobIdRef.current) {
                 syncJobTitleToBackend(jobTitleRef.current.trim())
               }
+              handleBlurDetails()
               setCurrentStep('criteria')
             }}
           />
@@ -1436,6 +1514,7 @@ export default function App() {
                 isLocked={isCriteriaLocked}
                 isDirty={isCriteriaDirty}
                 approvedSnapshot={approvedSnapshot}
+                showToast={showToast}
                 onCompileFromJd={handleCompileFromJd}
                 onApproveCriteria={handleApproveCriteria}
                 onBack={() => setCurrentStep('setup')}

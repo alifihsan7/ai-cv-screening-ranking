@@ -73,6 +73,7 @@ class JobUpdate(BaseModel):
     location: str | None = None
     employment_type: str | None = None
     status: str | None = None
+    jd_text: str | None = None
 
 
 class JobResponse(BaseModel):

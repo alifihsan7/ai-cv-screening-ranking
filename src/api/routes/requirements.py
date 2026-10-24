@@ -121,14 +121,20 @@ async def import_approved_requirements(
         await get_job_for_tenant(cur, job_id, current_user.tenant_id)
 
         set_id = uuid.uuid4()
+        target_status = (req.status or "APPROVED").upper()
+        approved_by = current_user.id if target_status == "APPROVED" else None
+
         await cur.execute(
             """
             INSERT INTO requirement_sets (
                 id, tenant_id, job_id, version, status, category_weights, approved_by, approved_at
             )
-            VALUES (%s, %s, %s, %s, 'APPROVED', %s, %s, now())
+            VALUES (%s, %s, %s, %s, %s, %s, %s, CASE WHEN %s = 'APPROVED' THEN now() ELSE NULL END)
             ON CONFLICT (job_id, version) DO UPDATE SET
-                status = 'APPROVED', category_weights = EXCLUDED.category_weights, approved_at = now()
+                status = EXCLUDED.status,
+                category_weights = EXCLUDED.category_weights,
+                approved_at = CASE WHEN EXCLUDED.status = 'APPROVED' THEN now() ELSE NULL END,
+                approved_by = CASE WHEN EXCLUDED.status = 'APPROVED' THEN EXCLUDED.approved_by ELSE NULL END
             RETURNING id, version, status
             """,
             (
@@ -136,8 +142,10 @@ async def import_approved_requirements(
                 current_user.tenant_id,
                 job_id,
                 req.requirement_set_version,
+                target_status,
                 json.dumps(req.category_weights),
-                current_user.id,
+                approved_by,
+                target_status,
             ),
         )
         set_row = await cur.fetchone()
@@ -179,7 +187,7 @@ async def import_approved_requirements(
         return {
             "requirement_set_id": str(actual_set_id),
             "version": req.requirement_set_version,
-            "status": "APPROVED",
+            "status": set_row["status"],
             "total_requirements": len(req.requirements),
         }
 
