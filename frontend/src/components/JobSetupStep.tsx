@@ -30,6 +30,13 @@ export interface JobSetupStepProps {
   onNext: () => void
 }
 
+const JOB_TYPE_PRESETS = [
+  'Penuh Waktu (Full-time)',
+  'Kontrak (Contract)',
+  'Paruh Waktu (Part-time)',
+  'Remote / Hybrid',
+]
+
 export const JobSetupStep: React.FC<JobSetupStepProps> = ({
   jobTitle,
   setJobTitle,
@@ -88,11 +95,11 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
             <div className="mt-6 bg-[#F5F8F6] border border-[#D5DFD9] rounded-xl p-4 sm:p-5 shadow-tactile-sm">
               <div className="h-4 w-48 bg-[#E2E9E5] rounded animate-pulse mb-3" />
               <div className="flex flex-wrap gap-2">
-                <div className="h-7.5 w-28 bg-[#E2E9E5] rounded-lg animate-pulse" />
-                <div className="h-7.5 w-32 bg-[#E2E9E5] rounded-lg animate-pulse" />
-                <div className="h-7.5 w-24 bg-[#E2E9E5] rounded-lg animate-pulse" />
-                <div className="h-7.5 w-36 bg-[#E2E9E5] rounded-lg animate-pulse" />
-                <div className="h-7.5 w-28 bg-[#E2E9E5] rounded-lg animate-pulse" />
+                <div className="h-8 w-28 bg-[#E2E9E5] rounded-lg animate-pulse" />
+                <div className="h-8 w-32 bg-[#E2E9E5] rounded-lg animate-pulse" />
+                <div className="h-8 w-24 bg-[#E2E9E5] rounded-lg animate-pulse" />
+                <div className="h-8 w-36 bg-[#E2E9E5] rounded-lg animate-pulse" />
+                <div className="h-8 w-28 bg-[#E2E9E5] rounded-lg animate-pulse" />
               </div>
             </div>
 
@@ -131,6 +138,9 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
     )
   }
 
+  const lineCount = jobDescription ? jobDescription.split('\n').filter(Boolean).length : 0
+  const charCount = jobDescription ? jobDescription.length : 0
+
   return (
     <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-[#F2F5F3]">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -143,26 +153,26 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
               </div>
               <div>
                 <div className="flex items-center space-x-2">
-                  <span className="font-mono text-[11px] font-bold text-[#1B6C47] uppercase tracking-wider bg-[#EBF6EF] px-2 py-0.5 rounded border border-[#BBE5CD]">
+                  <span className="font-mono text-[11px] font-bold text-[#124B2E] uppercase tracking-wider bg-[#EBF6EF] px-2 py-0.5 rounded border border-[#BBE5CD]">
                     Tahap 1 dari 4
                   </span>
                   <h1 className="text-lg sm:text-xl font-bold text-[#13221C] tracking-tight">
                     Setup Lowongan Kerja
                   </h1>
                 </div>
-                <p className="text-xs sm:text-sm text-[#40564D] mt-1">
+                <p className="text-xs sm:text-sm text-[#2D4439] mt-1">
                   Tentukan profil posisi kerja dan masukkan teks deskripsi lowongan (JD). Sistem AI akan mengekstrak kriteria kompetensi deterministik secara otomatis.
                 </p>
               </div>
             </div>
 
             <div className="flex sm:flex-col items-center sm:items-end justify-between shrink-0 text-xs">
-              <span className="text-[#40564D] text-[11px]">Status Kriteria:</span>
+              <span className="text-[#2D4439] text-[11px] font-medium">Status Kriteria:</span>
               <span
-                className={`font-mono text-[11px] font-semibold px-2 py-0.5 rounded border ${
+                className={`font-mono text-[11px] font-bold px-2.5 py-0.5 rounded-md border mt-0.5 tabular-nums ${
                   criteriaApproved
-                    ? 'bg-[#EBF6EF] text-[#1B6C47] border-[#BBE5CD]'
-                    : 'bg-[#FEF6E8] text-[#8A4C05] border-[#F8D8A7]'
+                    ? 'bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD]'
+                    : 'bg-[#FEF6E8] text-[#7A3E02] border-[#F8D8A7]'
                 }`}
               >
                 {criteriaApproved ? `Disetujui (v${criteriaVersion})` : 'Draf Baru'}
@@ -177,7 +187,7 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
                 <BookmarkCheck className="w-4 h-4 text-[#1B4938]" />
                 <span>Pilih Template Peran Standar Industri:</span>
               </span>
-              <span className="text-[11px] text-[#40564D] font-medium hidden sm:inline">
+              <span className="text-[11px] text-[#2D4439] font-medium hidden sm:inline">
                 Klik untuk mengisi otomatis seluruh field & kualifikasi teknis
               </span>
             </div>
@@ -189,9 +199,9 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
                     key={tmpl.id}
                     type="button"
                     onClick={() => handleApplyTemplate(tmpl)}
-                    className={`text-xs px-3 py-1.5 rounded-lg border font-semibold transition-all cursor-pointer shadow-tactile-sm flex items-center space-x-1.5 active:scale-98 ${
+                    className={`text-xs px-3 py-1.5 rounded-lg border font-semibold transition-all duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer shadow-tactile-sm flex items-center space-x-1.5 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] focus-visible:ring-offset-1 ${
                       isSelected
-                        ? 'bg-[#1B4938] text-[#FCFDFC] border-[#1B4938]'
+                        ? 'bg-[#1B4938] text-[#FCFDFC] border-[#1B4938] font-bold ring-1 ring-[#1B4938]'
                         : 'bg-[#FCFDFC] border-[#D5DFD9] text-[#13221C] hover:text-[#1B4938] hover:border-[#1B4938]/40 hover:bg-[#EBF1EE]'
                     }`}
                   >
@@ -207,21 +217,21 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
           <div className="mt-6 space-y-5">
             <div>
               <label className="block text-xs font-bold text-[#13221C] mb-1.5">
-                Judul Posisi Pekerjaan <span className="text-[#9E2A2B]">*</span>
+                Judul Posisi Pekerjaan <span className="text-[#8C1819] font-bold">*</span>
               </label>
               <input
                 type="text"
                 value={jobTitle}
                 onChange={(e) => setJobTitle(e.target.value)}
                 placeholder="Misal: Senior Backend Engineer / AI Research Engineer"
-                className="w-full px-3.5 py-2.5 bg-[#FCFDFC] border border-[#D5DFD9] rounded-xl text-sm font-medium text-[#13221C] placeholder-[#40564D]/50 focus:border-[#1B4938] focus:ring-2 focus:ring-[#1B4938]/15 focus:outline-none transition-all shadow-tactile-sm"
+                className="w-full px-3.5 py-2.5 bg-[#FCFDFC] border border-[#D5DFD9] rounded-xl text-sm font-semibold text-[#13221C] placeholder-[#2D4439]/50 focus:border-[#1B4938] focus:ring-2 focus:ring-[#1B4938]/15 focus:outline-none transition-all duration-150 shadow-tactile-sm"
               />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-[#13221C] mb-1.5 flex items-center space-x-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-[#40564D]" />
+                  <MapPin className="w-3.5 h-3.5 text-[#2D4439]" />
                   <span>Lokasi Penempatan</span>
                 </label>
                 <input
@@ -229,13 +239,13 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
                   value={jobLocation}
                   onChange={(e) => setJobLocation(e.target.value)}
                   placeholder="Misal: Jakarta / Hybrid, Remote ID"
-                  className="w-full px-3.5 py-2 bg-[#FCFDFC] border border-[#D5DFD9] rounded-xl text-sm font-medium text-[#13221C] placeholder-[#40564D]/50 focus:border-[#1B4938] focus:ring-2 focus:ring-[#1B4938]/15 focus:outline-none transition-all shadow-tactile-sm"
+                  className="w-full px-3.5 py-2 bg-[#FCFDFC] border border-[#D5DFD9] rounded-xl text-sm font-medium text-[#13221C] placeholder-[#2D4439]/50 focus:border-[#1B4938] focus:ring-2 focus:ring-[#1B4938]/15 focus:outline-none transition-all duration-150 shadow-tactile-sm"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-[#13221C] mb-1.5 flex items-center space-x-1.5">
-                  <Clock className="w-3.5 h-3.5 text-[#40564D]" />
+                  <Clock className="w-3.5 h-3.5 text-[#2D4439]" />
                   <span>Tipe Pekerjaan</span>
                 </label>
                 <input
@@ -243,19 +253,40 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
                   value={jobType}
                   onChange={(e) => setJobType(e.target.value)}
                   placeholder="Penuh Waktu (Full-time) / Kontrak"
-                  className="w-full px-3.5 py-2 bg-[#FCFDFC] border border-[#D5DFD9] rounded-xl text-sm font-medium text-[#13221C] placeholder-[#40564D]/50 focus:border-[#1B4938] focus:ring-2 focus:ring-[#1B4938]/15 focus:outline-none transition-all shadow-tactile-sm"
+                  className="w-full px-3.5 py-2 bg-[#FCFDFC] border border-[#D5DFD9] rounded-xl text-sm font-medium text-[#13221C] placeholder-[#2D4439]/50 focus:border-[#1B4938] focus:ring-2 focus:ring-[#1B4938]/15 focus:outline-none transition-all duration-150 shadow-tactile-sm"
                 />
+                {/* Preset Chips */}
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {JOB_TYPE_PRESETS.map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setJobType(preset)}
+                      className={`text-[11px] px-2 py-0.5 rounded-md border font-medium transition-all duration-150 cursor-pointer ${
+                        jobType === preset
+                          ? 'bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD] font-bold'
+                          : 'bg-[#FCFDFC] text-[#2D4439] border-[#D5DFD9] hover:bg-[#F2F5F3]'
+                      }`}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-xs font-bold text-[#13221C]">
-                  Deskripsi Pekerjaan (Job Description) <span className="text-[#9E2A2B]">*</span>
+                  Deskripsi Pekerjaan (Job Description) <span className="text-[#8C1819] font-bold">*</span>
                 </label>
-                <span className="text-[11px] text-[#40564D] flex items-center space-x-1 font-mono">
-                  <Layers className="w-3.5 h-3.5 text-[#1B4938]" />
-                  <span>{jobDescription.split('\n').filter(Boolean).length} baris terdeteksi</span>
+                <span className="text-[11px] text-[#2D4439] flex items-center space-x-2 font-mono tabular-nums">
+                  <span className="flex items-center space-x-1">
+                    <Layers className="w-3.5 h-3.5 text-[#1B4938]" />
+                    <span>{lineCount} baris</span>
+                  </span>
+                  <span>·</span>
+                  <span>{charCount} karakter</span>
                 </span>
               </div>
               <textarea
@@ -263,12 +294,12 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
                 value={jobDescription}
                 onChange={(e) => setJobDescription(e.target.value)}
                 placeholder="Tempel atau ketik teks Job Description lengkap di sini (Tanggung Jawab, Kualifikasi Wajib, Kualifikasi Nilai Tambah)..."
-                className="w-full px-3.5 py-3 bg-[#FCFDFC] border border-[#D5DFD9] rounded-xl text-xs sm:text-sm font-mono text-[#13221C] placeholder-[#40564D]/50 focus:border-[#1B4938] focus:ring-2 focus:ring-[#1B4938]/15 focus:outline-none leading-relaxed transition-all shadow-tactile-sm resize-y"
+                className="w-full px-3.5 py-3 bg-[#FCFDFC] border border-[#D5DFD9] rounded-xl text-xs sm:text-sm font-mono text-[#13221C] placeholder-[#2D4439]/50 focus:border-[#1B4938] focus:ring-2 focus:ring-[#1B4938]/15 focus:outline-none leading-relaxed transition-all duration-150 shadow-tactile-sm resize-y"
               />
-              <div className="mt-2 p-3 bg-[#F5F8F6] border border-[#D5DFD9] rounded-lg text-xs text-[#40564D] flex items-start space-x-2">
+              <div className="mt-2 p-3 bg-[#F5F8F6] border border-[#D5DFD9] rounded-lg text-xs text-[#2D4439] flex items-start space-x-2">
                 <HelpCircle className="w-4 h-4 text-[#1B4938] shrink-0 mt-0.5" />
                 <p>
-                  <strong>Tips Ekstraksi Cepat:</strong> Gunakan tanda strip (<code className="font-mono text-[#1B4938]">-</code>) untuk butir kualifikasi agar kompilator deterministik AI dapat memecah kriteria per kategori (Pengalaman, Hard Skill, Pendidikan) secara akurat tanpa halusinasi.
+                  <strong>Tips Ekstraksi Cepat:</strong> Gunakan tanda strip (<code className="font-mono text-[#1B4938] font-bold">-</code>) untuk butir kualifikasi agar kompilator deterministik AI dapat memecah kriteria per kategori (Pengalaman, Hard Skill, Pendidikan) secara akurat tanpa halusinasi.
                 </p>
               </div>
             </div>
@@ -279,7 +310,7 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
             <button
               type="button"
               onClick={onNext}
-              className="text-xs font-semibold text-[#40564D] hover:text-[#13221C] transition-colors cursor-pointer"
+              className="text-xs font-bold text-[#2D4439] hover:text-[#13221C] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] rounded-lg px-2 py-1"
             >
               Lewati ke Step 2 (Gunakan Kriteria yang Sudah Ada) →
             </button>
@@ -288,7 +319,7 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
               type="button"
               onClick={handleExtractAndContinue}
               disabled={isCompiling || !jobDescription.trim()}
-              className="w-full sm:w-auto px-6 py-3 bg-[#1B4938] hover:bg-[#2D6A4F] text-[#FCFDFC] font-bold text-xs sm:text-sm rounded-xl shadow-tactile flex items-center justify-center space-x-2 transition-all disabled:opacity-50 cursor-pointer active:scale-[0.99]"
+              className="w-full sm:w-auto px-6 py-3 bg-[#1B4938] hover:bg-[#265B46] text-[#FCFDFC] font-bold text-xs sm:text-sm rounded-xl shadow-tactile flex items-center justify-center space-x-2 transition-all duration-150 disabled:opacity-50 cursor-pointer active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] focus-visible:ring-offset-2"
             >
               {isCompiling ? (
                 <>

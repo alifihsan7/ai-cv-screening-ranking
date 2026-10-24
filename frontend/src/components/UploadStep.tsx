@@ -112,14 +112,14 @@ export const UploadStep: React.FC<UploadStepProps> = ({
                 </div>
                 <div>
                   <div className="flex items-center space-x-2">
-                    <span className="font-mono text-[11px] font-bold text-[#1B6C47] uppercase tracking-wider bg-[#EBF6EF] px-2 py-0.5 rounded border border-[#BBE5CD]">
+                    <span className="font-mono text-[11px] font-bold text-[#124B2E] uppercase tracking-wider bg-[#EBF6EF] px-2 py-0.5 rounded border border-[#BBE5CD]">
                       Tahap 3 dari 4
                     </span>
                     <h1 className="text-lg sm:text-xl font-bold text-[#13221C] tracking-tight">
                       Unggah Berkas CV & Pipeline Ingestion
                     </h1>
                   </div>
-                  <p className="text-xs sm:text-sm text-[#40564D] mt-1">
+                  <p className="text-xs sm:text-sm text-[#2D4439] mt-1">
                     Unggah resume kandidat dalam format PDF, DOCX, scan dokumen, atau arsip ZIP. Sistem akan melakukan sanitasi, deteksi duplikasi hash, dan anonimisasi identitas (Blind Screening).
                   </p>
                 </div>
@@ -132,12 +132,12 @@ export const UploadStep: React.FC<UploadStepProps> = ({
                     type="button"
                     onClick={onRefreshStatus}
                     disabled={isRefreshing}
-                    className="h-8 px-3 text-xs text-[#13221C] hover:bg-[#EBF1EE] bg-[#FCFDFC] border border-[#D5DFD9] rounded-lg font-semibold transition-colors flex items-center space-x-1.5 shadow-tactile-sm disabled:opacity-50 cursor-pointer"
+                    className="h-8 px-3 text-xs text-[#13221C] hover:bg-[#EBF1EE] bg-[#FCFDFC] border border-[#D5DFD9] rounded-lg font-semibold transition-colors flex items-center space-x-1.5 shadow-tactile-sm disabled:opacity-50 cursor-pointer active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938]"
                     title="Segarkan status berkas dari server"
                   >
                     <RotateCcw
                       className={`w-3.5 h-3.5 ${
-                        isRefreshing ? 'animate-spin text-[#1B4938]' : 'text-[#40564D]'
+                        isRefreshing ? 'animate-spin text-[#1B4938]' : 'text-[#2D4439]'
                       }`}
                     />
                     <span className="hidden sm:inline">Perbarui Status</span>
@@ -148,7 +148,7 @@ export const UploadStep: React.FC<UploadStepProps> = ({
                   <button
                     type="button"
                     onClick={onClearFiles}
-                    className="h-8 px-3 text-xs text-[#9E2A2B] hover:bg-[#FCEBEB] bg-[#FCFDFC] border border-[#F6C1C1] rounded-lg font-semibold transition-colors flex items-center space-x-1.5 cursor-pointer shadow-tactile-sm"
+                    className="h-8 px-3 text-xs text-[#8C1819] hover:bg-[#FCEBEB] bg-[#FCFDFC] border border-[#F6C1C1] rounded-lg font-bold transition-colors flex items-center space-x-1.5 cursor-pointer shadow-tactile-sm active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8C1819]"
                     title="Hapus semua berkas CV yang diunggah"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -159,9 +159,9 @@ export const UploadStep: React.FC<UploadStepProps> = ({
                 <button
                   type="button"
                   onClick={onLoadGoldenSample}
-                  className="h-8 px-3 text-xs text-[#1B4938] hover:bg-[#DEF0E4] bg-[#EBF6EF] border border-[#BBE5CD] rounded-lg font-bold transition-all flex items-center space-x-1.5 cursor-pointer shadow-tactile-sm active:scale-98"
+                  className="h-8 px-3 text-xs text-[#124B2E] hover:bg-[#DEF0E4] bg-[#EBF6EF] border border-[#BBE5CD] rounded-lg font-bold transition-all flex items-center space-x-1.5 cursor-pointer shadow-tactile-sm active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938]"
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-[#1B4938]" />
+                  <Sparkles className="w-3.5 h-3.5 text-[#124B2E]" />
                   <span>🧪 Muat 15 Sampel Golden Dataset</span>
                 </button>
               </div>
@@ -181,16 +181,16 @@ export const UploadStep: React.FC<UploadStepProps> = ({
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              className={`mt-6 border-2 border-dashed rounded-2xl p-8 sm:p-10 text-center transition-all cursor-pointer ${
+              className={`mt-6 border-2 border-dashed rounded-2xl p-8 sm:p-10 text-center transition-all duration-150 cursor-pointer ${
                 isDragging
                   ? 'border-[#1B4938] bg-[#EBF6EF] scale-[1.01]'
-                  : 'border-[#D5DFD9] bg-[#F5F8F6] hover:bg-[#EBF1EE]/60 hover:border-[#1B4938]/40'
+                  : 'border-[#D5DFD9] bg-[#F5F8F6] hover:bg-[#EBF1EE]/60 hover:border-[#1B4938]/40 shadow-tactile-sm'
               }`}
             >
               <div className="w-12 h-12 rounded-full bg-[#EBF6EF] border border-[#BBE5CD] flex items-center justify-center mx-auto mb-3 shadow-tactile-sm">
                 <Upload
                   className={`w-6 h-6 text-[#1B4938] ${
-                    isUploading ? 'animate-bounce text-[#2D6A4F]' : ''
+                    isUploading ? 'animate-bounce text-[#265B46]' : ''
                   }`}
                 />
               </div>
@@ -199,16 +199,16 @@ export const UploadStep: React.FC<UploadStepProps> = ({
                   ? uploadStatusMsg || 'Sedang memproses upload berkas...'
                   : 'Tarik & letakkan berkas CV ke sini, atau klik untuk memilih file'}
               </h3>
-              <p className="text-xs text-[#40564D] mt-1.5">
+              <p className="text-xs text-[#2D4439] mt-1.5 font-medium">
                 Mendukung berkas PDF, DOCX, DOC, JPG, PNG, atau ZIP (Maksimal 10 MB per berkas)
               </p>
               <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-                <span className="text-[11px] bg-[#FCFDFC] border border-[#D5DFD9] px-2.5 py-1 rounded-md text-[#40564D] shadow-tactile-sm font-mono">
+                <span className="text-[11px] bg-[#FCFDFC] border border-[#D5DFD9] px-2.5 py-1 rounded-md text-[#2D4439] shadow-tactile-sm font-mono font-semibold">
                   {totalCount > 0
                     ? `${totalCount} Berkas Terdeteksi`
                     : 'Belum ada berkas dipilih'}
                 </span>
-                <span className="text-[11px] bg-[#EBF6EF] border border-[#BBE5CD] px-2.5 py-1 rounded-md text-[#1B6C47] font-mono font-semibold">
+                <span className="text-[11px] bg-[#EBF6EF] border border-[#BBE5CD] px-2.5 py-1 rounded-md text-[#124B2E] font-mono font-bold">
                   {readyFiles.length} CV Siap Evaluasi
                 </span>
               </div>
@@ -223,7 +223,7 @@ export const UploadStep: React.FC<UploadStepProps> = ({
                     {processedCount}/{totalCount} CV Berhasil Diproses
                   </strong>
                 </span>
-                <span className="text-[#1B6C47] font-bold font-mono tabular-nums">
+                <span className="text-[#124B2E] font-bold font-mono tabular-nums">
                   {totalCount > 0 ? `${progressPct}% Siap` : 'Menunggu Berkas'}
                 </span>
               </div>
@@ -250,10 +250,10 @@ export const UploadStep: React.FC<UploadStepProps> = ({
                     key={item.id}
                     type="button"
                     onClick={() => setStatusFilter(item.id)}
-                    className={`h-7 px-2.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center space-x-1 ${
+                    className={`h-7 px-2.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer flex items-center space-x-1 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] ${
                       statusFilter === item.id
-                        ? 'bg-[#1B4938] text-[#FCFDFC] shadow-tactile-sm'
-                        : 'bg-[#FCFDFC] border border-[#D5DFD9] text-[#40564D] hover:text-[#13221C] hover:bg-[#EBF1EE]'
+                        ? 'bg-[#1B4938] text-[#FCFDFC] shadow-tactile-sm font-bold'
+                        : 'bg-[#FCFDFC] border border-[#D5DFD9] text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE]'
                     }`}
                   >
                     <span>{item.label}</span>
@@ -266,13 +266,13 @@ export const UploadStep: React.FC<UploadStepProps> = ({
 
               {/* Search box */}
               <div className="relative">
-                <Search className="w-3.5 h-3.5 text-[#40564D] absolute left-2.5 top-2.5" />
+                <Search className="w-3.5 h-3.5 text-[#2D4439] absolute left-2.5 top-2.5" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Cari nama berkas..."
-                  className="h-8 pl-8 pr-3 bg-[#FCFDFC] border border-[#D5DFD9] rounded-lg text-xs text-[#13221C] placeholder-[#40564D]/60 focus:border-[#1B4938] focus:outline-none w-full sm:w-48 shadow-tactile-sm font-medium"
+                  className="h-8 pl-8 pr-3 bg-[#FCFDFC] border border-[#D5DFD9] rounded-lg text-xs text-[#13221C] placeholder-[#2D4439]/60 focus:border-[#1B4938] focus:ring-2 focus:ring-[#1B4938]/15 focus:outline-none w-full sm:w-48 shadow-tactile-sm font-medium transition-all"
                 />
               </div>
             </div>
@@ -280,7 +280,7 @@ export const UploadStep: React.FC<UploadStepProps> = ({
             {/* Files List Table */}
             <div className="mt-4 border border-[#D5DFD9] rounded-xl overflow-hidden overflow-x-auto shadow-tactile-sm">
               <table className="w-full text-left text-xs min-w-[640px]">
-                <thead className="bg-[#EBF1EE] text-[#40564D] font-semibold uppercase tracking-wider border-b border-[#D5DFD9]">
+                <thead className="bg-[#EBF1EE] text-[#2D4439] font-bold uppercase tracking-wider border-b border-[#D5DFD9]">
                   <tr>
                     <th className="py-2.5 px-3">Nama Berkas</th>
                     <th className="py-2.5 px-3 w-28">Ukuran</th>
@@ -291,41 +291,41 @@ export const UploadStep: React.FC<UploadStepProps> = ({
                 <tbody className="divide-y divide-[#E2E9E5] bg-[#FCFDFC]">
                   {filteredFiles.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="py-10 text-center text-[#40564D]">
-                        <FileText className="w-8 h-8 mx-auto mb-2 text-[#40564D]/40" />
+                      <td colSpan={4} className="py-10 text-center text-[#2D4439]">
+                        <FileText className="w-8 h-8 mx-auto mb-2 text-[#2D4439]/40" />
                         <p className="font-bold text-[#13221C]">
                           {uploadedFiles.length === 0
                             ? 'Belum ada berkas CV yang diunggah'
                             : 'Tidak ada berkas yang sesuai dengan filter'}
                         </p>
-                        <p className="text-[11px] text-[#40564D] mt-0.5">
+                        <p className="text-[11px] text-[#2D4439] mt-0.5">
                           Tarik berkas PDF ke kotak di atas atau klik tombol Muat Golden Dataset.
                         </p>
                       </td>
                     </tr>
                   ) : (
                     filteredFiles.map((file, idx) => {
-                      let badgeClass = 'bg-[#EBF1EE] text-[#40564D] border border-[#D5DFD9]'
+                      let badgeClass = 'bg-[#EBF1EE] text-[#2D4439] border border-[#D5DFD9]'
                       let statusLabel: string = file.status
                       let Icon = FileCheck
 
                       if (file.status === 'ready') {
-                        badgeClass = 'bg-[#EBF6EF] text-[#1B6C47] border border-[#BBE5CD]'
+                        badgeClass = 'bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD] font-bold'
                         statusLabel = 'Siap'
                       } else if (file.status === 'processing') {
                         badgeClass =
-                          'bg-[#EBF1EE] text-[#1B4938] border border-[#D5DFD9] animate-pulse'
+                          'bg-[#EBF1EE] text-[#1B4938] border border-[#D5DFD9] animate-pulse font-bold'
                         statusLabel = 'Diproses...'
                         Icon = Loader2
                       } else if (file.status === 'review') {
-                        badgeClass = 'bg-[#FEF6E8] text-[#8A4C05] border border-[#F8D8A7]'
+                        badgeClass = 'bg-[#FEF6E8] text-[#7A3E02] border border-[#F8D8A7] font-bold'
                         statusLabel = 'Perlu Cek'
                         Icon = AlertTriangle
                       } else if (file.status === 'duplicate') {
-                        badgeClass = 'bg-[#EBF1EE] text-[#40564D] border border-[#D5DFD9]'
+                        badgeClass = 'bg-[#EBF1EE] text-[#2D4439] border border-[#D5DFD9]'
                         statusLabel = 'Duplikat'
                       } else if (file.status === 'unqualified') {
-                        badgeClass = 'bg-[#FCEBEB] text-[#9E2A2B] border border-[#F6C1C1]'
+                        badgeClass = 'bg-[#FCEBEB] text-[#8C1819] border border-[#F6C1C1] font-bold'
                         statusLabel = 'Gagal Parsing'
                         Icon = AlertTriangle
                       }
@@ -338,27 +338,27 @@ export const UploadStep: React.FC<UploadStepProps> = ({
                                 file.status === 'processing'
                                   ? 'text-[#1B4938] animate-spin'
                                   : file.status === 'ready'
-                                  ? 'text-[#1B6C47]'
+                                  ? 'text-[#124B2E]'
                                   : file.status === 'review'
-                                  ? 'text-[#8A4C05]'
+                                  ? 'text-[#7A3E02]'
                                   : file.status === 'unqualified'
-                                  ? 'text-[#9E2A2B]'
-                                  : 'text-[#40564D]'
+                                  ? 'text-[#8C1819]'
+                                  : 'text-[#2D4439]'
                               }`}
                             />
                             <span className="truncate max-w-sm">{file.name}</span>
                           </td>
-                          <td className="py-2.5 px-3 text-[#40564D] font-mono tabular-nums text-[11px]">
+                          <td className="py-2.5 px-3 text-[#2D4439] font-mono tabular-nums text-[11px]">
                             {file.size}
                           </td>
                           <td className="py-2.5 px-3">
                             <span
-                              className={`px-2 py-0.5 rounded text-[11px] font-bold inline-flex items-center space-x-1 ${badgeClass}`}
+                              className={`px-2 py-0.5 rounded text-[11px] inline-flex items-center space-x-1 ${badgeClass}`}
                             >
                               <span>{statusLabel}</span>
                             </span>
                           </td>
-                          <td className="py-2.5 px-3 text-[#40564D] text-[11px] font-mono">
+                          <td className="py-2.5 px-3 text-[#2D4439] text-[11px] font-mono">
                             {file.reason || 'Ekstraksi identitas & keahlian terverifikasi'}
                           </td>
                         </tr>
@@ -377,20 +377,20 @@ export const UploadStep: React.FC<UploadStepProps> = ({
         <button
           type="button"
           onClick={onBack}
-          className="h-9 px-3.5 text-xs font-semibold text-[#40564D] hover:text-[#13221C] hover:bg-[#EBF1EE] border border-[#D5DFD9] rounded-lg transition-colors flex items-center space-x-1.5 cursor-pointer shadow-tactile-sm active:scale-98"
+          className="h-9 px-3.5 text-xs font-semibold text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE] border border-[#D5DFD9] rounded-lg transition-colors flex items-center space-x-1.5 cursor-pointer shadow-tactile-sm active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938]"
         >
           <ChevronLeft className="w-4 h-4" />
           <span>Kembali ke Kriteria</span>
         </button>
 
         <div className="hidden sm:flex items-center space-x-3 text-xs font-mono">
-          <span className="text-[#40564D]">
-            Berkas Terunggah: <strong className="text-[#13221C]">{totalCount} file</strong>
+          <span className="text-[#2D4439]">
+            Berkas Terunggah: <strong className="text-[#13221C] tabular-nums">{totalCount} file</strong>
           </span>
           <span className="text-[#D5DFD9]">|</span>
-          <span className="text-[#40564D]">
+          <span className="text-[#2D4439]">
             Siap Dinilai:{' '}
-            <strong className="text-[#1B6C47]">{readyFiles.length} berkas</strong>
+            <strong className="text-[#124B2E] tabular-nums">{readyFiles.length} berkas</strong>
           </span>
         </div>
 
@@ -398,7 +398,7 @@ export const UploadStep: React.FC<UploadStepProps> = ({
           type="button"
           onClick={handleLaunchScreening}
           disabled={isScreening || (readyFiles.length === 0 && totalCount === 0)}
-          className="h-9 px-5 bg-[#1B4938] hover:bg-[#2D6A4F] text-[#FCFDFC] text-xs font-bold rounded-lg transition-all flex items-center space-x-2 cursor-pointer shadow-tactile active:scale-98 disabled:opacity-50"
+          className="h-9 px-5 bg-[#1B4938] hover:bg-[#265B46] text-[#FCFDFC] text-xs font-bold rounded-lg transition-all flex items-center space-x-2 cursor-pointer shadow-tactile active:scale-[0.98] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938]"
         >
           {isScreening ? (
             <>

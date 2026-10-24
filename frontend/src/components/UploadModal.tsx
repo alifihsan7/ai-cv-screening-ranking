@@ -74,7 +74,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
               <h2 className="text-base font-bold text-[#13221C] tracking-tight">
                 Unggah Berkas Lamaran CV
               </h2>
-              <p className="text-xs text-[#40564D] mt-0.5">
+              <p className="text-xs text-[#2D4439] mt-0.5">
                 Mendukung format PDF, DOCX, DOC, atau ZIP arsip dokumen.
               </p>
             </div>
@@ -83,7 +83,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-[#40564D] hover:text-[#13221C] hover:bg-[#EBF1EE] transition-all cursor-pointer"
+            className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE] transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938]"
             aria-label="Tutup Dialog"
           >
             <X className="w-5 h-5" />
@@ -114,13 +114,13 @@ export const UploadModal: React.FC<UploadModalProps> = ({
             className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer ${
               isDragging
                 ? 'border-[#1B4938] bg-[#EBF6EF] scale-[1.01]'
-                : 'border-[#D5DFD9] bg-[#F5F8F6] hover:bg-[#EBF1EE]/70 hover:border-[#1B4938]/40'
+                : 'border-[#D5DFD9] bg-[#F5F8F6] hover:bg-[#EBF1EE]/70 hover:border-[#1B4938]/40 shadow-tactile-sm'
             }`}
           >
             <div className="w-12 h-12 rounded-xl bg-[#EBF1EE] border border-[#D5DFD9] mx-auto mb-3 flex items-center justify-center text-[#1B4938] shadow-tactile-sm">
               <Upload
                 className={`w-6 h-6 text-[#1B4938] ${
-                  isUploading ? 'animate-bounce text-[#2D6A4F]' : ''
+                  isUploading ? 'animate-bounce text-[#265B46]' : ''
                 }`}
               />
             </div>
@@ -129,7 +129,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                 ? uploadStatusMsg || 'Sedang mengunggah berkas...'
                 : 'Tarik & letakkan berkas CV ke sini, atau klik untuk memilih'}
             </h3>
-            <p className="text-xs text-[#40564D] mt-1 max-w-md mx-auto">
+            <p className="text-xs text-[#2D4439] mt-1 max-w-md mx-auto">
               Dokumen akan diproses melalui pipeline docling, verifikasi integritas teks, dan
               ekstraksi tipe-aman.
             </p>
@@ -142,7 +142,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                 <span className="font-bold text-[#13221C] uppercase tracking-wider text-[11px]">
                   Antrean Berkas ({uploadedFiles.length})
                 </span>
-                <span className="font-mono text-[#40564D] text-[11px] tabular-nums">
+                <span className="font-mono text-[#2D4439] text-[11px] tabular-nums font-semibold">
                   {readyCount} Siap • {processingCount} Memproses
                 </span>
               </div>
@@ -157,26 +157,26 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                       <FileText className="w-4 h-4 text-[#1B4938] shrink-0" />
                       <div className="min-w-0">
                         <div className="font-semibold text-[#13221C] truncate">{file.name}</div>
-                        <div className="font-mono text-[10px] text-[#40564D]">{file.size}</div>
+                        <div className="font-mono text-[10px] text-[#2D4439]">{file.size}</div>
                       </div>
                     </div>
 
                     <div className="flex items-center space-x-2 shrink-0">
                       {file.status === 'processing' && (
-                        <span className="inline-flex items-center space-x-1 text-[11px] text-[#8A4C05] bg-[#FEF6E8] px-2 py-0.5 rounded font-mono">
+                        <span className="inline-flex items-center space-x-1 text-[11px] text-[#7A3E02] bg-[#FEF6E8] px-2 py-0.5 rounded font-mono font-bold border border-[#F8D8A7]">
                           <Loader2 className="w-3 h-3 animate-spin" />
                           <span>Memproses</span>
                         </span>
                       )}
                       {file.status === 'ready' && (
-                        <span className="inline-flex items-center space-x-1 text-[11px] text-[#1B6C47] bg-[#EBF6EF] px-2 py-0.5 rounded font-mono font-medium">
-                          <CheckCircle2 className="w-3 h-3 text-[#1B6C47]" />
+                        <span className="inline-flex items-center space-x-1 text-[11px] text-[#124B2E] bg-[#EBF6EF] px-2 py-0.5 rounded font-mono font-bold border border-[#BBE5CD]">
+                          <CheckCircle2 className="w-3 h-3 text-[#124B2E]" />
                           <span>Siap</span>
                         </span>
                       )}
                       {file.status === 'error' && (
-                        <span className="inline-flex items-center space-x-1 text-[11px] text-[#9E2A2B] bg-[#FCEBEB] px-2 py-0.5 rounded font-mono">
-                          <AlertCircle className="w-3 h-3 text-[#9E2A2B]" />
+                        <span className="inline-flex items-center space-x-1 text-[11px] text-[#8C1819] bg-[#FCEBEB] px-2 py-0.5 rounded font-mono font-bold border border-[#F6C1C1]">
+                          <AlertCircle className="w-3 h-3 text-[#8C1819]" />
                           <span>Gagal</span>
                         </span>
                       )}
@@ -193,7 +193,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="min-h-[44px] px-4 rounded-xl text-xs font-semibold text-[#40564D] hover:text-[#13221C] hover:bg-[#EBF1EE] transition-all cursor-pointer"
+            className="min-h-[44px] px-4 rounded-xl text-xs font-semibold text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE] transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938]"
           >
             Batal
           </button>
@@ -205,7 +205,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
               onClose()
             }}
             disabled={uploadedFiles.length === 0 || isScreening}
-            className="min-h-[44px] px-5 bg-[#1B4938] hover:bg-[#2D6A4F] text-[#FCFDFC] text-xs font-bold rounded-xl flex items-center space-x-2 transition-all cursor-pointer shadow-tactile disabled:opacity-40"
+            className="min-h-[44px] px-5 bg-[#1B4938] hover:bg-[#265B46] text-[#FCFDFC] text-xs font-bold rounded-xl flex items-center space-x-2 transition-all cursor-pointer shadow-tactile disabled:opacity-40 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938]"
           >
             {isScreening ? (
               <Loader2 className="w-4 h-4 animate-spin text-[#FCFDFC]" />

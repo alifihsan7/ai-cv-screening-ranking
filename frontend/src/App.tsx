@@ -1184,9 +1184,9 @@ export default function App() {
           aria-live="polite"
           className={`fixed bottom-5 right-5 z-50 px-4 py-2.5 rounded-xl border shadow-tactile-lg text-xs font-semibold flex items-center space-x-2 transition-all animate-in fade-in slide-in-from-bottom-2 ${
             toast.type === 'success'
-              ? 'bg-[#EBF6EF] text-[#134E35] border-[#A5D6B6]'
+              ? 'bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD]'
               : toast.type === 'warning'
-              ? 'bg-[#FEF6E8] text-[#8A4C05] border-[#F8D8A7]'
+              ? 'bg-[#FEF6E8] text-[#7A3E02] border-[#F8D8A7]'
               : 'bg-[#FCFDFC] text-[#13221C] border-[#D5DFD9]'
           }`}
         >

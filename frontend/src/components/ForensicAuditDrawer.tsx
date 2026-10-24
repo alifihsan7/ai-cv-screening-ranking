@@ -24,24 +24,24 @@ export interface ForensicAuditDrawerProps {
 
 const getActionBadgeClass = (action: string) => {
   if (action.includes('Jev') || action.includes('GROUNDED_VERIFIER')) {
-    return 'bg-[#E6F4EA] text-[#134E35] border-[#A5D6B6] font-bold'
+    return 'bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD] font-bold'
   }
   if (action.includes('CRITIQUE') || action.includes('REFLECT')) {
-    return 'bg-[#FEF6E8] text-[#8A4C05] border-[#F8D8A7] font-semibold'
+    return 'bg-[#FEF6E8] text-[#7A3E02] border-[#F8D8A7] font-bold'
   }
   if (action.includes('PARSER') || action.includes('DOCLING')) {
-    return 'bg-[#EBF1EE] text-[#1B4938] border-[#D5DFD9] font-semibold'
+    return 'bg-[#EBF1EE] text-[#1B4938] border-[#D5DFD9] font-bold'
   }
   if (action.includes('RETRIEVAL')) {
-    return 'bg-[#EBF6EF] text-[#1B6C47] border-[#BBE5CD] font-semibold'
+    return 'bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD] font-bold'
   }
   if (action.includes('DETERMINISTIC') || action.includes('SCORER')) {
-    return 'bg-[#EBF1EE] text-[#13221C] border-[#D5DFD9] font-semibold'
+    return 'bg-[#EBF1EE] text-[#13221C] border-[#D5DFD9] font-bold'
   }
   if (action.includes('FINALIZE')) {
-    return 'bg-[#E6F4EA] text-[#134E35] border-[#A5D6B6] font-semibold'
+    return 'bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD] font-bold'
   }
-  return 'bg-[#EBF1EE] text-[#40564D] border-[#D5DFD9] font-medium'
+  return 'bg-[#EBF1EE] text-[#2D4439] border-[#D5DFD9] font-medium'
 }
 
 export const ForensicAuditDrawer: React.FC<ForensicAuditDrawerProps> = ({
@@ -108,7 +108,7 @@ PENDIDIKAN & LATAR BELAKANG:
       {/* Backdrop gelap transparan pudar */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-40 transition-opacity"
+          className="fixed inset-0 bg-black/25 backdrop-blur-[2px] z-40 transition-opacity duration-150"
           onClick={onClose}
           aria-hidden="true"
         />
@@ -116,7 +116,7 @@ PENDIDIKAN & LATAR BELAKANG:
 
       {/* Slide-Over Drawer Container */}
       <aside
-        className={`fixed inset-y-0 right-0 w-full sm:w-[540px] lg:w-[620px] z-50 bg-[#FCFDFC] border-l border-[#D5DFD9] shadow-2xl flex flex-col transform transition-transform duration-200 ease-in-out ${
+        className={`fixed inset-y-0 right-0 w-full sm:w-[540px] lg:w-[620px] z-50 bg-[#FCFDFC] border-l border-[#D5DFD9] shadow-2xl flex flex-col transform transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           isOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'
         }`}
         aria-label="Forensic Audit Drawer"
@@ -135,13 +135,13 @@ PENDIDIKAN & LATAR BELAKANG:
                   {displayName}
                 </h3>
                 {isJevVerified && (
-                  <span className="font-mono text-[10px] px-1.5 py-0.2 rounded border font-semibold bg-[#E6F4EA] text-[#134E35] border-[#A5D6B6] flex items-center space-x-1 shrink-0">
-                    <ShieldCheck className="w-3 h-3 text-[#134E35]" />
+                  <span className="font-mono text-[10px] px-1.5 py-0.2 rounded border font-bold bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD] flex items-center space-x-1 shrink-0">
+                    <ShieldCheck className="w-3 h-3 text-[#124B2E]" />
                     <span>Jev Verified</span>
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-[#40564D] font-mono truncate mt-0.5">
+              <p className="text-[11px] text-[#2D4439] font-mono truncate mt-0.5">
                 Audit Telemetri Mesin Jev • {candidate.file_name}
               </p>
             </div>
@@ -150,10 +150,10 @@ PENDIDIKAN & LATAR BELAKANG:
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-[#40564D] hover:text-[#13221C] hover:bg-[#EBF1EE] transition-colors cursor-pointer border border-transparent hover:border-[#D5DFD9] flex items-center gap-1 text-xs font-mono"
+            className="p-1.5 rounded-lg text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE] transition-all duration-150 cursor-pointer border border-transparent hover:border-[#D5DFD9] flex items-center gap-1 text-xs font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938]"
             title="Tutup Drawer (ESC)"
           >
-            <span className="hidden sm:inline text-[10px] text-[#40564D]/80">ESC</span>
+            <span className="hidden sm:inline text-[10px] text-[#2D4439]/80 font-bold">ESC</span>
             <X className="w-4 h-4" />
           </button>
         </header>
@@ -164,16 +164,16 @@ PENDIDIKAN & LATAR BELAKANG:
             <button
               type="button"
               onClick={() => setActiveTab('trajectory')}
-              className={`h-7 px-2.5 sm:px-3 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all cursor-pointer ${
+              className={`h-7 px-2.5 sm:px-3 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all duration-150 cursor-pointer ${
                 activeTab === 'trajectory'
                   ? 'bg-[#FCFDFC] text-[#1B4938] shadow-tactile-sm font-bold border border-[#D5DFD9]'
-                  : 'text-[#40564D] hover:text-[#13221C]'
+                  : 'text-[#2D4439] hover:text-[#13221C]'
               }`}
             >
               <Terminal className="w-3.5 h-3.5 text-[#1B4938]" />
               <span>ReAct Trajectory Rail</span>
               {candidate.reasoning_trajectory && candidate.reasoning_trajectory.length > 0 && (
-                <span className="font-mono tabular-nums text-[10px] bg-[#EBF1EE] text-[#134E35] font-bold px-1 rounded">
+                <span className="font-mono tabular-nums text-[10px] bg-[#EBF1EE] text-[#124B2E] font-bold px-1 rounded">
                   {candidate.reasoning_trajectory.length}
                 </span>
               )}
@@ -182,18 +182,18 @@ PENDIDIKAN & LATAR BELAKANG:
             <button
               type="button"
               onClick={() => setActiveTab('grounding')}
-              className={`h-7 px-2.5 sm:px-3 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all cursor-pointer ${
+              className={`h-7 px-2.5 sm:px-3 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all duration-150 cursor-pointer ${
                 activeTab === 'grounding'
                   ? 'bg-[#FCFDFC] text-[#1B4938] shadow-tactile-sm font-bold border border-[#D5DFD9]'
-                  : 'text-[#40564D] hover:text-[#13221C]'
+                  : 'text-[#2D4439] hover:text-[#13221C]'
               }`}
             >
-              <FileText className="w-3.5 h-3.5 text-[#2D6A4F]" />
+              <FileText className="w-3.5 h-3.5 text-[#1B4938]" />
               <span>Kutipan CV Asli (Grounding View)</span>
             </button>
           </div>
 
-          <span className="text-[10px] font-mono text-[#40564D] shrink-0 hidden sm:inline">
+          <span className="text-[10px] font-mono text-[#2D4439] shrink-0 hidden sm:inline">
             Provider: <strong>{candidate.verifier_provider || 'JEV_TYPESAFE'}</strong>
           </span>
         </div>
@@ -203,7 +203,7 @@ PENDIDIKAN & LATAR BELAKANG:
           {/* TAB 1: REASONING TRAJECTORY RAIL */}
           {activeTab === 'trajectory' && (
             <div className="space-y-4">
-              <div className="bg-[#F5F8F6] p-3 rounded-xl border border-[#D5DFD9] text-xs text-[#40564D] flex items-center justify-between">
+              <div className="bg-[#F5F8F6] p-3 rounded-xl border border-[#D5DFD9] text-xs text-[#2D4439] flex items-center justify-between">
                 <span>
                   Jejak penalaran agen otonom & verifikasi tipe-aman Jev langkah demi langkah
                   secara deterministik.
@@ -212,13 +212,13 @@ PENDIDIKAN & LATAR BELAKANG:
 
               {!candidate.reasoning_trajectory || candidate.reasoning_trajectory.length === 0 ? (
                 <div className="bg-[#F5F8F6] border border-dashed border-[#D5DFD9] p-8 rounded-xl text-center space-y-2">
-                  <div className="w-9 h-9 mx-auto rounded-lg bg-[#EBF1EE] border border-[#D5DFD9] flex items-center justify-center text-[#40564D] font-mono text-xs font-bold">
+                  <div className="w-9 h-9 mx-auto rounded-lg bg-[#EBF1EE] border border-[#D5DFD9] flex items-center justify-center text-[#2D4439] font-mono text-xs font-bold">
                     ∅
                   </div>
-                  <p className="font-semibold text-[#13221C] text-xs">
+                  <p className="font-bold text-[#13221C] text-xs">
                     Belum Ada Rekaman ReAct Trajectory
                   </p>
-                  <p className="text-[#40564D] text-[11px] max-w-md mx-auto leading-relaxed">
+                  <p className="text-[#2D4439] text-[11px] max-w-md mx-auto leading-relaxed">
                     Kandidat ini belum memiliki jejak eksekusi reasoning bertahap. Verifier Jev
                     mengevaluasi profil menggunakan aturan tipe-aman deterministik.
                   </p>
@@ -250,8 +250,8 @@ PENDIDIKAN & LATAR BELAKANG:
                           </span>
                         </div>
                         {step.timestamp_utc && (
-                          <span className="font-mono text-[10px] text-[#40564D] tabular-nums flex items-center gap-1">
-                            <Clock className="w-3 h-3 text-[#40564D]/60" />
+                          <span className="font-mono text-[10px] text-[#2D4439] tabular-nums flex items-center gap-1 font-semibold">
+                            <Clock className="w-3 h-3 text-[#2D4439]/70" />
                             {step.timestamp_utc.replace('T', ' ').replace('Z', ' UTC')}
                           </span>
                         )}
@@ -271,7 +271,7 @@ PENDIDIKAN & LATAR BELAKANG:
                       {/* Action Input (if present) */}
                       {step.action_input && Object.keys(step.action_input).length > 0 && (
                         <div className="bg-[#EBF1EE] p-3 rounded-lg border border-[#D5DFD9] font-mono text-xs text-[#13221C] overflow-x-auto space-y-1">
-                          <span className="text-[#40564D] block text-[10px] font-bold uppercase tracking-wider">
+                          <span className="text-[#2D4439] block text-[10px] font-bold uppercase tracking-wider">
                             // Action Input
                           </span>
                           <pre className="whitespace-pre-wrap leading-tight text-[#13221C] font-mono text-[11px]">
@@ -281,22 +281,22 @@ PENDIDIKAN & LATAR BELAKANG:
                       )}
 
                       {/* Observation (Verbatim Evidence Box in Soft Mint Sage) */}
-                      <div className="bg-[#E6F4EA] text-[#134E35] border border-[#A5D6B6] p-3 rounded-lg space-y-1.5 font-mono text-xs shadow-tactile-sm">
-                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-[#134E35] uppercase tracking-wider">
-                          <Terminal className="w-3 h-3 text-[#134E35]" />
+                      <div className="bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD] p-3 rounded-lg space-y-1.5 font-mono text-xs shadow-tactile-sm">
+                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-[#124B2E] uppercase tracking-wider">
+                          <Terminal className="w-3 h-3 text-[#124B2E]" />
                           <span>Observation (Verbatim CV Grounding)</span>
                         </div>
-                        <p className="font-mono text-xs text-[#134E35] leading-relaxed whitespace-pre-wrap">
+                        <p className="font-mono text-xs text-[#124B2E] leading-relaxed whitespace-pre-wrap">
                           {step.observation}
                         </p>
                       </div>
 
                       {/* State Mutation */}
                       <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#D5DFD9] text-[10px]">
-                        <span className="font-semibold text-[#40564D] uppercase tracking-wider text-[10px]">
+                        <span className="font-bold text-[#2D4439] uppercase tracking-wider text-[10px]">
                           State Mutation:
                         </span>
-                        <span className="font-mono font-medium text-[#1B6C47] bg-[#EBF6EF] px-2.5 py-0.5 rounded-md border border-[#BBE5CD] text-xs shadow-tactile-sm">
+                        <span className="font-mono font-bold text-[#124B2E] bg-[#EBF6EF] px-2.5 py-0.5 rounded-md border border-[#BBE5CD] text-xs shadow-tactile-sm">
                           {step.state_mutation}
                         </span>
                       </div>
@@ -312,7 +312,7 @@ PENDIDIKAN & LATAR BELAKANG:
             <div className="space-y-3">
               {/* Grounding Controls */}
               <div className="flex flex-wrap items-center justify-between gap-2 bg-[#F5F8F6] p-2.5 rounded-xl border border-[#D5DFD9] text-xs">
-                <span className="font-mono text-[#40564D] truncate">
+                <span className="font-mono text-[#2D4439] truncate">
                   Berkas Asli: <strong>{candidate.file_name}</strong>
                 </span>
 
@@ -320,16 +320,16 @@ PENDIDIKAN & LATAR BELAKANG:
                   <button
                     type="button"
                     onClick={handleCopyCvText}
-                    className="h-6 px-2 rounded-md bg-[#FCFDFC] hover:bg-[#EBF1EE] border border-[#D5DFD9] text-[10px] font-semibold text-[#13221C] flex items-center space-x-1 cursor-pointer transition-colors shadow-tactile-sm"
+                    className="h-6 px-2.5 rounded-md bg-[#FCFDFC] hover:bg-[#EBF1EE] border border-[#D5DFD9] text-[10px] font-bold text-[#13221C] flex items-center space-x-1 cursor-pointer transition-colors shadow-tactile-sm active:scale-[0.98] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#1B4938]"
                   >
                     {copied ? (
                       <>
-                        <Check className="w-3 h-3 text-[#1B6C47]" />
+                        <Check className="w-3 h-3 text-[#124B2E]" />
                         <span>Tersalin</span>
                       </>
                     ) : (
                       <>
-                        <Copy className="w-3 h-3 text-[#40564D]" />
+                        <Copy className="w-3 h-3 text-[#2D4439]" />
                         <span>Salin Teks</span>
                       </>
                     )}
@@ -339,19 +339,19 @@ PENDIDIKAN & LATAR BELAKANG:
 
               {/* In-text Filter / Search */}
               <div className="relative">
-                <Search className="w-3.5 h-3.5 text-[#40564D] absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-3.5 h-3.5 text-[#2D4439] absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   placeholder="Cari kata kunci di dalam teks CV..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 bg-[#FCFDFC] hover:bg-[#F5F8F6] focus:bg-[#FCFDFC] border border-[#D5DFD9] focus:border-[#1B4938] rounded-lg text-xs text-[#13221C] placeholder-[#40564D]/60 focus:outline-none transition-all shadow-tactile-sm"
+                  className="w-full pl-8 pr-3 py-1.5 bg-[#FCFDFC] hover:bg-[#F5F8F6] focus:bg-[#FCFDFC] border border-[#D5DFD9] focus:border-[#1B4938] focus:ring-2 focus:ring-[#1B4938]/15 rounded-lg text-xs text-[#13221C] placeholder-[#2D4439]/60 focus:outline-none transition-all shadow-tactile-sm"
                 />
                 {searchTerm && (
                   <button
                     type="button"
                     onClick={() => setSearchTerm('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-[#40564D] hover:text-[#13221C] cursor-pointer"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-[#2D4439] hover:text-[#13221C] cursor-pointer"
                   >
                     ×
                   </button>
@@ -360,13 +360,13 @@ PENDIDIKAN & LATAR BELAKANG:
 
               {/* Target Highlight Banner (if initiated from a matrix quote click) */}
               {highlightedQuote && (
-                <div className="p-2.5 rounded-xl bg-[#E6F4EA] border border-[#A5D6B6] flex items-start justify-between gap-2 text-xs">
+                <div className="p-2.5 rounded-xl bg-[#EBF6EF] border border-[#BBE5CD] flex items-start justify-between gap-2 text-xs">
                   <div className="space-y-0.5">
-                    <span className="font-mono text-[10px] font-bold text-[#134E35] uppercase tracking-wider flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3 text-[#134E35]" />
+                    <span className="font-mono text-[10px] font-bold text-[#124B2E] uppercase tracking-wider flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3 text-[#124B2E]" />
                       Target Kutipan Verifikasi:
                     </span>
-                    <p className="font-mono text-[11px] text-[#134E35] italic">
+                    <p className="font-mono text-[11px] text-[#124B2E] italic">
                       &quot;{highlightedQuote}&quot;
                     </p>
                   </div>

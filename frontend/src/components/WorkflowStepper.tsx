@@ -66,14 +66,14 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
 
   const getStepBadge = (stepId: WorkflowStep): string | undefined => {
     if (stepId === 'criteria') {
-      return criteriaCount > 0 ? `(${criteriaCount})` : undefined
+      return criteriaCount > 0 ? `${criteriaCount}` : undefined
     }
     if (stepId === 'upload') {
       const count = readyCvCount > 0 ? readyCvCount : uploadedCount
-      return count > 0 ? `(${count} CV)` : undefined
+      return count > 0 ? `${count} CV` : undefined
     }
     if (stepId === 'workbench') {
-      return candidatesCount > 0 ? `(${candidatesCount})` : undefined
+      return candidatesCount > 0 ? `${candidatesCount}` : undefined
     }
     return undefined
   }
@@ -83,7 +83,7 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
       aria-label="Workflow Stepper"
       className={`flex items-center justify-center ${className}`}
     >
-      <ol className="flex items-center">
+      <ol className="flex items-center space-x-1 sm:space-x-1.5">
         {STEPS.map((step, idx) => {
           const isActive = currentStep === step.id
           const completed = isCompleted(idx)
@@ -91,14 +91,14 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
           const badgeText = getStepBadge(step.id)
 
           let pillClasses =
-            'relative h-8 px-2.5 sm:px-3 rounded-lg text-xs flex items-center space-x-1.5 sm:space-x-2 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] focus-visible:ring-offset-1 select-none active:scale-[0.98] shrink-0'
+            'relative h-8 px-2.5 sm:px-3 rounded-lg text-xs flex items-center space-x-1.5 sm:space-x-2 transition-all duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] focus-visible:ring-offset-1 select-none active:scale-[0.98] shrink-0'
 
           if (isActive) {
-            pillClasses += ' bg-[#EBF1EE] text-[#13221C] border border-[#1B4938] shadow-tactile-sm font-bold'
+            pillClasses += ' bg-[#EBF1EE] text-[#13221C] border border-[#1B4938] shadow-tactile-sm font-bold ring-1 ring-[#1B4938]/20'
           } else if (completed) {
-            pillClasses += ' bg-[#EBF6EF] text-[#1B6C47] border border-[#BBE5CD] hover:bg-[#DEF0E4] font-semibold'
+            pillClasses += ' bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD] hover:bg-[#DEF0E4] font-semibold'
           } else {
-            pillClasses += ' bg-[#FCFDFC] text-[#40564D] border border-[#D5DFD9] hover:bg-[#F2F5F3] hover:text-[#13221C] font-medium'
+            pillClasses += ' bg-[#FCFDFC] text-[#2D4439] border border-[#D5DFD9] hover:bg-[#F2F5F3] hover:text-[#13221C] font-medium'
           }
 
           return (
@@ -116,8 +116,8 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
                     isActive
                       ? 'bg-[#1B4938] text-[#FCFDFC]'
                       : completed
-                      ? 'bg-[#1B6C47] text-[#FCFDFC]'
-                      : 'bg-[#D5DFD9] text-[#40564D]'
+                      ? 'bg-[#124B2E] text-[#FCFDFC]'
+                      : 'bg-[#D5DFD9] text-[#2D4439]'
                   }`}
                 >
                   {completed ? (
@@ -138,12 +138,12 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
                 {/* Quantitative Badge with Non-wrapping Tabular Numerics */}
                 {badgeText && (
                   <span
-                    className={`whitespace-nowrap font-mono text-[10px] tabular-nums px-1.5 py-0.5 rounded font-semibold shrink-0 ${
+                    className={`whitespace-nowrap font-mono text-[10px] tabular-nums px-1.5 py-0.2 rounded font-semibold shrink-0 ${
                       isActive
                         ? 'bg-[#1B4938]/12 text-[#1B4938] border border-[#1B4938]/20'
                         : completed
-                        ? 'bg-[#DEF0E4] text-[#1B6C47] border border-[#BBE5CD]'
-                        : 'bg-[#EBF1EE] text-[#40564D] border border-[#D5DFD9]'
+                        ? 'bg-[#DEF0E4] text-[#124B2E] border border-[#BBE5CD]'
+                        : 'bg-[#EBF1EE] text-[#2D4439] border border-[#D5DFD9]'
                     }`}
                   >
                     {badgeText}
@@ -154,8 +154,8 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
               {/* Proportional Connector Line */}
               {idx < STEPS.length - 1 && (
                 <div
-                  className={`w-6 sm:w-10 h-[2px] mx-1 sm:mx-1.5 rounded-full transition-colors shrink-0 ${
-                    isPassed ? 'bg-[#1B6C47]' : 'bg-[#D5DFD9]'
+                  className={`w-4 sm:w-8 h-[2px] mx-1 rounded-full transition-colors duration-150 shrink-0 ${
+                    isPassed ? 'bg-[#124B2E]' : 'bg-[#D5DFD9]'
                   }`}
                 />
               )}

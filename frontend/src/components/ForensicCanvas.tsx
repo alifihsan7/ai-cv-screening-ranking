@@ -39,17 +39,17 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
         <h3 className="text-base font-bold text-[#13221C] mb-1">
           Pilih Kandidat untuk Membuka Forensic Canvas
         </h3>
-        <p className="text-xs text-[#40564D] max-w-md leading-relaxed">
+        <p className="text-xs text-[#2D4439] max-w-md leading-relaxed">
           Gunakan panel di sebelah kiri untuk memilih kandidat, atau gunakan shortcut keyboard{' '}
-          <span className="font-mono bg-[#EBF1EE] px-1 py-0.5 rounded text-[#13221C] border border-[#D5DFD9]">
+          <span className="font-mono bg-[#EBF1EE] px-1.5 py-0.5 rounded text-[#13221C] border border-[#D5DFD9] font-bold">
             [J]
           </span>{' '}
           dan{' '}
-          <span className="font-mono bg-[#EBF1EE] px-1 py-0.5 rounded text-[#13221C] border border-[#D5DFD9]">
+          <span className="font-mono bg-[#EBF1EE] px-1.5 py-0.5 rounded text-[#13221C] border border-[#D5DFD9] font-bold">
             [K]
           </span>{' '}
           untuk navigasi cepat, dan{' '}
-          <span className="font-mono bg-[#EBF1EE] px-1 py-0.5 rounded text-[#13221C] border border-[#D5DFD9]">
+          <span className="font-mono bg-[#EBF1EE] px-1.5 py-0.5 rounded text-[#13221C] border border-[#D5DFD9] font-bold">
             [D]
           </span>{' '}
           untuk membuka Audit Drawer.
@@ -82,7 +82,7 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
 
   return (
     <main className="flex-1 bg-[#FCFDFC] flex flex-col h-full overflow-hidden">
-      {/* Persistent Canvas Header (Option A) */}
+      {/* Persistent Canvas Header */}
       <header className="px-5 py-3 border-b border-[#D5DFD9] bg-[#FCFDFC] flex flex-wrap items-center justify-between gap-3 shrink-0 shadow-tactile-sm">
         {/* Candidate Identity + Action Button [ 🛡️ Buka Audit Jev (D) ] */}
         <div className="flex items-center space-x-3 min-w-0">
@@ -98,7 +98,7 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
                 <button
                   type="button"
                   onClick={() => onRevealCandidate(candidate.cv_id)}
-                  className="h-5 px-1.5 rounded bg-[#F2F5F3] hover:bg-[#EBF1EE] border border-[#D5DFD9] text-[10px] font-semibold text-[#1B4938] flex items-center space-x-1 cursor-pointer"
+                  className="h-5 px-1.5 rounded bg-[#F2F5F3] hover:bg-[#EBF1EE] border border-[#D5DFD9] text-[10px] font-semibold text-[#1B4938] flex items-center space-x-1 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#1B4938]"
                   title="Buka Identitas Kandidat (Audit Log)"
                 >
                   <Eye className="w-2.5 h-2.5" />
@@ -106,12 +106,12 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
                 </button>
               )}
               <span
-                className={`font-mono text-[10px] px-1.5 py-0.2 rounded border font-semibold ${
+                className={`font-mono text-[10px] px-1.5 py-0.2 rounded border font-bold ${
                   candidate.band === 'A'
-                    ? 'bg-[#EBF6EF] text-[#1B4938] border-[#BBE5CD]'
+                    ? 'bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD]'
                     : candidate.band === 'B'
-                    ? 'bg-[#FEF6E8] text-[#8A4C05] border-[#F8D8A7]'
-                    : 'bg-[#FCEBEB] text-[#9E2A2B] border-[#F6C1C1]'
+                    ? 'bg-[#FEF6E8] text-[#7A3E02] border-[#F8D8A7]'
+                    : 'bg-[#FCEBEB] text-[#8C1819] border-[#F6C1C1]'
                 }`}
               >
                 Band {candidate.band}
@@ -121,14 +121,14 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
               <button
                 type="button"
                 onClick={() => onOpenAuditDrawer?.('trajectory')}
-                className="bg-[#E6F4EA] text-[#134E35] border border-[#A5D6B6] hover:bg-[#D5EFE0] transition-colors flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer"
+                className="bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD] hover:bg-[#DEF0E4] transition-all flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold cursor-pointer shadow-tactile-sm active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938]"
                 title="Buka Slide-Over Audit Telemetri Jev (Shortcut: 'D')"
               >
-                <ShieldCheck className="w-3.5 h-3.5 text-[#134E35]" />
+                <ShieldCheck className="w-3.5 h-3.5 text-[#124B2E]" />
                 <span>Buka Audit Jev (D)</span>
               </button>
             </div>
-            <p className="text-[11px] text-[#40564D] font-mono truncate mt-0.5">
+            <p className="text-[11px] text-[#2D4439] font-mono truncate mt-0.5">
               {candidate.file_name} •{' '}
               <span className="text-[#13221C] font-semibold">
                 {getDecileText(candidate.final_score)}
@@ -141,12 +141,12 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
         <div className="flex items-center space-x-4">
           {/* Total Score Pill */}
           <div className="text-right">
-            <div className="text-[10px] font-mono text-[#40564D] uppercase tracking-wider font-semibold">
+            <div className="text-[10px] font-mono text-[#2D4439] uppercase tracking-wider font-bold">
               Skor Total
             </div>
             <div className="font-mono tabular-nums font-bold text-lg text-[#1B4938] leading-tight">
               {candidate.final_score.toFixed(1)}{' '}
-              <span className="text-xs text-[#40564D] font-normal">/ 100</span>
+              <span className="text-xs text-[#2D4439] font-normal">/ 100</span>
             </div>
           </div>
 
@@ -157,49 +157,49 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
             <button
               type="button"
               onClick={() => onDecision(candidate.cv_id, 'SHORTLIST')}
-              className={`h-7 px-3 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer ${
+              className={`h-7 px-3 rounded-lg text-xs font-bold transition-all duration-150 flex items-center space-x-1.5 cursor-pointer active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#124B2E] ${
                 candidate.decision === 'SHORTLIST'
-                  ? 'bg-[#EBF6EF] text-[#1B6C47] border border-[#BBE5CD] shadow-tactile-sm'
-                  : 'text-[#40564D] hover:text-[#13221C] hover:bg-[#EBF1EE]'
+                  ? 'bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD] shadow-tactile-sm'
+                  : 'text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE]'
               }`}
               title="Disarankan untuk tahap wawancara (Shortcut: 'S')"
             >
-              <CheckCircle2 className="w-3.5 h-3.5 text-[#1B6C47]" />
+              <CheckCircle2 className="w-3.5 h-3.5 text-[#124B2E]" />
               <span>Shortlist</span>
             </button>
 
             <button
               type="button"
               onClick={() => onDecision(candidate.cv_id, 'HOLD')}
-              className={`h-7 px-3 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer ${
+              className={`h-7 px-3 rounded-lg text-xs font-bold transition-all duration-150 flex items-center space-x-1.5 cursor-pointer active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7A3E02] ${
                 candidate.decision === 'HOLD'
-                  ? 'bg-[#FEF6E8] text-[#8A4C05] border border-[#F8D8A7] shadow-tactile-sm'
-                  : 'text-[#40564D] hover:text-[#13221C] hover:bg-[#EBF1EE]'
+                  ? 'bg-[#FEF6E8] text-[#7A3E02] border border-[#F8D8A7] shadow-tactile-sm'
+                  : 'text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE]'
               }`}
               title="Simpan sementara di Talent Pool (Shortcut: 'H')"
             >
-              <Clock className="w-3.5 h-3.5 text-[#8A4C05]" />
+              <Clock className="w-3.5 h-3.5 text-[#7A3E02]" />
               <span>Hold</span>
             </button>
 
             <button
               type="button"
               onClick={() => onDecision(candidate.cv_id, 'TIDAK_LANJUT')}
-              className={`h-7 px-3 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer ${
+              className={`h-7 px-3 rounded-lg text-xs font-bold transition-all duration-150 flex items-center space-x-1.5 cursor-pointer active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8C1819] ${
                 candidate.decision === 'TIDAK_LANJUT'
-                  ? 'bg-[#FCEBEB] text-[#9E2A2B] border border-[#F6C1C1] shadow-tactile-sm'
-                  : 'text-[#40564D] hover:text-[#13221C] hover:bg-[#EBF1EE]'
+                  ? 'bg-[#FCEBEB] text-[#8C1819] border border-[#F6C1C1] shadow-tactile-sm'
+                  : 'text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE]'
               }`}
               title="Tidak lanjut ke tahap berikutnya (Shortcut: 'X')"
             >
-              <XCircle className="w-3.5 h-3.5 text-[#9E2A2B]" />
+              <XCircle className="w-3.5 h-3.5 text-[#8C1819]" />
               <span>Tidak Lanjut</span>
             </button>
           </div>
         </div>
       </header>
 
-      {/* Scrollable Canvas Body (Executive View: 3 Essential Sections Only) */}
+      {/* Scrollable Canvas Body */}
       <div className="flex-1 overflow-y-auto p-5 space-y-5">
         {/* 1. RINGKASAN EKSEKUTIF (Executive Summary) */}
         <section className="bg-[#FCFDFC] border border-[#D5DFD9] rounded-2xl p-4 sm:p-5 shadow-tactile space-y-4">
@@ -211,7 +211,7 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
               </h3>
             </div>
             <div className="flex items-center space-x-2">
-              <span className="text-[10px] font-mono text-[#40564D]">
+              <span className="text-[10px] font-mono text-[#2D4439]">
                 Rekomendasi:{' '}
                 <strong className="text-[#13221C]">
                   {candidate.recommendation.replace('_', ' ')}
@@ -227,20 +227,20 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
                 Kualifikasi Wajib (Must-Have):
               </span>
               {allMustHavesMet ? (
-                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-[#EBF6EF] text-[#1B6C47] border border-[#BBE5CD]">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-[#1B6C47]" />
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD]">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#124B2E]" />
                   Semua Terpenuhi ({mustHaveReqs.length}/{mustHaveReqs.length})
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-[#FEF6E8] text-[#8A4C05] border border-[#F8D8A7]">
-                  <AlertTriangle className="w-3.5 h-3.5 text-[#8A4C05]" />
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold bg-[#FEF6E8] text-[#7A3E02] border border-[#F8D8A7]">
+                  <AlertTriangle className="w-3.5 h-3.5 text-[#7A3E02]" />
                   {mustHavePartialOrUnproven.length} Syarat Perlu Perhatian ({mustHaveFulfilled.length}/
                   {mustHaveReqs.length})
                 </span>
               )}
             </div>
 
-            <span className="text-[11px] font-mono text-[#40564D]">
+            <span className="text-[11px] font-mono text-[#2D4439] font-medium">
               Evaluasi Deterministik Jev
             </span>
           </div>
@@ -255,16 +255,16 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
                 {candidate.explanation.strengths.slice(0, 4).map((s, idx) => (
                   <div
                     key={idx}
-                    className="p-3 rounded-xl bg-[#EBF6EF]/40 border border-[#BBE5CD] text-xs space-y-1"
+                    className="p-3 rounded-xl bg-[#EBF6EF]/50 border border-[#BBE5CD] text-xs space-y-1 shadow-tactile-sm"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-mono text-[10px] font-bold text-[#1B6C47]">
+                      <span className="font-mono text-[10px] font-bold text-[#124B2E]">
                         {s.requirement_id} • Bobot {s.weight}%
                       </span>
                     </div>
                     <p className="font-semibold text-[#13221C]">{s.description}</p>
                     {s.quote && (
-                      <p className="font-mono text-[11px] text-[#134E35] italic truncate">
+                      <p className="font-mono text-[11px] text-[#124B2E] italic truncate">
                         &quot;{s.quote}&quot;
                       </p>
                     )}
@@ -277,16 +277,16 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
           {/* Catatan Defisit & Flags (jika ada) */}
           {((candidate.flags && candidate.flags.length > 0) ||
             (candidate.explanation.unproven && candidate.explanation.unproven.length > 0)) && (
-            <div className="p-3 rounded-xl bg-[#FEF6E8]/70 border border-[#F8D8A7] text-xs space-y-2">
-              <div className="flex items-center space-x-1.5 text-[#8A4C05] font-bold">
-                <AlertTriangle className="w-4 h-4 text-[#8A4C05] shrink-0" />
+            <div className="p-3 rounded-xl bg-[#FEF6E8] border border-[#F8D8A7] text-xs space-y-2 shadow-tactile-sm">
+              <div className="flex items-center space-x-1.5 text-[#7A3E02] font-bold">
+                <AlertTriangle className="w-4 h-4 text-[#7A3E02] shrink-0" />
                 <span>Catatan Defisit & Indikasi Verifikasi:</span>
               </div>
               <div className="space-y-1 text-[#13221C]">
                 {candidate.flags &&
                   candidate.flags.map((flag, idx) => (
-                    <div key={`flag-${idx}`} className="flex items-center gap-1.5 text-xs text-[#8A4C05]">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#8A4C05]" />
+                    <div key={`flag-${idx}`} className="flex items-center gap-1.5 text-xs text-[#7A3E02]">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#7A3E02]" />
                       <span>
                         Flag Integritas: <strong>{flag}</strong>
                       </span>
@@ -296,9 +296,9 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
                   candidate.explanation.unproven.map((u, idx) => (
                     <div
                       key={`unproven-${idx}`}
-                      className="flex items-start gap-1.5 text-xs text-[#8A4C05]"
+                      className="flex items-start gap-1.5 text-xs text-[#7A3E02]"
                     >
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#8A4C05] mt-1 shrink-0" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#7A3E02] mt-1 shrink-0" />
                       <span>
                         <strong>
                           [{u.requirement_id}] {u.description}
@@ -321,7 +321,7 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
                 Matriks Kualifikasi & Bukti Terpadu ({requirements.length} Kriteria)
               </h3>
             </div>
-            <span className="text-[10px] font-mono text-[#40564D]">
+            <span className="text-[10px] font-mono text-[#2D4439] font-medium">
               Kutipan Verbatim CV Langsung
             </span>
           </div>
@@ -336,7 +336,7 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
               return (
                 <div
                   key={r.requirement_id}
-                  className="p-3.5 rounded-xl bg-[#FCFDFC] hover:bg-[#F5F8F6] border border-[#D5DFD9] space-y-2 transition-colors shadow-tactile-sm"
+                  className="p-3.5 rounded-xl bg-[#FCFDFC] hover:bg-[#F5F8F6] border border-[#D5DFD9] hover:border-[#1B4938]/40 space-y-2 transition-all shadow-tactile-sm"
                 >
                   {/* Kriteria Title Row */}
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -348,23 +348,23 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
                         {r.description}
                       </span>
                       {r.importance === 'MUST_HAVE' && (
-                        <span className="font-mono text-[9px] px-1.5 py-0.2 rounded font-bold uppercase bg-[#FEF6E8] text-[#8A4C05] border border-[#F8D8A7]">
+                        <span className="font-mono text-[9px] px-1.5 py-0.2 rounded font-bold uppercase bg-[#FEF6E8] text-[#7A3E02] border border-[#F8D8A7]">
                           Wajib
                         </span>
                       )}
                     </div>
 
                     <div className="flex items-center space-x-2 shrink-0">
-                      <span className="font-mono text-xs tabular-nums text-[#40564D]">
+                      <span className="font-mono text-xs tabular-nums text-[#2D4439]">
                         Bobot: <strong>{r.weight}%</strong>
                       </span>
                       <span
-                        className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
+                        className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold border ${
                           state === 'STRONG'
-                            ? 'bg-[#EBF6EF] text-[#1B6C47] border border-[#BBE5CD]'
+                            ? 'bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD]'
                             : state === 'PARTIAL'
-                            ? 'bg-[#FEF6E8] text-[#8A4C05] border border-[#F8D8A7]'
-                            : 'bg-[#FCEBEB] text-[#9E2A2B] border border-[#F6C1C1]'
+                            ? 'bg-[#FEF6E8] text-[#7A3E02] border-[#F8D8A7]'
+                            : 'bg-[#FCEBEB] text-[#8C1819] border-[#F6C1C1]'
                         }`}
                       >
                         {state === 'STRONG'
@@ -379,13 +379,13 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
                   {/* Kutipan Verbatim CV Terpadu di Bawah Kriteria */}
                   {evidenceQuote ? (
                     <div className="mt-1 pl-3 border-l-2 border-[#1B4938] bg-[#F5F8F6] p-2.5 rounded-r-lg flex items-start justify-between gap-3">
-                      <p className="font-mono text-[11px] text-[#134E35] leading-relaxed select-text">
+                      <p className="font-mono text-[11px] text-[#124B2E] leading-relaxed select-text">
                         &ldquo;{evidenceQuote}&rdquo;
                       </p>
                       <button
                         type="button"
                         onClick={() => onOpenAuditDrawer?.('grounding', evidenceQuote)}
-                        className="shrink-0 text-[10px] font-semibold text-[#1B4938] hover:text-[#134E35] underline cursor-pointer flex items-center gap-1 transition-colors"
+                        className="shrink-0 text-[10px] font-bold text-[#1B4938] hover:text-[#124B2E] underline cursor-pointer flex items-center gap-1 transition-colors"
                         title="Buka kutipan ini di Audit Drawer CV"
                       >
                         <span>Lihat di CV</span>
@@ -393,7 +393,7 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
                       </button>
                     </div>
                   ) : (
-                    <div className="mt-1 pl-3 border-l-2 border-[#D5DFD9] py-1 text-[11px] text-[#40564D]/60 italic font-mono">
+                    <div className="mt-1 pl-3 border-l-2 border-[#D5DFD9] py-1 text-[11px] text-[#2D4439]/70 italic font-mono">
                       Tidak ditemukan kutipan eksplisit dalam berkas CV untuk kriteria ini.
                     </div>
                   )}
@@ -406,13 +406,13 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
         {/* 3. PANDUAN PERTANYAAN WAWANCARA TERARAH */}
         <section className="bg-[#FCFDFC] border border-[#D5DFD9] rounded-2xl p-4 sm:p-5 shadow-tactile space-y-3">
           <div className="flex items-center justify-between border-b border-[#E2E9E5] pb-2">
-            <div className="flex items-center space-x-2 text-[#8A4C05]">
-              <MessageSquare className="w-4 h-4 text-[#8A4C05]" />
+            <div className="flex items-center space-x-2 text-[#7A3E02]">
+              <MessageSquare className="w-4 h-4 text-[#7A3E02]" />
               <h4 className="text-xs font-bold uppercase tracking-wider text-[#13221C]">
                 Panduan Pertanyaan Wawancara Terarah
               </h4>
             </div>
-            <span className="text-[10px] font-mono text-[#40564D]">
+            <span className="text-[10px] font-mono text-[#2D4439] font-medium">
               Validasi Kualifikasi Kritis
             </span>
           </div>
@@ -423,21 +423,21 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
               candidate.explanation.interview_questions.map((q, idx) => (
                 <div
                   key={idx}
-                  className="p-3 rounded-xl bg-[#FEF6E8]/40 border border-[#F8D8A7] text-xs space-y-1.5"
+                  className="p-3 rounded-xl bg-[#FEF6E8]/50 border border-[#F8D8A7] text-xs space-y-1.5 shadow-tactile-sm"
                 >
                   <div className="flex items-center space-x-2">
-                    <span className="font-mono text-[10px] font-bold text-[#8A4C05] bg-[#FEF6E8] px-1.5 py-0.5 rounded border border-[#F8D8A7]">
+                    <span className="font-mono text-[10px] font-bold text-[#7A3E02] bg-[#FEF6E8] px-1.5 py-0.5 rounded border border-[#F8D8A7]">
                       [{q.requirement_id}]
                     </span>
-                    <span className="font-semibold text-[#13221C]">{q.focus}</span>
+                    <span className="font-bold text-[#13221C]">{q.focus}</span>
                   </div>
-                  <p className="text-[#40564D] text-xs leading-relaxed pl-1">
+                  <p className="text-[#2D4439] text-xs leading-relaxed pl-1 font-medium">
                     💡 <em>{q.question}</em>
                   </p>
                 </div>
               ))
             ) : (
-              <div className="p-3 rounded-xl bg-[#F5F8F6] border border-[#D5DFD9] text-xs text-[#40564D] italic">
+              <div className="p-3 rounded-xl bg-[#F5F8F6] border border-[#D5DFD9] text-xs text-[#2D4439] italic">
                 Kandidat memenuhi seluruh kualifikasi utama. Tidak ada pertanyaan defisit kritis yang
                 direkomendasikan.
               </div>
