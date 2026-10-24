@@ -152,13 +152,25 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
     const flags: string[] = []
     requirements.forEach((r) => {
       const txt = (r.description + ' ' + (r.source_text || '')).toLowerCase()
-      if (/\busia\b|\bumur\b|maks\.\s*\d+|max\s*\d+\s*tahun/.test(txt)) {
+      if (
+        /\b(?:(?:maks(?:\.|imal)?|min(?:imal)?|max)\s*(?:usia|umur)\s*\d+|\b(?:usia|umur)\s*(?:maks(?:\.|imal)?|min(?:imal)?|max)?\s*\d+\s*(?:tahun|thn)?)\b/i.test(
+          txt
+        )
+      ) {
         flags.push(`Kriteria usia (${r.requirement_id}): Tidak diperkenankan sesuai aturan anti-bias`)
       }
-      if (/\bpria\b|\bwanita\b|\bgender\b|\blaki-laki\b|\bperempuan\b/.test(txt)) {
+      if (
+        /\b(?:khusus\s*(?:pria|wanita|laki-laki|perempuan)|hanya\s*(?:pria|wanita|laki-laki|perempuan)|wajib\s*(?:pria|wanita|laki-laki|perempuan))\b/i.test(
+          txt
+        )
+      ) {
         flags.push(`Kriteria gender (${r.requirement_id}): Tidak diperkenankan sesuai aturan anti-bias`)
       }
-      if (/menarik|penampilan|good looking|tinggi|berat/.test(txt)) {
+      if (
+        /\b(?:tinggi\s*badan|berat\s*badan|tinggi\s*min(?:imal)?|berat\s*min(?:imal)?|berpenampilan\s*menarik|penampilan\s*menarik|good\s*looking|foto\s*(?:full\s*body|seluruh\s*badan)|proporsional\s*(?:badan|fisik))\b/i.test(
+          txt
+        )
+      ) {
         flags.push(`Kriteria fisik (${r.requirement_id}): Evaluasi wajib 100% berbasis kompetensi teknis`)
       }
     })
@@ -174,6 +186,8 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
       Number(categoryWeights.ACHIEVEMENT || 0)
     )
   }, [categoryWeights])
+
+  const isWeightValid = Math.abs(totalCategoryWeight - 100) < 0.01
 
   const filteredRequirements = useMemo(() => {
     if (selectedCategoryFilter === 'ALL') return requirements
@@ -271,13 +285,13 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
                   setShowUnapprovedWarning(false)
                   onApproveCriteria()
                 }}
-                disabled={isLocked || prohibitedFlags.length > 0 || totalCategoryWeight !== 100 || requirements.length === 0}
+                disabled={isLocked || prohibitedFlags.length > 0 || !isWeightValid || requirements.length === 0}
                 title={
                   isLocked
                     ? `Kriteria telah disetujui & dikunci (v${criteriaVersion}). Lakukan perubahan pada kriteria atau bobot untuk membuka kunci.`
                     : prohibitedFlags.length > 0
                     ? 'Perbaiki kriteria yang melanggar aturan anti-bias sebelum menyetujui.'
-                    : totalCategoryWeight !== 100
+                    : !isWeightValid
                     ? `Total bobot kategori harus tepat 100% (saat ini ${totalCategoryWeight}%).`
                     : requirements.length === 0
                     ? 'Tambahkan minimal 1 kriteria sebelum menyetujui.'
@@ -631,7 +645,7 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
               </div>
               <span
                 className={`font-mono text-[10px] px-2 py-0.5 rounded-md font-bold tabular-nums ${
-                  totalCategoryWeight === 100
+                  isWeightValid
                     ? 'bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD]'
                     : 'bg-[#FEF6E8] text-[#7A3E02] border border-[#F8D8A7]'
                 }`}
@@ -687,7 +701,7 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
               })}
             </div>
 
-            {totalCategoryWeight !== 100 && (
+            {!isWeightValid && (
               <div className="p-2.5 rounded-xl bg-[#FEF6E8] border border-[#F8D8A7] text-[11px] text-[#7A3E02] flex items-center space-x-1.5">
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-[#7A3E02]" />
                 <span>
@@ -833,7 +847,7 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
             Total Bobot:{' '}
             <strong
               className={`tabular-nums ${
-                totalCategoryWeight === 100
+                isWeightValid
                   ? 'text-[#124B2E]'
                   : 'text-[#7A3E02] font-bold underline'
               }`}
