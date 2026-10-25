@@ -192,13 +192,14 @@ Menerima berkas pelamar (PDF/DOCX tunggal maupun berkas bundel lampiran
 sertifikat/penghargaan). Mesin parser membedah tata letak
 (#emph[layout-aware]) dan mempartisi halaman ke dalam zona semantik:
 `ZONE_RESUME`, `ZONE_CERTIFICATE`, dan `ZONE_AWARDS`. #emph[Prinsip
-Keadilan Sertifikat]: Sertifikat dan penghargaan bersifat
-#strong[opsional secara default]. Sistem tidak menghukum pelamar yang
-hanya mengunggah 1 lembar CV tanpa lampiran, kecuali Job Description
-(JD) secara eksplisit menetapkan sertifikasi profesi tertentu sebagai
-kualifikasi mutlak (#emph[Mandatory Hard Gate]). Lampiran tambahan hanya
-berfungsi sebagai penguat derajat bukti (#emph[Confidence Booster]),
-bukan penambah skor otomatis.
+Keadilan Sertifikat]: Sertifikat dan dokumen penghargaan #strong[murni
+berstatus OPSIONAL (Jalur Default Utama)]. Sistem ini dirancang untuk
+ranah rekayasa teknologi dan profesional di mana kompetensi diukur dari
+#strong[rekam jejak proyek nyata (#emph[proven track record])], bukan
+ketebalan berkas. Pelamar dengan CV teks ringkas 1 halaman berhak
+memperoleh nilai penuh (Band A / Top Rank) tanpa harus melampirkan
+sertifikat apa pun. Berkas sertifikat (jika ada) hanya berfungsi sebagai
+#emph[verifier] fisik sekunder tanpa menggelembungkan skor kualifikasi.
 
 === Tahap 4: Normalisasi Teks & Anti-Halusinasi (Unicode NFKC Grounding)
 <tahap-4-normalisasi-teks-anti-halusinasi-unicode-nfkc-grounding>
@@ -486,10 +487,10 @@ Tabel berikut menyajikan perbandingan komparatif per modul arsitektur:
   [Pencarian kata kunci nama sertifikat di seluruh file.],
   [Membaca semua lembar sertifikat tanpa verifikasi relevansi; rawan
   bias ketebalan berkas.],
-  [#strong[Dua Jalur Berkeadilan (#emph[Dual-Track Fairness])]:
-  Sertifikat berstatus #strong[opsional secara default] (hanya penguat
-  bukti); diwajibkan hanya bila JD eksplisit mencantumkan lisensi wajib
-  (#emph[Mandatory License]).],
+  [#strong[Jalur Default Murni (#emph[Default Practical Track])]:
+  Sertifikat dan penghargaan #strong[murni berstatus opsional]. Skor
+  100% didasarkan pada kedalaman bukti proyek nyata di CV; CV 1 lembar
+  memiliki hak setara penuh meraih Top 1 (Band A).],
   [#strong[7. Antarmuka Rekruter Cockpit]],
   [Hanya menyajikan data mentah probabilitas numerik.],
   [Tabel grid konvensional berisi skor persentase kata kunci.],
@@ -601,12 +602,12 @@ objektif tanpa mengaburkan penilaian kriteria utama HR.
     yang adil dan dapat diaudit.
 + #strong[Prinsip Keadilan Dokumen Pelamar (#emph[Document Fairness
   Doctrine])]:
-  - Sertifikat, lisensi, dan piagam penghargaan berstatus
-    #strong[opsional secara default] (hanya berlaku sebagai penguat
-    keyakinan / #emph[confidence flag]).
-  - Sertifikat hanya berubah menjadi syarat kelulusan mutlak (#emph[Hard
-    Filter Gate]) apabila teks Job Description secara eksplisit
-    menyatakan lisensi tersebut wajib hukumnya (contoh: STR Medis,
-    Lisensi Notaris, Sertifikasi Penyelam Komersial). Pelamar dengan CV
-    teks 1 lembar tetap dapat meraih skor maksimal (Band A) murni
-    berbasis bukti pengalaman proyek nyata.
+  - Sistem beroperasi pada #strong[Jalur Default Murni (#emph[Default
+    Practical Track])]: sertifikat, lisensi pelatihan, dan piagam
+    penghargaan berstatus #strong[100% opsional].
+  - Kompetensi dinilai murni dari rekam jejak penyelesaian masalah dan
+    kedalaman proyek nyata. Pelamar dengan CV teks ringkas 1 lembar
+    memiliki hak dan peluang setara mutlak untuk menempati peringkat
+    teratas (Top 1 / Band A) tanpa terancam tergeser oleh bundel berkas
+    tebal. Lampiran berkas fisik semata-mata menjadi catatan pembantu di
+    dashboard rekruter.
