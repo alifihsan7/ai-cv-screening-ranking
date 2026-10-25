@@ -339,23 +339,24 @@ PENDIDIKAN & LATAR BELAKANG:
           </div>
         </header>
 
-        {/* Integrated Tab Bar: Evaluasi Forensik · ReAct Trajectory · Kutipan CV */}
-        <div className="px-4 sm:px-5 py-2 bg-[#F7FAF8] border-b border-[#D5DFD9] flex items-center justify-between gap-2.5 shrink-0 min-w-0">
-          {/* Scrollable Tab Controls */}
-          <div className="flex-1 min-w-0 overflow-x-auto no-scrollbar py-0.5">
-            <div className="inline-flex items-center space-x-1 bg-[#EBF1EE] p-0.5 rounded-xl border border-[#D5DFD9]">
+        {/* Integrated Tab Bar: Evaluasi · Telemetri · Kutipan CV */}
+        <div className="px-3 sm:px-5 py-2 bg-[#F7FAF8] border-b border-[#D5DFD9] flex items-center justify-between gap-2.5 shrink-0 min-w-0">
+          {/* Tab Controls (Equal 3-column Grid) */}
+          <div className="flex-1 min-w-0">
+            <div className="w-full grid grid-cols-3 bg-[#EBF1EE] p-0.5 rounded-xl border border-[#D5DFD9] gap-0.5 sm:gap-1">
               <button
                 type="button"
                 onClick={() => setActiveTab('evaluation')}
-                className={`h-7 px-2.5 sm:px-3 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all duration-150 cursor-pointer whitespace-nowrap shrink-0 ${
+                className={`h-7 px-1.5 sm:px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center space-x-1 sm:space-x-1.5 transition-all duration-150 cursor-pointer whitespace-nowrap min-w-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] ${
                   activeTab === 'evaluation'
                     ? 'bg-[#FCFDFC] text-[#1B4938] shadow-tactile-sm font-bold border border-[#D5DFD9]'
-                    : 'text-[#2D4439] hover:text-[#13221C] border border-transparent'
+                    : 'text-[#2D4439] hover:text-[#13221C] hover:bg-black/[0.03] border border-transparent'
                 }`}
+                title="Evaluasi Forensik Kandidat"
               >
                 <Award className="w-3.5 h-3.5 text-[#1B4938] shrink-0" />
-                <span className="whitespace-nowrap">Evaluasi Forensik</span>
-                <span className="font-mono tabular-nums text-[10px] bg-[#EBF1EE] text-[#1B4938] font-bold px-1 rounded shrink-0">
+                <span className="whitespace-nowrap">Evaluasi</span>
+                <span className="font-mono tabular-nums text-[10px] bg-[#E2E9E5] text-[#1B4938] font-bold px-1.5 py-0.2 rounded shrink-0">
                   {requirements.length}
                 </span>
               </button>
@@ -363,16 +364,17 @@ PENDIDIKAN & LATAR BELAKANG:
               <button
                 type="button"
                 onClick={() => setActiveTab('trajectory')}
-                className={`h-7 px-2.5 sm:px-3 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all duration-150 cursor-pointer whitespace-nowrap shrink-0 ${
+                className={`h-7 px-1.5 sm:px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center space-x-1 sm:space-x-1.5 transition-all duration-150 cursor-pointer whitespace-nowrap min-w-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] ${
                   activeTab === 'trajectory'
                     ? 'bg-[#FCFDFC] text-[#1B4938] shadow-tactile-sm font-bold border border-[#D5DFD9]'
-                    : 'text-[#2D4439] hover:text-[#13221C] border border-transparent'
+                    : 'text-[#2D4439] hover:text-[#13221C] hover:bg-black/[0.03] border border-transparent'
                 }`}
+                title="Telemetri Penalaran ReAct"
               >
                 <Terminal className="w-3.5 h-3.5 text-[#1B4938] shrink-0" />
-                <span className="whitespace-nowrap">ReAct Telemetry</span>
+                <span className="whitespace-nowrap">Telemetri</span>
                 {candidate.reasoning_trajectory && candidate.reasoning_trajectory.length > 0 && (
-                  <span className="font-mono tabular-nums text-[10px] bg-[#EBF1EE] text-[#124B2E] font-bold px-1 rounded shrink-0">
+                  <span className="font-mono tabular-nums text-[10px] bg-[#E2E9E5] text-[#124B2E] font-bold px-1.5 py-0.2 rounded shrink-0">
                     {candidate.reasoning_trajectory.length}
                   </span>
                 )}
@@ -381,23 +383,27 @@ PENDIDIKAN & LATAR BELAKANG:
               <button
                 type="button"
                 onClick={() => setActiveTab('grounding')}
-                className={`h-7 px-2.5 sm:px-3 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all duration-150 cursor-pointer whitespace-nowrap shrink-0 ${
+                className={`h-7 px-1.5 sm:px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center space-x-1 sm:space-x-1.5 transition-all duration-150 cursor-pointer whitespace-nowrap min-w-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] ${
                   activeTab === 'grounding'
                     ? 'bg-[#FCFDFC] text-[#1B4938] shadow-tactile-sm font-bold border border-[#D5DFD9]'
-                    : 'text-[#2D4439] hover:text-[#13221C] border border-transparent'
+                    : 'text-[#2D4439] hover:text-[#13221C] hover:bg-black/[0.03] border border-transparent'
                 }`}
+                title="Kutipan Berkas CV Asli (Grounding)"
               >
                 <FileText className="w-3.5 h-3.5 text-[#1B4938] shrink-0" />
-                <span className="whitespace-nowrap">Kutipan CV (Grounding)</span>
+                <span className="whitespace-nowrap">Kutipan CV</span>
               </button>
             </div>
           </div>
 
           {isAiVerified && (
-            <div className="flex items-center text-[10px] font-mono text-[#2D4439] shrink-0 pl-1">
-              <span className="inline-flex items-center gap-1 font-bold text-[#124B2E] bg-[#EBF6EF] px-2 py-0.5 rounded-lg border border-[#BBE5CD] whitespace-nowrap shadow-tactile-sm">
+            <div className="flex items-center text-[10px] font-mono text-[#2D4439] shrink-0 pl-0.5">
+              <span
+                className="inline-flex items-center gap-1 font-bold text-[#124B2E] bg-[#EBF6EF] px-2 py-0.5 rounded-lg border border-[#BBE5CD] whitespace-nowrap shadow-tactile-sm"
+                title="Terverifikasi AI Pipeline"
+              >
                 <ShieldCheck className="w-3.5 h-3.5 text-[#124B2E] shrink-0" />
-                <span>AI Verified</span>
+                <span className="hidden sm:inline">AI Verified</span>
               </span>
             </div>
           )}
