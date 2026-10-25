@@ -188,18 +188,25 @@ berkas kontrak data `requirement_set.json`.
 === Tahap 3: Ingestion & Zonasi Berkas Pelamar (Document Ingestion &
 Zoning)
 <tahap-3-ingestion-zonasi-berkas-pelamar-document-ingestion-zoning>
-Menerima berkas pelamar (PDF/DOCX tunggal maupun berkas bundel lampiran
-sertifikat/penghargaan). Mesin parser membedah tata letak
-(#emph[layout-aware]) dan mempartisi halaman ke dalam zona semantik:
-`ZONE_RESUME`, `ZONE_CERTIFICATE`, dan `ZONE_AWARDS`. #emph[Prinsip
-Keadilan Sertifikat]: Sertifikat dan dokumen penghargaan #strong[murni
-berstatus OPSIONAL (Jalur Default Utama)]. Sistem ini dirancang untuk
-ranah rekayasa teknologi dan profesional di mana kompetensi diukur dari
-#strong[rekam jejak proyek nyata (#emph[proven track record])], bukan
-ketebalan berkas. Pelamar dengan CV teks ringkas 1 halaman berhak
-memperoleh nilai penuh (Band A / Top Rank) tanpa harus melampirkan
-sertifikat apa pun. Berkas sertifikat (jika ada) hanya berfungsi sebagai
-#emph[verifier] fisik sekunder tanpa menggelembungkan skor kualifikasi.
+Menerima berkas pelamar dalam berbagai format (PDF digital, DOCX, maupun
+#strong[CV hasil scan/desain grafis berbasis gambar/flattened image]).
+Mesin parser membedah dokumen melalui strategi berlapis: \*
+#strong[Digital PDF / DOCX]: Diekstrak menggunakan IBM Docling lokal
+dengan rekonstruksi tata letak 2 kolom (#emph[Document Layout Analysis])
+dan tabel. \* #strong[Scanned / Image-based CV (PDF Gambar / Flat
+Scan)]: Sistem mengaktifkan #strong[Fallback OCR Engine Lokal]
+(Tesseract OCR / PyMuPDF OCR dengan dukungan bahasa Indonesia `ind` dan
+Inggris `eng`). Teks dari gambar diekstraksi ke karakter digital sebelum
+dinormalisasi ke standar NFKC. \* #strong[Zonasi Semantik]: Halaman dan
+blok teks dipartisi ke dalam zona: `ZONE_RESUME`, `ZONE_CERTIFICATE`,
+dan `ZONE_AWARDS`. \* #strong[Prinsip Keadilan Sertifikat]: Sertifikat
+dan dokumen penghargaan #strong[murni berstatus OPSIONAL (Jalur Default
+Utama)]. Kompetensi diukur dari #strong[rekam jejak proyek nyata
+(#emph[proven track record])], bukan ketebalan berkas. Pelamar dengan CV
+teks ringkas 1 halaman berhak memperoleh nilai penuh (Band A / Top Rank)
+tanpa harus melampirkan sertifikat apa pun. Berkas sertifikat (jika ada)
+hanya berfungsi sebagai #emph[verifier] fisik sekunder tanpa
+menggelembungkan skor kualifikasi.
 
 === Tahap 4: Normalisasi Teks & Anti-Halusinasi (Unicode NFKC Grounding)
 <tahap-4-normalisasi-teks-anti-halusinasi-unicode-nfkc-grounding>
@@ -454,11 +461,12 @@ Tabel berikut menyajikan perbandingan komparatif per modul arsitektur:
   [#strong[2. Parsing Dokumen & Zonasi Lampiran]],
   [Hanya membaca teks polos; butuh pra-pemrosesan luar.],
   [Parser teks dasar (pypdf/pdfminer). #emph[(Gagal pada layout 2 kolom
-  & tabel)]],
+  & gagal total pada scan gambar)]],
   [Multimodal Vision API per lembar PDF. #emph[(Sangat mahal & latensi
-  tinggi)]],
-  [#strong[IBM Docling Lokal (`ZONE_RESUME` & `ZONE_CERT`)]
-  #emph[(Layout-aware, \<500 ms, \$0)]],
+  tinggi: 10 dtk/CV)]],
+  [#strong[IBM Docling + Fallback OCR Lokal (Tesseract `ind`+`eng`)]
+  #emph[(Layout-aware, otomatis OCR jika PDF gambar/scan, 100% lokal,
+  \$0)]],
   [#strong[3. Grounding & Anti-Halusinasi Teks]],
   [Evaluasi probabilitas klaim semantik tanpa teks bebas.],
   [Pencocokan string kata kunci persis (#emph[exact keyword
