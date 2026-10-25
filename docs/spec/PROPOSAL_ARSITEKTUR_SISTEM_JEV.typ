@@ -125,346 +125,449 @@
 #v(1em)
 #line(length: 100%, stroke: 0.5pt + rgb("#cbd5e1"))
 #v(1.5em)
-= PROPOSAL ARSITEKTUR & REKAYASA SISTEM
-<proposal-arsitektur-rekayasa-sistem>
-== AI CV Screening & Ranking Berbasis Bukti (Evidence-Grounded System)
-<ai-cv-screening-ranking-berbasis-bukti-evidence-grounded-system>
-=== Evaluasi Semantik Terstruktur TypeSafe Jev System One & Agregasi
-Deterministik
-<evaluasi-semantik-terstruktur-typesafe-jev-system-one-agregasi-deterministik>
+= PROPOSAL & CETAK BIRU REKAYASA SISTEM
+<proposal-cetak-biru-rekayasa-sistem>
+== End-to-End AI Talent Acquisition & Screening Platform: Dari
+Dekonstruksi Job Desc Hingga Perankingan Bukti
+<end-to-end-ai-talent-acquisition-screening-platform-dari-dekonstruksi-job-desc-hingga-perankingan-bukti>
+=== Evaluasi Komparatif Arsitektur: Full AI Jev System One vs Full LLM
+Biasa vs Sistem Hibrida
+<evaluasi-komparatif-arsitektur-full-ai-jev-system-one-vs-full-llm-biasa-vs-sistem-hibrida>
 
 #line(length: 100%, stroke: 0.5pt + rgb("#e2e8f0"))
 
-= 1. RINGKASAN EKSEKUTIF (EXECUTIVE SUMMARY)
-<ringkasan-eksekutif-executive-summary>
-== 1.1 Latar Belakang & Masalah Utama
-<latar-belakang-masalah-utama>
-Proses seleksi resume (CV) pada volume tinggi menghadapi dua dilema
-ekstrem dalam praktik industri dan rekayasa kecerdasan buatan: 1.
-#strong[Pendekatan Keyword Matching Tradisional (Sintaktik / ATS
-Klasik)]: Sangat kaku, mudah dimanipulasi dengan #emph[keyword
-stuffing], dan gagal memahami konteks semantik pekerjaan. 2.
-#strong[Pendekatan Generatif LLM Penuh (#emph[Unconstrained Generative
-Prompting])]: Rentan halusinasi, menghasilkan luaran acak
-(#emph[non-deterministic]), tidak dapat diaudit (#emph[black box]), dan
-membutuhkan biaya token yang sangat tinggi pada volume ratusan ribu
-dokumen.
-
-Lebih jauh, temuan bimbingan lapangan mengidentifikasi kelemahan krusial
-pada sistem pencocokan semantik standar (seperti kombinasi naive
-embedding cosine similarity dan pgvector): \* Vektor embedding sering
-gagal menangkap kedalaman kualifikasi kandidat (misal: membedakan
-arsitek sistem terdistribusi vs #emph[maintenance engineer] biasa). \*
-Rekruter di lapangan #strong[tidak cukup hanya diberikan jawaban biner
-(Yes/No)]. Mereka membutuhkan rekomendasi berupa #strong[daftar
-peringkat kandidat (#emph[ranking])] yang transparan, adil, dan berdasar
-bukti nyata (#emph[evidence-grounded]).
-
-== 1.2 Pernyataan Solusi: Evidence-Grounded AI Screening
-<pernyataan-solusi-evidence-grounded-ai-screening>
-Sistem ini dibangun untuk menghadirkan platform penyaringan CV hibrida
-(#emph[hybrid semantic-deterministic system]) dengan prinsip kerja: \*
-#strong[Evaluasi Semantik Terstruktur]: Menggunakan model keputusan
-terstruktur murni (#emph[System One Model] via API resmi TypeSafe Jev /
-`api.typesafe.ai`) untuk menguji klaim kualifikasi terhadap teks dokumen
-asli tanpa generasi teks bebas. \* #strong[Perankingan Deterministik di
-Sisi Mesin Lokal]: Penentuan skor akhir (0–100) dan #emph[leaderboard
-ranking] dihitung secara matematis menggunakan rumus terukur di backend
-Python lokal, bukan diserahkan kepada tebakan LLM. \* #strong[Verifikasi
-Teks Unicode NFKC]: Menjamin setiap bukti yang dijadikan dasar penilaian
-adalah kutipan eksak (#emph[exact substring]) dari berkas pelamar.
-Halusinasi bernilai 0%. \* #strong[Auditability & Recruiter Cockpit]:
-Antarmuka taktil anti-slop yang memberikan kendali akhir kepada rekruter
-manusia (#emph[Human-in-the-Loop]).
+= 1. PENDAHULUAN & CAKUPAN END-TO-END
+<pendahuluan-cakupan-end-to-end>
+Berdasarkan diskusi dan arahan bimbingan terbaru, cakupan sistem ini
+#strong[bukan hanya menyaring CV di tahap hilir], melainkan mencakup
+seluruh siklus rekrutmen dari hulu ke hilir:
 
 ```
-   [ Berkas Pelamar (PDF/DOCX) ]
-                 │
-                 ▼
-     [ 1. Ingestion & Zonasi ] ─── IBM Docling (Layout-Aware)
-                 │                 - Partisi: Resume vs Sertifikat/Portofolio
-                 ▼
-     [ 2. Zero-Hallucination ] ─── Verifikasi NFKC (Exact Substring Match)
-                 │
-                 ▼
-     [ 3. Evaluasi Semantik ]  ─── TypeSafe Jev System One (Decisions API)
-                 │                 - Noul (Hard Gate), Choice (Bukti), Score (Kedalaman)
-                 ▼
-     [ 4. Scorer Deterministik]─── Kalkulasi Python Lokal (Bobot + Ranking)
-                 │
-                 ▼
-     [ 5. Recruiter Cockpit ]  ─── Dashboard Interaktif & Pengambilan Keputusan HR
+[Tahap 1: Ingestion & Dekonstruksi JD] ──► [Tahap 2: Ingestion & Zonasi Berkas CV]
+                    │                                             │
+                    ▼                                             ▼
+[Tahap 3: Penyusunan Rubrik & Bobot HR] ──► [Tahap 4: Verifikasi Grounding NFKC]
+                    │                                             │
+                    ▼                                             ▼
+[Tahap 5: Evaluasi Semantik & Keputusan]──► [Tahap 6: Agregasi & Leaderboard Ranking]
+                                                                  │
+                                                                  ▼
+                                            [Tahap 7: Recruiter Cockpit (Human-in-the-Loop)]
 ```
+
+Dokumen ini membedah arsitektur sistem secara menyeluruh, mengulas
+bagaimana sistem menangani input teks mentah Job Description (JD),
+membandingkan secara objektif #strong[tiga paradigma arsitektur (Full
+Jev, Non-Jev / Full LLM, dan Hibrida)] di setiap komponen, serta
+menetapkan rekomendasi teknis terbaik yang siap dipresentasikan ke tim
+penguji dan dosen pembimbing.
 
 #line(length: 100%, stroke: 0.5pt + rgb("#e2e8f0"))
 
-= 2. BATASAN SISTEM & KEPUTUSAN ARSITEKTUR
-<batasan-sistem-keputusan-arsitektur>
-Berdasarkan kesepakatan dan hasil evaluasi bimbingan, sistem ini
-menetapkan batasan arsitektur yang sangat tegas:
+= 2. ALUR END-TO-END: DARI JOB DESC HINGGA REKRUTER COCKPIT
+<alur-end-to-end-dari-job-desc-hingga-rekruter-cockpit>
+== Tahap 1: Ingestion & Dekonstruksi Job Description (JD Compiler)
+<tahap-1-ingestion-dekonstruksi-job-description-jd-compiler>
+- #strong[Input Mentah]: Dokumen lowongan bebas dari HR (bisa berupa
+  teks memo, PDF draft lowongan, atau bullet points deskripsi
+  pekerjaan).
+- #strong[Proses]: Sistem mendekonstruksi teks JD menjadi unit-unit
+  kualifikasi diskrit (#emph[Atomic Requirements]).
+- #strong[Ekstraksi Komponen]:
+  + #emph[Role Family & Seniority Level] (misal: Backend Engineer,
+    Minimal 3 Tahun).
+  + #emph[Hard Gate Requirements] (Syarat mutlak: Gelar S1, Sertifikasi
+    Lisensi Tertentu).
+  + #emph[Core Competencies & Stack] (Python, FastAPI, PostgreSQL,
+    Docker).
+  + #emph[Project Responsibilities & Metrics] (Pengalaman merancang
+    sistem high-concurrency, optimasi latensi query).
 
-== 2.1 Eliminasi Obsidian / Unstructured Memory
-<eliminasi-obsidian-unstructured-memory>
-- #strong[Keputusan]: Tidak menggunakan Obsidian atau #emph[external
-  graph memory] personal sebagai basis data agen.
-- #strong[Rasional]: Data rekrutmen bersifat entitas domain terstruktur
-  (#emph[Candidate, Job Requirement, Work Experience, Metric Impact]).
-  Semua state disimpan langsung pada basis data relasional PostgreSQL
-  dengan schema terindeks, sehingga latensi rendah, deterministik, dan
-  dapat di-query secara instan.
+== Tahap 2: Validasi & Approval Rubrik oleh HR (Human-in-the-Loop Gate
+1)
+<tahap-2-validasi-approval-rubrik-oleh-hr-human-in-the-loop-gate-1>
+- Sebelum CV diproses, HR memeriksa hasil dekonstruksi JD di antarmuka
+  web.
+- HR menetapkan:
+  - Kategori Kriteria: #emph[MUST\_HAVE] (Syarat Wajib),
+    #emph[STRONG\_PREFERENCE], atau #emph[NICE\_TO\_HAVE].
+  - Pembobotan Persentase: Total bobot $100 percent$ terdistribusi pada
+    kategori Pengalaman, Keahlian Teknis, dan Prestasi.
+- #strong[Hasil]: Berkas spesifikasi kriteria terstruktur yang dikunci
+  (`requirement_set.json`).
 
-== 2.2 Larangan OpenRouter & Mock Lokal: Wajib Pure TypeSafe SDK
-<larangan-openrouter-mock-lokal-wajib-pure-typesafe-sdk>
-- #strong[Keputusan]: Mengakses model Jev secara langsung melalui client
-  resmi `AsyncTypeSafeClient` (`api.typesafe.ai`), dilarang menggunakan
-  gateway perantara pihak ketiga (OpenRouter) maupun model tiruan lokal.
-- #strong[Rasional]: Jev System One mengadopsi protokol #emph[Decisions
-  API] (`/v1/alpha/decisions`) yang mengembalikan distribusi
-  probabilitas diskrit, bukan endpoint percakapan generatif
-  (`/v1/chat/completions`).
+== Tahap 3: Ingestion & Zonasi Dokumen Pelamar (CV & Bundel Lampiran)
+<tahap-3-ingestion-zonasi-dokumen-pelamar-cv-bundel-lampiran>
+- Pelamar mengunggah berkas (PDF atau DOCX tunggal maupun bundel
+  multi-halaman berisi sertifikat/penghargaan).
+- Parser IBM Docling mengekstrak struktur teks, layout tabel 2-kolom,
+  dan mempartisi halaman ke dalam zona:
+  - `ZONE_RESUME`: Teks riwayat kerja, deskripsi proyek, dan pendidikan.
+  - `ZONE_CERTIFICATE`: Sertifikat pelatihan, lisensi profesi, atau
+    bootcamps.
+  - `ZONE_AWARDS`: Dokumen penghargaan atau kompetisi.
 
-== 2.3 Matriks Tanggung Jawab: Kode Deterministik vs AI Semantik
-<matriks-tanggung-jawab-kode-deterministik-vs-ai-semantik>
+== Tahap 4: Normalisasi & Verifikasi Grounding NFKC (Zero-Hallucination
+Guard)
+<tahap-4-normalisasi-verifikasi-grounding-nfkc-zero-hallucination-guard>
+- Seluruh teks dinormalisasi ke standar Unicode NFKC.
+- Setiap klaim atau kutipan yang diajukan dalam analisis diuji secara
+  deterministik menggunakan #emph[Exact Substring Matching].
+- Jika ada klaim kualifikasi yang tidak ditemukan dalam teks asli
+  dokumen, sistem menandai sebagai #emph[Unverified Claim] (Toleransi
+  halusinasi: 0%).
+
+== Tahap 5: Evaluasi Semantik Kualifikasi (Matching Layer)
+<tahap-5-evaluasi-semantik-kualifikasi-matching-layer>
+- Setiap kriteria dari JD dicocokkan terhadap zona pengalaman kandidat
+  yang relevan.
+- Menguji kualifikasi mutlak, tingkat demonstrasi bukti proyek nyata,
+  serta kedalaman teknis kandidat.
+
+== Tahap 6: Agregasi Skor & Perankingan Leaderboard (Ranking Engine)
+<tahap-6-agregasi-skor-perankingan-leaderboard-ranking-engine>
+- Sistem lokal menghitung nilai akhir terbobot (skala 0–100) dan
+  menentukan pemetaan ke dalam 4 talent bands (`Band A`, `Band B`,
+  `Band C`, `Band R`).
+- Leaderboard Top 3 / Top N disusun secara matematis untuk diberikan
+  kepada rekruter.
+
+== Tahap 7: Recruiter Cockpit (Human-in-the-Loop Gate 2)
+<tahap-7-recruiter-cockpit-human-in-the-loop-gate-2>
+- Rekruter meninjau kandidat di dashboard modern anti-slop:
+  - Tab 1: Evaluasi Kriteria (Rincian bukti per butir JD).
+  - Tab 2: Telemetri Keputusan (Latensi komputasi & reasoning trace).
+  - Tab 3: Kutipan CV Terverifikasi (Highlight teks asli dokumen).
+- Rekruter mengambil keputusan akhir: #emph[Shortlist], #emph[Hold],
+  #emph[Reject], atau #emph[Jadwalkan Wawancara].
+
+#line(length: 100%, stroke: 0.5pt + rgb("#e2e8f0"))
+
+= 3. ANALISIS PERBANDINGAN KOMPONEN: FULL JEV VS BUKAN JEV (FULL LLM) VS
+HIBRIDA
+<analisis-perbandingan-komponen-full-jev-vs-bukan-jev-full-llm-vs-hibrida>
+Berikut adalah analisis komparatif mendalam untuk setiap modul utama
+sistem:
+
+== 3.1 Komponen 1: Dekonstruksi & Ekstraksi Job Description (JD
+Compiler)
+<komponen-1-dekonstruksi-ekstraksi-job-description-jd-compiler>
+- #strong[Opsi A: Full Jev System One]
+  - #emph[Cara Kerja]: Jev adalah model keputusan diskrit
+    (#emph[Decisions API]), bukan model generatif percakapan
+    (#emph[autoregressive text generator]). Untuk mendekonstruksi JD,
+    sistem harus mendefinisikan taksonomi kriteria tertutup terlebih
+    dahulu (misal: 100 pilihan skill standar). Jev lalu mengevaluasi
+    opsi mana yang terkandung di dalam teks JD (`Noul`/`Choice`).
+  - #emph[Kelebihan]: Ekstraksi sangat terkontrol dan patuh pada
+    taksonomi baku. Tidak ada risiko AI mengarang skill aneh yang tidak
+    ada di industri.
+  - #emph[Kelemahan]: Kaku. Jika ada istilah baru atau penulisan peran
+    non-standar di JD HR, Jev tidak bisa menghasilkan teks bebas untuk
+    deskripsi kriteria baru tanpa taksonomi awal.
+- #strong[Opsi B: Bukan Jev (Full LLM Generatif Biasa, misal Llama/GPT)]
+  - #emph[Cara Kerja]: Memberikan prompt panjang ke LLM: #emph["Ekstrak
+    kriteria, bobot, dan syarat mutlak dari teks JD berikut menjadi
+    JSON"].
+  - #emph[Kelebihan]: Sangat fleksibel, mampu merangkum teks JD yang
+    berantakan, dan mampu menuliskan narasi deskripsi requirement secara
+    otomatis.
+  - #emph[Kelemahan]: Rentan halusinasi skema JSON, ekstraksi sering
+    tidak konsisten (tiap run bisa menghasilkan jumlah kriteria
+    berbeda), dan boros token ($med 3.000$ token per JD).
+- #strong[Opsi C: Pendekatan Hibrida (Rekomendasi)]
+  - #emph[Cara Kerja]: Menggunakan parser rule-based/regex terstruktur
+    untuk menangkap seksi JD baku, dibantu model generatif terisolasi
+    untuk ekstraksi teks bebas ke skema JSON, lalu diverifikasi oleh HR
+    pada Approval Gate sebelum dikunci.
+
+#line(length: 100%, stroke: 0.5pt + rgb("#e2e8f0"))
+
+== 3.2 Komponen 2: Parsing & Zonasi Dokumen Pelamar (CV & Bundel)
+<komponen-2-parsing-zonasi-dokumen-pelamar-cv-bundel>
+- #strong[Opsi A: Full Jev System One]
+  - #emph[Cara Kerja]: Jev tidak memiliki engine OCR atau visual layout
+    rendering native. Dokumen harus diubah ke plain text terlebih dahulu
+    oleh script eksternal sebelum diproses oleh Jev.
+  - #emph[Kelebihan]: Tidak membebani model dengan token visual mentah.
+  - #emph[Kelemahan]: Tidak bisa membedakan tata letak dua kolom atau
+    tabel visual secara mandiri tanpa parser dokumen eksternal.
+- #strong[Opsi B: Bukan Jev (Full LLM Multimodal / Vision)]
+  - #emph[Cara Kerja]: Mengirimkan seluruh halaman PDF sebagai gambar ke
+    LLM Multimodal (Vision API).
+  - #emph[Kelebihan]: Mampu membaca layout visual dan grafis sertifikat
+    secara langsung.
+  - #emph[Kelemahan]: Biaya komputasi dan token astronomis ($med 1.500$
+    token per gambar halaman; CV 10 halaman \= 15.000 token per
+    pelamar). Latensi sangat lambat (5–12 detik per CV), dan rawan salah
+    membaca teks kecil pada transkrip ijazah.
+- #strong[Opsi C: Pendekatan Hibrida (Rekomendasi)]
+  - #emph[Cara Kerja]: Menggunakan engine lokal #strong[IBM Docling].
+    Docling membedah dokumen PDF/DOCX secara layout-aware
+    (mempertahankan tabel dan membaca 2 kolom dengan benar) serta
+    mempartisi dokumen ke dalam zona (`ZONE_RESUME`, `ZONE_CERTIFICATE`,
+    `ZONE_AWARDS`) dengan latensi $lt 500$ ms tanpa biaya token.
+
+#line(length: 100%, stroke: 0.5pt + rgb("#e2e8f0"))
+
+== 3.3 Komponen 3: Verifikasi Integritas & Anti-Halusinasi Bukti
+<komponen-3-verifikasi-integritas-anti-halusinasi-bukti>
+- #strong[Opsi A: Full Jev System One]
+  - #emph[Cara Kerja]: Jev mengevaluasi probabilitas kebenaran klaim
+    berdasarkan potongan teks CV yang diberikan secara eksplisit.
+  - #emph[Kelebihan]: Karena Jev tidak menggenerasi teks bebas, risiko
+    model mengarang kalimat buatan sendiri bernilai 0%.
+  - #emph[Kelemahan]: Masih memerlukan verifikasi substring string di
+    memori untuk memastikan token offset kutipan akurat di karakter
+    dokumen.
+- #strong[Opsi B: Bukan Jev (Full LLM Generatif Biasa)]
+  - #emph[Cara Kerja]: Meminta LLM: #emph["Kutip kalimat dari CV yang
+    membuktikan kandidat menguasai Python"].
+  - #emph[Kelebihan]: Menghasilkan penjelasan bahasa alami yang lancar
+    bagi pembaca manusia.
+  - #emph[Kelemahan]: #strong[Kelemahan fatal rekrutmen]: LLM generatif
+    sering memparafrasekan kalimat kandidat atau bahkan menyisipkan
+    pengalaman fiktif yang tidak pernah ada di berkas asli pelamar
+    (#emph[hallucinatory citation]).
+- #strong[Opsi C: Pendekatan Hibrida (Rekomendasi)]
+  - #emph[Cara Kerja]: Menerapkan #strong[Unicode NFKC Exact Substring
+    Matcher] di Python lokal. Sistem mewajibkan setiap kutipan bukti
+    cocok 100% karakter per karakter dengan teks asli dokumen. Evaluasi
+    relevansi semantik diserahkan ke Jev, sementara bukti fisik dikunci
+    oleh verifier deterministik.
+
+#line(length: 100%, stroke: 0.5pt + rgb("#e2e8f0"))
+
+== 3.4 Komponen 4: Evaluasi Kecocokan Kualifikasi (Semantic Matching)
+<komponen-4-evaluasi-kecocokan-kualifikasi-semantic-matching>
+- #strong[Opsi A: Full Jev System One]
+  - #emph[Cara Kerja]: Menggunakan tiga primitif Jev secara penuh:
+    + `Noul`: Evaluasi kualifikasi mutlak (#emph[Hard Gate Yes/No]).
+    + `Choice`: Klasifikasi level pembuktian tertutup (`STRONG` /
+      `PARTIAL` / `NOT_DEMONSTRATED`).
+    + `Score`: Evaluasi skalar kontinu kedalaman semantik pengalaman
+      teknis ($0.00 minus 1.00$).
+  - #emph[Kelebihan]: Deterministik, luaran berupa distribusi
+    probabilitas terstruktur, waktu inferensi sangat cepat ($lt 150$
+    ms), biaya token sangat murah ($dollar 0.042$ / 1M token input,
+    $dollar 0$ output), dan bebas bias kata-kata berbunga di CV.
+  - #emph[Kelemahan]: Tidak menghasilkan paragraf opini atau saran
+    wawancara dalam bahasa bebas secara otomatis.
+- #strong[Opsi B: Bukan Jev (Full LLM Generatif Biasa)]
+  - #emph[Cara Kerja]: Prompt perbandingan panjang berisi teks CV dan
+    syarat lowongan, meminta LLM memberikan narasi analisis kecocokan.
+  - #emph[Kelebihan]: Memberikan narasi umpan balik yang terdengar
+    cerdas dan manusiawi.
+  - #emph[Kelemahan]: #emph[Prompt sensitivity] tinggi (perubahan minor
+    pada template prompt bisa mengubah penilaian kandidat), rentan
+    manipulasi #emph[prompt injection] tersembunyi di CV (misal:
+    instruksi putih transparan di PDF), serta waktu inferensi lambat
+    (2–5 detik per evaluasi kriteria).
+- #strong[Opsi C: Pendekatan Hibrida (Rekomendasi)]
+  - #emph[Cara Kerja]: Seluruh evaluasi kecocokan inti dieksekusi oleh
+    Jev System One. Jev bertindak sebagai hakim semantik objektif bebas
+    halusinasi.
+
+#line(length: 100%, stroke: 0.5pt + rgb("#e2e8f0"))
+
+== 3.5 Komponen 5: Perhitungan Skor & Perankingan Kandidat (Ranking
+Engine)
+<komponen-5-perhitungan-skor-perankingan-kandidat-ranking-engine>
+- #strong[Opsi A: Full Jev System One (Pure Single-Model Ranking)]
+  - #emph[Cara Kerja]: Menggunakan model untuk membandingkan pasangan
+    kandidat secara langsung (#emph[pairwise classification]):
+    #emph["Antara Kandidat A dan Kandidat B, mana yang lebih memenuhi
+    syarat?"].
+  - #emph[Kelebihan]: Mampu menangkap nuansa komparasi langsung antar
+    kandidat.
+  - #emph[Kelemahan]: Kompleksitas komputasi melonjak secara kuadratik
+    $cal(O) lr((N^2))$. Jika ada 100 pelamar, sistem harus melakukan
+    4.950 perbandingan pasangan! Ini sangat tidak efisien dan rentan
+    terhadap inkonsistensi siklik (A \> B, B \> C, tapi C \> A).
+- #strong[Opsi B: Bukan Jev (Full LLM Listwise Ranking)]
+  - #emph[Cara Kerja]: Memasukkan 10 CV sekaligus ke dalam satu prompt
+    konteks besar, lalu menyuruh LLM: #emph["Urutkan kandidat dari
+    peringkat 1 sampai 10"].
+  - #emph[Kelebihan]: Sangat mudah diprogram (hanya satu prompt
+    pemanggilan).
+  - #emph[Kelemahan]: #strong[Cacat fatal metodologi AI]: Dipengaruhi
+    oleh bias posisi (#emph[Lost in the Middle / Primacy-Recency Bias] —
+    kandidat yang diletakkan di awal atau akhir prompt cenderung diberi
+    skor lebih tinggi daripada yang di tengah). Tidak ada rumus
+    matematis yang konsisten dan tidak bisa diaudit secara hukum
+    ketenagakerjaan.
+- #strong[Opsi C: Pendekatan Hibrida (Rekomendasi)]
+  - #emph[Cara Kerja]: #strong[AI Tidak Boleh Berhitung]. Jev hanya
+    bertugas menilai status kriteria per kandidat secara independen
+    $cal(O) lr((N))$. Skor total 0–100 dihitung oleh mesin lokal Python
+    menggunakan rumus agregasi berbobot. Leaderboard diurutkan secara
+    matematis transparan dan deterministik.
+
+#line(length: 100%, stroke: 0.5pt + rgb("#e2e8f0"))
+
+= 4. TABEL MATRIKS PERBANDINGAN KOMPREHENSIF PER KOMPONEN
+<tabel-matriks-perbandingan-komprehensif-per-komponen>
 #align(center)[#table(
-  columns: 3,
-  align: (col, row) => (left,center,left,).at(col),
+  columns: 5,
+  align: (col, row) => (left,left,left,left,left,).at(col),
   inset: 6pt,
-  [Komponen / Tugas], [Eksekutor], [Mengapa Bukan Komponen Lain?],
-  [#strong[Ekstraksi Tata Letak Dokumen]],
-  [IBM Docling (Engine Lokal)],
-  [Cepat, mempertahankan hierarki heading dan tabel dua kolom tanpa
-  biaya token.],
-  [#strong[Verifikasi Integritas Kutipan]],
-  [Python Regex & Unicode NFKC],
-  [Memastikan kutipan bukti benar-benar ada di naskah asli (toleransi
-  kesalahan 0%).],
-  [#strong[Pencocokan Bukti Kualifikasi]],
-  [TypeSafe Jev System One],
-  [Mengidentifikasi kedalaman semantik dan relevansi proyek tanpa risiko
-  teks halusinasi.],
-  [#strong[Kalkulasi Skor & Penentuan Ranking]],
-  [Algoritma Python Lokal],
-  [Matematika transparan, konsisten, tidak bergeser antar pemanggilan,
-  dan terhindar dari bias LLM.],
-  [#strong[Keputusan Final Rekrutmen]],
-  [Rekruter HR (#emph[Human-in-the-Loop])],
-  [Memenuhi regulasi etika AI (UU PDP & PP 33/2026), AI hanya memberi
-  rekomendasi.],
+  [Modul / Komponen Sistem], [Opsi A: Full Jev System One], [Opsi B:
+  Bukan Jev (Full LLM Biasa)], [Opsi C: Sistem Hibrida (Rekomendasi)],
+  [Mengapa Opsi C Terbaik?],
+  [#strong[1. Dekonstruksi Job Desc (JD Ingestion)]],
+  [Pemetaan tertutup via Noul/Choice ke taksonomi baku. #emph[(Akurat,
+  tapi kaku jika ada role baru)]],
+  [Ekstraksi teks bebas via prompt generatif. #emph[(Fleksibel, tapi
+  rawan halusinasi format)]],
+  [Ekstraksi terstruktur berbasis skema + validasi Approval Gate HR.],
+  [Menjamin skema kriteria valid dan HR memegang kendali atas bobot
+  sebelum screening dimulai.],
+  [#strong[2. Parsing Dokumen & Zonasi Lampiran]],
+  [Hanya membaca teks polos; butuh pra-pemrosesan teks eksternal.],
+  [Vision API multimodal per halaman. #emph[(Sangat mahal: \$0.01 per
+  halaman, latensi lambat)]],
+  [IBM Docling lokal: Layout-aware + zonasi `ZONE_RESUME` &
+  `ZONE_CERT`.],
+  [Menangani 2 kolom dan bundel lampiran secara akurat dengan latensi
+  $lt 500$ ms tanpa biaya token.],
+  [#strong[3. Grounding & Anti-Halusinasi Teks]],
+  [Evaluasi probabilitas klaim semantik tanpa teks bebas.],
+  [Model diminta mengutip dan menjelaskan kalimat CV. #emph[(Rawan
+  parafrase palsu)]],
+  [Unicode NFKC Exact Substring Matcher deterministik di Python.],
+  [Memastikan kutipan bukti di dashboard 100% identik dengan naskah asli
+  pelamar.],
+  [#strong[4. Evaluasi Semantik Kriteria]],
+  [Trio Primitif: `Noul` (Gate), `Choice` (Level Bukti), dan `Score`
+  (Kedalaman).],
+  [Penalaran teks bebas dengan prompt panjang. #emph[(Rawan bias dan
+  prompt injection)]],
+  [Evaluasi Semantik Murni via API resmi TypeSafe Jev
+  (`api.typesafe.ai`).],
+  [Menjamin keputusan bebas halusinasi, latensi $lt 150$ ms, dan tarif
+  sangat murah (\$0.042/1M token).],
+  [#strong[5. Perhitungan Skor & Leaderboard]],
+  [Pairwise ranking antar pasangan kandidat $cal(O) lr((N^2))$.
+  #emph[(Tidak efisien untuk volume ratusan CV)]],
+  [Listwise ranking di dalam prompt generatif. #emph[(Cacat bias posisi
+  & tidak konsisten)]],
+  [Scorer Deterministik Python: Rumus agregasi bobot HR + Tie-Breaker
+  kontinu.],
+  [Adil, transparan, matematis terukur, konsisten antar pemanggilan, dan
+  memenuhi kepatuhan regulasi.],
+  [#strong[6. Penanganan Lampiran Sertifikat]],
+  [Evaluasi biner apakah dokumen ada di teks.],
+  [Model membaca seluruh lampiran dan rentan melebih-lebihkan sertifikat
+  kursus 2 jam.],
+  [#emph[Claim-to-Artifact Matching]: Pengalaman proyek nyata diutamakan
+  di atas kertas sertifikat.],
+  [Menjamin keadilan bagi kandidat CV 1 halaman agar tidak kalah oleh
+  kandidat pengumpul sertifikat.],
+  [#strong[7. Dashboard Antarmuka Pengguna]],
+  [Data mentah probabilitas numerik saja.],
+  [Ringkasan teks panjang generatif yang sering bertele-tele.],
+  [Recruiter Cockpit Taktil: 3 Tab (Evaluasi, Telemetri, Kutipan Teks) +
+  Decision Bar.],
+  [Ergonomi tinggi, kecepatan peninjauan HR maksimal, dan keputusan
+  akhir tetap di tangan manusia.],
 )
 ]
 
 #line(length: 100%, stroke: 0.5pt + rgb("#e2e8f0"))
 
-= 3. MENJAWAB DILEMA: DARI KEPUTUSAN BINER KE PERANKINGAN DETERMINISTIK
-<menjawab-dilema-dari-keputusan-biner-ke-perankingan-deterministik>
-Pertanyaan mendasar dalam perancangan sistem: #emph[Jika model Jev
-berakar pada model keputusan, bagaimana menghasilkan ranking kualitas
-kandidat yang adil bagi HR?]
+= 5. FORMULASI MATEMATIS AGREGASI DETERMINISTIK PADA SISTEM HIBRIDA
+<formulasi-matematis-agregasi-deterministik-pada-sistem-hibrida>
+Untuk membuktikan kepada dosen dan penguji bahwa sistem ini objektif dan
+tidak bergantung pada "tebakan liar" LLM, perhitungan skor dirumuskan
+secara formal:
 
-== 3.1 Trio Primitif Evaluasi Jev System One
-<trio-primitif-evaluasi-jev-system-one>
-Sistem tidak memperlakukan evaluasi sebagai sekadar #emph[Yes/No] biner.
-Jev mengadopsi tiga lapisan keputusan:
+=== 1. Hard Gate Qualification ($Gamma$)
+<hard-gate-qualification-gamma>
+$ Gamma eq product_(k in cal(K)_(upright("must"))) bb(I) lr((P_(upright("noul")) lr((k)) gt.eq tau_k)) $
+Jika salah satu syarat mutlak tidak terpenuhi ($Gamma eq 0$), kandidat
+langsung dialokasikan ke #strong[Band R (Rejected)] dengan status tidak
+memenuhi kualifikasi dasar.
 
-+ #strong[`Noul` (Hard Gate / Kualifikasi Mutlak)]:
-  - Menguji syarat mati (misal: "Pendidikan minimal S1 Teknik" atau
-    "Pengalaman minimal 3 tahun").
-  - Luaran: Probabilitas keyakinan $lr([0.0 comma 1.0])$. Jika ambang
-    batas tidak terpenuhi, kandidat masuk ke kelompok `Band R (Reject)`
-    untuk ditinjau manual.
-+ #strong[`Choice` (Tingkat Pembuktian / Level of Evidence)]:
-  - Mengklasifikasikan bukti ke dalam set tertutup (#emph[closed-set
-    evaluation]):
-    - `STRONG`: Menunjukkan kepemilikan proyek skala besar
-      (#emph[production scale]), tanggung jawab arsitektural, atau
-      metrik dampak yang jelas.
-    - `PARTIAL`: Pernah menggunakan teknologi tersebut namun dalam
-      kapasitas terbatas, magang, atau tugas akademis.
-    - `NOT_DEMONSTRATED`: Hanya mencantumkan nama teknologi sebagai
-      #emph[buzzword] tanpa konteks proyek nyata.
-+ #strong[`Score` (Kedalaman Semantik / Tie-Breaker)]:
-  - Menghasilkan nilai skalar kontinu $lr([0.00 comma 1.00])$ yang
-    merepresentasikan tingkat kematangan implementasi teknis. Digunakan
-    sebagai pembeda utama ketika dua kandidat memiliki status `Choice`
-    yang sama.
+=== 2. Weighted Evidence Score ($S_(upright("evidence"))$)
+<weighted-evidence-score-s_textevidence>
+Untuk kandidat yang lolos hard gate ($Gamma eq 1$), skor bukti dihitung
+berdasarkan bobot kriteria yang disetujui HR:
+$ S_(upright("evidence")) eq sum_(j in cal(K)_(upright("eval"))) w_j dot.op v lr((upright("Choice")_j)) $
+Dimana: \* $w_j$ adalah bobot persentase kriteria ke-$j$ dengan
+$sum w_j eq 100$. \* $v lr((upright("Choice")_j))$ adalah fungsi nilai
+diskrit:
+$ v lr((upright("Choice")_j)) eq cases(delim: "{", 1.0 & upright("jika ") upright("STRONG"), 0.5 & upright("jika ") upright("PARTIAL"), 0.0 & upright("jika ") upright("NOT_DEMONSTRATED")) $
 
-```
-                    ┌── NOUL   : Lolos Syarat Mutlak? (Yes / No)
-                    │
-Kandidat ── Evaluasi ┼── CHOICE : Tingkat Bukti (STRONG / PARTIAL / NOT_DEMONSTRATED)
-                    │
-                    └── SCORE  : Skor Kedalaman Semantik (0.00 - 1.00)
-```
-
-== 3.2 Algoritma Agregasi & Perankingan di Python
-<algoritma-agregasi-perankingan-di-python>
-AI dilarang mengurutkan daftar kandidat secara bebas di dalam prompt.
-Pengurutan dilakukan oleh mesin lokal menggunakan formula matematis:
-
-$ upright("Fit Score") eq sum_(i eq 1)^M lr((w_i times S_(upright("choice")) lr((C_i)))) plus lambda dot.op S_(upright("depth")) $
-
-Keterangan: \* $w_i$: Bobot kriteria lowongan yang ditentukan oleh HR
-(total bobot \= 100). \* $S_(upright("choice")) lr((C_i))$: Konversi
-nilai bukti (`STRONG` \= 1.0, `PARTIAL` \= 0.5, `NOT_DEMONSTRATED` \=
-0.0). \* $lambda$: Faktor pembobot kedalaman semantik (default: 5% dari
-total skor). \* $S_(upright("depth"))$: Rata-rata nilai kontinu dari
-primitif `Score` Jev.
-
-== 3.3 Penetapan Band Kelayakan & Peringkat (Leaderboard)
-<penetapan-band-kelayakan-peringkat-leaderboard>
-Hasil kalkulasi skor memetakan kandidat ke dalam 4 #emph[Talent Bands]:
-\* #strong[Band A (Top Candidates / Skor 85–100)]: Memenuhi seluruh
-syarat mutlak dengan mayoritas bukti `STRONG`. Masuk ke antrean
-wawancara prioritas. \* #strong[Band B (Potential Fits / Skor 70–84)]:
-Memenuhi syarat mutlak dengan kombinasi bukti `STRONG` dan `PARTIAL`. \*
-#strong[Band C (Under Review / Skor 50–69)]: Sebagian bukti belum
-memadai atau pengalaman masih dangkal. \* #strong[Band R (Rejected /
-Skor \< 50 atau Gagal Noul)]: Tidak memenuhi syarat mutlak lowongan.
+=== 3. Continuous Semantic Depth ($S_(upright("depth"))$) & Tie-Breaker
+<continuous-semantic-depth-s_textdepth-tie-breaker>
+Sebagai pembeda kualitas ketika kandidat memiliki kesamaan level bukti
+(sama-sama `STRONG`):
+$ S_(upright("final")) eq S_(upright("evidence")) plus alpha dot.op lr((1 / lr(|cal(K)_(upright("eval"))|) sum_(j in cal(K)_(upright("eval"))) upright("Score")_j)) $
+Faktor $alpha$ disetel pada rentang $0.05$ (bobot 5%), sehingga nilai
+kedalaman semantik kontinu dari Jev ($0.00 minus 1.00$) bertindak
+sebagai #emph[tie-breaker] desimal yang adil dan elegan tanpa merusak
+bobot utama HR.
 
 #line(length: 100%, stroke: 0.5pt + rgb("#e2e8f0"))
 
-= 4. PRINSIP KEADILAN: BUNDEL SERTIFIKAT VS CV TEKS EGALITER
-<prinsip-keadilan-bundel-sertifikat-vs-cv-teks-egaliter>
-Bagaimana sistem memperlakukan pelamar yang melampirkan bundel
-ijazah/sertifikat 10 halaman dibandingkan pelamar yang hanya mengirimkan
-CV 1 lembar?
-
-```
-Pelamar X (CV + 5 Sertifikat) ──┐
-                                ├── Zonasi & Evaluasi Bukti ──► Penilaian Adil (Kompentensi > Lembaran)
-Pelamar Y (CV Padat 1 Lembar) ──┘
-```
-
-Sistem menerapkan #strong[4 Kaidah Keadilan Algoritmik
-(#emph[Algorithmic Fairness])]: 1. #strong[Zonasi Layout Dokumen
-(Docling)]: Sistem memecah dokumen menjadi beberapa zona: `ZONE_RESUME`,
-`ZONE_CERTIFICATE`, dan `ZONE_AWARDS`. Sistem tidak menghitung ketebalan
-dokumen secara kumulatif. 2. #strong[Kesesuaian Terhadap Syarat
-Lowongan]: \* Jika lowongan bersifat #emph[Verifiable License] (misal:
-Dokter, Akuntan Publik, Lisensi Pilot), bukti sertifikat fisik di
-`ZONE_CERTIFICATE` adalah syarat wajib. \* Jika lowongan bersifat
-#emph[Practical Engineering] (misal: Backend Developer), pengalaman riil
-membangun arsitektur di `ZONE_RESUME` memiliki bobot penilaian yang jauh
-lebih tinggi daripada sekadar sertifikat kelulusan kursus online. 3.
-#strong[Pemisahan Skor Kompetensi vs Indikator Verifikasi]: \* Pelamar Y
-(hanya CV 1 halaman) #strong[bisa meraih peringkat 1 (Band A)] jika
-pengalaman praktisnya sangat kuat. \* Lampiran sertifikat pada Pelamar X
-tidak menambah poin curang, melainkan hanya menyalakan tanda status
-`EVIDENCE: CERTIFICATE_ATTACHED`. Pelamar Y tetap diberi status
-`EVIDENCE: PENDING_INTERVIEW_VERIFICATION`. 4. #strong[Mencegah
-Kredensialisme Murah (#emph[Anti-Credential Inflation])]: Sistem
-mengevaluasi dampak nyata proyek, bukan kuantitas kertas kursus 2 jam.
-
-#line(length: 100%, stroke: 0.5pt + rgb("#e2e8f0"))
-
-= 5. ARSITEKTUR PIPELINE & TAHAPAN KERJA
-<arsitektur-pipeline-tahapan-kerja>
-Pipeline kerja sistem dibangun dalam 6 tahapan modular:
-
-```
-[Tahap 1: Ingestion & Parsing]
-  │  - Input: PDF / DOCX (CV tunggal atau dokumen bundel)
-  │  - IBM Docling: Ekstraksi layout dua kolom, teks, tabel, dan zonasi lampiran.
-  ▼
-[Tahap 2: Segmentasi Bukti & Penyimpanan Terstruktur]
-  │  - PostgreSQL + pgvector: Penyimpanan profil, metadata kualifikasi, dan potongan teks.
-  │  - Normalisasi teks: Pembersihan whitespace dan pembentukan representasi NFKC.
-  ▼
-[Tahap 3: Penyusunan Kriteria Pekerjaan (Job Requirement Spec)]
-  │  - HR menyusun requirement rubrics: Kriteria wajib vs kriteria pendukung, pembobotan (%).
-  │  - Penentuan tipe evaluasi per kriteria (Noul untuk gate, Choice untuk kompetensi).
-  ▼
-[Tahap 4: Eksekusi Semantik Jev System One]
-  │  - Pengambilan potongan pengalaman kandidat yang relevan.
-  │  - Panggilan API TypeSafe (`Noul`, `Choice`, `Score`) untuk setiap kriteria.
-  │  - Verifikasi eksak: Validasi bahwa rujukan teks benar-benar ada di dokumen asli.
-  ▼
-[Tahap 5: Agregasi & Perankingan Deterministik]
-  │  - Scorer Python menghitung nilai akhir terbobot dan memetakan kandidat ke Band A/B/C/R.
-  │  - Penyusunan papan peringkat (Leaderboard Top 3 / Top N).
-  ▼
-[Tahap 6: Recruiter Cockpit UI (Human-in-the-Loop)]
-     - Panel inspeksi detail: Evaluasi Kriteria, Telemetri Keputusan, dan Kutipan Teks Asli.
-     - Keputusan akhir rekruter: Shortlist, Hold, Reject, atau Escalate.
-```
-
-#line(length: 100%, stroke: 0.5pt + rgb("#e2e8f0"))
-
-= 6. EFISIENSI TOKEN & BIAYA INFRASTRUKTUR
-<efisiensi-token-biaya-infrastruktur>
-Salah satu keunggulan utama arsitektur ini adalah efisiensi operasional
-yang sangat ekstrem jika dibandingkan dengan pendekatan LLM generatif
-penuh:
-
+= 6. ESTIMASI EFISIENSI OPERASIONAL & EKONOMI SISTEM
+<estimasi-efisiensi-operasional-ekonomi-sistem>
 #align(center)[#table(
   columns: 4,
   align: (col, row) => (left,center,center,center,).at(col),
   inset: 6pt,
-  [Parameter Evaluasi], [Full Generative LLM (Chat API)], [TypeSafe Jev
-  System One], [Efisiensi & Keunggulan],
-  [#strong[Model Biaya Input]],
-  [~\$1.00 – \$3.00 / 1M token],
-  [\$0.042 / 1M token],
-  [#strong[95–98% Lebih Hemat Biaya]],
-  [#strong[Biaya Output (Generasi)]],
-  [~\$2.00 – \$10.00 / 1M token],
-  [\$0.00 (Tanpa Biaya Output)],
-  [#strong[Biaya Generasi Nol]],
-  [#strong[Konsumsi Token / CV]],
-  [~5,000 – 12,000 token],
-  [~600 – 1,000 token],
-  [Mengurangi beban bandwidth],
-  [#strong[Kapasitas Skala (\$5)]],
-  [~300 – 800 CV],
-  [#strong[150,000 – 200,000 CV]],
-  [Skalabilitas skala korporasi],
-  [#strong[Determinisasi Output]],
-  [Stokastik (Bisa berubah)],
-  [Deterministik (Probabilitas diskrit)],
-  [Auditabilitas hukum terjamin],
-  [#strong[Risiko Halusinasi Teks]],
-  [Tinggi (Mengarang pengalaman)],
-  [#strong[0%] (Exact substring match)],
-  [Integritas data mutlak],
+  [Parameter], [Pendekatan Full Generative LLM], [Arsitektur Hibrida
+  TypeSafe Jev], [Selisih Efisiensi],
+  [#strong[Tarif Token Input]],
+  [\$1.00 – \$3.00 / 1M token],
+  [#strong[\$0.042 / 1M token]],
+  [Lebih hemat $approx 96 percent$],
+  [#strong[Tarif Token Output]],
+  [\$2.00 – \$10.00 / 1M token],
+  [#strong[\$0.00 (Tanpa Biaya Output)]],
+  [Hemat $100 percent$],
+  [#strong[Konsumsi Token per CV]],
+  [6.000 – 12.000 token],
+  [$approx 600 minus 1.000$ token],
+  [Reduksi token $10 times$],
+  [#strong[Biaya Screening 1.000 CV]],
+  [\$15.00 – \$40.00],
+  [#strong[\$0.025 – \$0.040]],
+  [#strong[$gt 99 percent$ Lebih Hemat]],
+  [#strong[Kapasitas Anggaran \$5]],
+  [300 – 800 CV],
+  [#strong[150.000 – 200.000 CV]],
+  [Skalabilitas Enterprise],
+  [#strong[Latensi per Kandidat]],
+  [8 – 20 detik],
+  [#strong[1.2 – 2.5 detik]],
+  [$5 times minus 8 times$ Lebih Cepat],
+  [#strong[Jaminan Halusinasi]],
+  [Rawan parafrase salah],
+  [#strong[0% (NFKC Exact Substring)]],
+  [Terverifikasi Mutlak],
 )
 ]
 
 #line(length: 100%, stroke: 0.5pt + rgb("#e2e8f0"))
 
-= 7. SPESIFIKASI ANTARMUKA PENGGUNA (RECRUITER COCKPIT)
-<spesifikasi-antarmuka-pengguna-recruiter-cockpit>
-Antarmuka dibangun dengan standar ergonomi taktil anti-slop,
-mengutamakan kecepatan membaca data tanpa elemen dekoratif yang mubazir:
-\* #strong[Tiga Tab Inspeksi Seimbang]: 1. #strong[Tab Evaluasi]:
-Rincian kriteria penilaian, bobot, status pembuktian (`STRONG` /
-`PARTIAL`), dan catatan analisis semantik. 2. #strong[Tab Telemetri]:
-Rekam jejak waktu komputasi, model confidence, dan catatan jejak
-reasoning. 3. #strong[Tab Kutipan CV]: Penampil teks asli dokumen
-kandidat yang disorot (#emph[highlight]) secara interaktif, membuktikan
-bahwa alasan penilaian berakar langsung pada kalimat asli pelamar. \*
-#strong[Segmented Decision Bar]: Memberikan kontrol cepat bagi rekruter
-untuk menetapkan status seleksi (#emph[Shortlist], #emph[Hold],
-#emph[Reject], #emph[Wawancara]).
-
-#line(length: 100%, stroke: 0.5pt + rgb("#e2e8f0"))
-
-= 8. KESIMPULAN & TAHAP EKSEKUSI BERIKUTNYA
-<kesimpulan-tahap-eksekusi-berikutnya>
-Pendekatan rekayasa sistem yang diusulkan berhasil menjembatani
-kebutuhan bisnis rekrutmen: 1. Menghadirkan #strong[kecepatan dan
-kecerdasan semantik] melalui TypeSafe Jev System One tanpa risiko
-halusinasi. 2. Menghasilkan #strong[rekomendasi peringkat
-(#emph[ranking]) yang transparan dan dapat dijelaskan secara matematis],
-bukan sekadar biner Yes/No. 3. Menjamin #strong[keadilan evaluasi
-dokumen], baik bagi pelamar berbundel sertifikat maupun pelamar dengan
-CV ringkas. 4. Memberikan #strong[efisiensi biaya operasional masif],
-memungkinkan pemrosesan ratusan ribu CV dengan biaya minimal.
-
-=== Tahap Tindak Lanjut:
-<tahap-tindak-lanjut>
-- Mengintegrasikan API key resmi TypeSafe pada modul
-  `src/domain/verifier.py`.
-- Melakukan benchmark komparatif (akurasi ranking dan latensi) antara
-  model dasar vs Jev System One.
-- Melakukan uji coba golden dataset pada skenario CV nyata
-  multi-halaman.
+= 7. KESIMPULAN & REKOMENDASI UNTUK SIDANG / BIMBINGAN
+<kesimpulan-rekomendasi-untuk-sidang-bimbingan>
++ #strong[Bukan Sekadar CV Screening Hilir]:
+  - Sistem mengawal siklus seleksi secara utuh: mulai dari dekonstruksi
+    teks mentah Job Description oleh HR, penyusunan rubrik berbobot,
+    zonasi berkas pelamar, hingga penyusunan leaderboard ranking.
++ #strong[Keunggulan Sistem Hibrida Di Atas Paradigma Ekstrem]:
+  - Menolak pendekatan #emph[Full Generative LLM] karena cacat bias
+    posisi, boros biaya, dan rawan halusinasi kutipan.
+  - Menolak #emph[Full Jev Pairwise] untuk ranking karena ledakan
+    komputasi kuadratik $cal(O) lr((N^2))$.
+  - Mengadopsi #strong[Sistem Hibrida]: AI mengevaluasi semantik bukti
+    kualifikasi secara objektif via TypeSafe Jev System One, sementara
+    mesin lokal Python mengunci kepastian parsing (Docling), validasi
+    kutipan eksak (NFKC), dan kalkulasi leaderboard matematis.
++ #strong[Keadilan Dokumen Terjamin]:
+  - Pelamar dengan CV 1 halaman padat tetap memiliki peluang setara
+    meraih peringkat teratas (Band A), karena sistem mengutamakan
+    kedalaman bukti proyek nyata di atas jumlah tumpukan lembar
+    sertifikat.
