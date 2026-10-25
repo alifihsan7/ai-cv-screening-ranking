@@ -122,3 +122,13 @@ code, pre, kbd, samp, .font-mono {
 ::-webkit-scrollbar-thumb:hover {
   background: #2D4439;
 }
+
+/* Utility: Hide scrollbars while preserving touch/wheel scroll */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
