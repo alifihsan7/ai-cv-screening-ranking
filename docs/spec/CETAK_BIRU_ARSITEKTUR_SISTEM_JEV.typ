@@ -191,7 +191,14 @@ Zoning)
 Menerima berkas pelamar (PDF/DOCX tunggal maupun berkas bundel lampiran
 sertifikat/penghargaan). Mesin parser membedah tata letak
 (#emph[layout-aware]) dan mempartisi halaman ke dalam zona semantik:
-`ZONE_RESUME`, `ZONE_CERTIFICATE`, dan `ZONE_AWARDS`.
+`ZONE_RESUME`, `ZONE_CERTIFICATE`, dan `ZONE_AWARDS`. #emph[Prinsip
+Keadilan Sertifikat]: Sertifikat dan penghargaan bersifat
+#strong[opsional secara default]. Sistem tidak menghukum pelamar yang
+hanya mengunggah 1 lembar CV tanpa lampiran, kecuali Job Description
+(JD) secara eksplisit menetapkan sertifikasi profesi tertentu sebagai
+kualifikasi mutlak (#emph[Mandatory Hard Gate]). Lampiran tambahan hanya
+berfungsi sebagai penguat derajat bukti (#emph[Confidence Booster]),
+bukan penambah skor otomatis.
 
 === Tahap 4: Normalisasi Teks & Anti-Halusinasi (Unicode NFKC Grounding)
 <tahap-4-normalisasi-teks-anti-halusinasi-unicode-nfkc-grounding>
@@ -474,12 +481,15 @@ Tabel berikut menyajikan perbandingan komparatif per modul arsitektur:
   & acak)]],
   [#strong[Scorer Deterministik Python (Bobot HR + Tie-Breaker)]
   #emph[(Adil, matematis konsisten, patuh audit)]],
-  [#strong[6. Penanganan Lampiran Sertifikat]],
+  [#strong[6. Penanganan Sertifikat & Dokumen Pendukung]],
   [Evaluasi biner ada/tidaknya dokumen di teks.],
   [Pencarian kata kunci nama sertifikat di seluruh file.],
-  [Membaca semua lembar sertifikat tanpa bobot kedalaman proyek.],
-  [#strong[Claim-to-Artifact Matching] #emph[(Proyek nyata diutamakan di
-  atas kertas sertifikat 2 jam)]],
+  [Membaca semua lembar sertifikat tanpa verifikasi relevansi; rawan
+  bias ketebalan berkas.],
+  [#strong[Dua Jalur Berkeadilan (#emph[Dual-Track Fairness])]:
+  Sertifikat berstatus #strong[opsional secara default] (hanya penguat
+  bukti); diwajibkan hanya bila JD eksplisit mencantumkan lisensi wajib
+  (#emph[Mandatory License]).],
   [#strong[7. Antarmuka Rekruter Cockpit]],
   [Hanya menyajikan data mentah probabilitas numerik.],
   [Tabel grid konvensional berisi skor persentase kata kunci.],
@@ -589,3 +599,14 @@ objektif tanpa mengaburkan penilaian kriteria utama HR.
     Scorer Python) mengamankan integritas pembacaan tata letak dokumen,
     validasi kutipan eksak, serta penghitungan papan peringkat matematis
     yang adil dan dapat diaudit.
++ #strong[Prinsip Keadilan Dokumen Pelamar (#emph[Document Fairness
+  Doctrine])]:
+  - Sertifikat, lisensi, dan piagam penghargaan berstatus
+    #strong[opsional secara default] (hanya berlaku sebagai penguat
+    keyakinan / #emph[confidence flag]).
+  - Sertifikat hanya berubah menjadi syarat kelulusan mutlak (#emph[Hard
+    Filter Gate]) apabila teks Job Description secara eksplisit
+    menyatakan lisensi tersebut wajib hukumnya (contoh: STR Medis,
+    Lisensi Notaris, Sertifikasi Penyelam Komersial). Pelamar dengan CV
+    teks 1 lembar tetap dapat meraih skor maksimal (Band A) murni
+    berbasis bukti pengalaman proyek nyata.

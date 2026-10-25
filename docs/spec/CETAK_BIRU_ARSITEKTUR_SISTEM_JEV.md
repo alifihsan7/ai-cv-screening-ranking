@@ -35,6 +35,7 @@ HR memvalidasi hasil ekstraksi JD, menentukan kategori (*MUST_HAVE*, *STRONG_PRE
 
 ### Tahap 3: Ingestion & Zonasi Berkas Pelamar (Document Ingestion & Zoning)
 Menerima berkas pelamar (PDF/DOCX tunggal maupun berkas bundel lampiran sertifikat/penghargaan). Mesin parser membedah tata letak (*layout-aware*) dan mempartisi halaman ke dalam zona semantik: `ZONE_RESUME`, `ZONE_CERTIFICATE`, dan `ZONE_AWARDS`.
+*Prinsip Keadilan Sertifikat*: Sertifikat dan penghargaan bersifat **opsional secara default**. Sistem tidak menghukum pelamar yang hanya mengunggah 1 lembar CV tanpa lampiran, kecuali Job Description (JD) secara eksplisit menetapkan sertifikasi profesi tertentu sebagai kualifikasi mutlak (*Mandatory Hard Gate*). Lampiran tambahan hanya berfungsi sebagai penguat derajat bukti (*Confidence Booster*), bukan penambah skor otomatis.
 
 ### Tahap 4: Normalisasi Teks & Anti-Halusinasi (Unicode NFKC Grounding)
 Seluruh teks dinormalisasi ke standar Unicode NFKC. Setiap kutipan bukti yang diajukan wajib diverifikasi secara karakter eksak (*exact substring match*) terhadap naskah asli pelamar. Toleransi klaim tanpa bukti: 0%.
@@ -169,7 +170,7 @@ Tabel berikut menyajikan perbandingan komparatif per modul arsitektur:
 | **3. Grounding & Anti-Halusinasi Teks** | Evaluasi probabilitas klaim semantik tanpa teks bebas. | Pencocokan string kata kunci persis (*exact keyword matching*). | Model diminta mengutip dan menjelaskan kalimat. *(Rawan bukti palsu)* | **Unicode NFKC Exact Substring Matcher** *(Jaminan 100% kutipan asli, toleransi halusinasi 0%)* |
 | **4. Evaluasi Semantik Kualifikasi** | Trio Primitif: `Noul`, `Choice`, dan `Score`. | Pencocokan frekuensi istilah kata kunci (TF-IDF/BM25). | Penalaran teks bebas prompt panjang. *(Rawan manipulasi prompt injection)* | **Evaluasi Semantik Murni TypeSafe Jev (`api.typesafe.ai`)** *(Objektif, cepat <150 ms, hemat $0.042/1M)* |
 | **5. Perhitungan Skor & Leaderboard** | Pairwise ranking antar pasangan kandidat $\mathcal{O}(N^2)$. *(Tidak terukur)* | Penjumlahan bobot kata kunci statis di SQL/Python. | Listwise ranking di dalam prompt generatif. *(Cacat bias posisi & acak)* | **Scorer Deterministik Python (Bobot HR + Tie-Breaker)** *(Adil, matematis konsisten, patuh audit)* |
-| **6. Penanganan Lampiran Sertifikat** | Evaluasi biner ada/tidaknya dokumen di teks. | Pencarian kata kunci nama sertifikat di seluruh file. | Membaca semua lembar sertifikat tanpa bobot kedalaman proyek. | **Claim-to-Artifact Matching** *(Proyek nyata diutamakan di atas kertas sertifikat 2 jam)* |
+| **6. Penanganan Sertifikat & Dokumen Pendukung** | Evaluasi biner ada/tidaknya dokumen di teks. | Pencarian kata kunci nama sertifikat di seluruh file. | Membaca semua lembar sertifikat tanpa verifikasi relevansi; rawan bias ketebalan berkas. | **Dua Jalur Berkeadilan (*Dual-Track Fairness*)**: Sertifikat berstatus **opsional secara default** (hanya penguat bukti); diwajibkan hanya bila JD eksplisit mencantumkan lisensi wajib (*Mandatory License*). |
 | **7. Antarmuka Rekruter Cockpit** | Hanya menyajikan data mentah probabilitas numerik. | Tabel grid konvensional berisi skor persentase kata kunci. | Teks narasi panjang generatif yang sering bertele-tele. | **Recruiter Cockpit 3-Tab Taktil + Bilah Keputusan HR** *(Ergonomi anti-slop, Human-in-the-Loop)* |
 
 ---
@@ -222,3 +223,6 @@ Faktor skala $\alpha = 0.05$ (bobot 5%), sehingga nilai kedalaman semantik konti
 3. **Keunggulan Standar Produksi (Jev $\times$ Deterministik)**:
    * Jev System One menjalankan fungsi terkuatnya sebagai **juri semantik objektif $\mathcal{O}(N)$** bebas halusinasi dengan biaya termurah.
    * Mesin deterministik lokal (IBM Docling, Unicode NFKC Matcher, dan Scorer Python) mengamankan integritas pembacaan tata letak dokumen, validasi kutipan eksak, serta penghitungan papan peringkat matematis yang adil dan dapat diaudit.
+4. **Prinsip Keadilan Dokumen Pelamar (*Document Fairness Doctrine*)**:
+   * Sertifikat, lisensi, dan piagam penghargaan berstatus **opsional secara default** (hanya berlaku sebagai penguat keyakinan / *confidence flag*).
+   * Sertifikat hanya berubah menjadi syarat kelulusan mutlak (*Hard Filter Gate*) apabila teks Job Description secara eksplisit menyatakan lisensi tersebut wajib hukumnya (contoh: STR Medis, Lisensi Notaris, Sertifikasi Penyelam Komersial). Pelamar dengan CV teks 1 lembar tetap dapat meraih skor maksimal (Band A) murni berbasis bukti pengalaman proyek nyata.
