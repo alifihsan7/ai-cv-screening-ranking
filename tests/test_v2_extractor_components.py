@@ -96,6 +96,15 @@ def test_cv_classifier_rejects_administrative_document_ktp():
     assert "NOT_A_CV" in res.flags
 
 
+def test_cv_classifier_allows_scanned_cv_with_attachments_to_pass_to_ocr():
+    # Multi-page scanned document with virtually no digital text layer
+    blank_digital_text = ""
+    res = classify_document_is_cv(blank_digital_text, page_count=5, total_images=5)
+    assert res.is_cv is True
+    assert res.doc_type == "SCANNED_CV_PENDING_OCR"
+    assert "SCANNED_FILE_OR_IMAGE" in res.flags
+
+
 def test_cv_classifier_rejects_pure_portfolio_without_profile():
     portfolio_text = """
     PROJECT SHOWCASE 2024

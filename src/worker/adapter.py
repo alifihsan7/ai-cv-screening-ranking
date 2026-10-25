@@ -100,11 +100,14 @@ class _FallbackExtractorService:
                 pdf_doc = pymupdf.open(stream=content, filetype="pdf")
                 pages_text: list[str] = []
                 for i in range(len(pdf_doc)):
-                    p_txt = pdf_doc[i].get_text()
-                    if not p_txt.strip():
+                    page = pdf_doc[i]
+                    p_txt = page.get_text()
+                    if len(p_txt.strip()) < 30 and len(page.get_images()) > 0:
                         try:
-                            tp = pdf_doc[i].get_textpage_ocr()
-                            p_txt = pdf_doc[i].get_text(textpage=tp)
+                            tp = page.get_textpage_ocr(language="eng+ind", dpi=150)
+                            ocr_txt = page.get_text(textpage=tp)
+                            if len(ocr_txt.strip()) > len(p_txt.strip()):
+                                p_txt = ocr_txt
                         except Exception:
                             pass
                     pages_text.append(p_txt)
@@ -650,7 +653,19 @@ def extract_candidate_profile(content: bytes, filename: str) -> dict[str, Any]:
             import pymupdf as fitz
 
             doc = fitz.open(stream=content, filetype="pdf")
-            pages_data = [{"text": doc[i].get_text(), "image_count": len(doc[i].get_images())} for i in range(len(doc))]
+            pages_data = []
+            for i in range(len(doc)):
+                page = doc[i]
+                p_text = page.get_text()
+                if len(p_text.strip()) < 30 and len(page.get_images()) > 0:
+                    try:
+                        tp = page.get_textpage_ocr(language="eng+ind", dpi=150)
+                        ocr_txt = page.get_text(textpage=tp)
+                        if len(ocr_txt.strip()) > len(p_text.strip()):
+                            p_text = ocr_txt
+                    except Exception:
+                        pass
+                pages_data.append({"text": p_text, "image_count": len(page.get_images())})
             boundary = isolate_document_boundaries(pages_data)
             portfolio_attachments = boundary.attachments
 

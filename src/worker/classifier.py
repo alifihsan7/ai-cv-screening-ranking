@@ -110,19 +110,10 @@ def classify_document_is_cv(full_text: str, page_count: int = 1, total_images: i
             extracted_contact=contact_data,
         )
 
-    # If the document has images and very little text (< 30 words), it might be a 1-2 page scanned CV.
-    # We allow 1-2 page scanned documents to pass to OCR.
-    # But if it has many pages (> 3 pages) with virtually no text and lots of images, it is a pure image portfolio!
-    if total_images > 0 and word_count < 30:
-        if page_count > 3:
-            return ClassificationResult(
-                is_cv=False,
-                doc_type="PURE_PORTFOLIO",
-                confidence=0.90,
-                reasons=["Dokumen terdiri dari banyak halaman gambar/portofolio visual tanpa teks profil atau riwayat pekerjaan."],
-                flags=["NOT_A_CV", "PURE_PORTFOLIO"],
-                extracted_contact=contact_data,
-            )
+    # If the document has images and virtually zero text (< 10 words or blank layer),
+    # it is a scanned document (or CV flat image with attachments).
+    # We must allow scanned documents to proceed to OCR rather than rejecting as PURE_PORTFOLIO upfront.
+    if total_images > 0 and word_count < 10:
         return ClassificationResult(
             is_cv=True,
             doc_type="SCANNED_CV_PENDING_OCR",
