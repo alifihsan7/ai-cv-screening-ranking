@@ -25,152 +25,32 @@ from src.domain.verifier import JevTypeSafeVerifierProvider, VerifierDecision
 # ===========================================================================
 
 
-class TestLocalEmulationMode:
+class TestFailFastUnconfiguredMode:
     @pytest.mark.asyncio
-    async def test_local_emulation_is_live_false_when_no_key(self, monkeypatch: pytest.MonkeyPatch):
+    async def test_is_live_false_when_no_key(self, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
         provider = JevTypeSafeVerifierProvider(api_key="")
         assert provider.is_live is False
 
     @pytest.mark.asyncio
-    async def test_local_emulation_strong_decision_with_grounding(self, monkeypatch: pytest.MonkeyPatch):
+    async def test_unconfigured_provider_raises_fail_fast_error(self, monkeypatch: pytest.MonkeyPatch):
+        from src.domain.verifier import TypeSafeUnconfiguredError
+
         monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
         provider = JevTypeSafeVerifierProvider(api_key="")
 
-        cv_text = (
-            "Experience:\n"
-            "Staff Backend Engineer at Enterprise Corp (2019-2024).\n"
-            "Architected high-throughput distributed microservices using Python, FastAPI, and PostgreSQL."
-        )
-        snippets = ["Architected high-throughput distributed microservices using Python, FastAPI, and PostgreSQL."]
+        cv_text = "Staff Backend Engineer at Enterprise Corp. Python, FastAPI, and PostgreSQL."
+        snippets = ["Python, FastAPI, and PostgreSQL."]
 
-        decision = await provider.verify(
-            criterion_id="R_ARCH",
-            criterion_description="Python distributed microservices architecture",
-            candidate_chunks=snippets,
-            cv_full_text=cv_text,
-            kind=CriterionKind.SKILL,
-            context_type=ContextSectionType.WORK_EXPERIENCE,
-        )
-
-        assert isinstance(decision, VerifierDecision)
-        assert decision.state == EvaluationStatus.STRONG
-        assert decision.confidence >= 0.80
-        assert decision.provider_name == "JEV_TYPESAFE"
-        assert decision.quote is not None
-        assert "microservices" in decision.quote
-        assert decision.char_start is not None
-        assert decision.char_end is not None
-        assert decision.char_end > decision.char_start
-        assert "TYPESAFE_LIVE" not in decision.flags
-
-    @pytest.mark.asyncio
-    async def test_local_emulation_partial_decision(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
-        provider = JevTypeSafeVerifierProvider(api_key="")
-
-        cv_text = "Junior Developer with academic project experience in Python."
-        snippets = ["academic project experience in Python"]
-
-        decision = await provider.verify(
-            criterion_id="R_PY",
-            criterion_description="5+ years professional Python engineering with microservices and PostgreSQL",
-            candidate_chunks=snippets,
-            cv_full_text=cv_text,
-            kind=CriterionKind.SKILL,
-            context_type=ContextSectionType.PROJECT,
-        )
-
-        assert decision.state == EvaluationStatus.PARTIAL
-        assert decision.confidence <= 0.85
-        assert decision.quote is not None
-
-    @pytest.mark.asyncio
-    async def test_local_emulation_not_demonstrated_when_irrelevant(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
-        provider = JevTypeSafeVerifierProvider(api_key="")
-
-        cv_text = "Experienced graphic designer specializing in Figma and UI/UX."
-        snippets = ["specializing in Figma and UI/UX"]
-
-        decision = await provider.verify(
-            criterion_id="R_K8S",
-            criterion_description="Kubernetes cluster management and helm deployments",
-            candidate_chunks=snippets,
-            cv_full_text=cv_text,
-            kind=CriterionKind.SKILL,
-            context_type=ContextSectionType.WORK_EXPERIENCE,
-        )
-
-        assert decision.state == EvaluationStatus.NOT_DEMONSTRATED
-        assert decision.confidence >= 0.90
-        assert decision.quote is None
-
-    @pytest.mark.asyncio
-    async def test_local_emulation_binary_gate_noul(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
-        provider = JevTypeSafeVerifierProvider(api_key="")
-
-        cv_text = "Holds Bachelor of Computer Science from Universitas Indonesia."
-        snippets = ["Holds Bachelor of Computer Science from Universitas Indonesia."]
-
-        # Positive binary verification
-        dec_pass = await provider.verify(
-            criterion_id="R_DEGREE",
-            criterion_description="Bachelor degree in Computer Science",
-            candidate_chunks=snippets,
-            cv_full_text=cv_text,
-            kind=CriterionKind.EDUCATION,
-            use_noul=True,
-        )
-        assert dec_pass.state == EvaluationStatus.STRONG
-        assert dec_pass.confidence >= 0.90
-
-        # Negative binary verification
-        dec_fail = await provider.verify(
-            criterion_id="R_PHD",
-            criterion_description="PhD Doctorate in Quantum Computing",
-            candidate_chunks=snippets,
-            cv_full_text=cv_text,
-            kind=CriterionKind.EDUCATION,
-            binary_gate=True,
-        )
-        assert dec_fail.state == EvaluationStatus.NOT_DEMONSTRATED
-        assert dec_fail.quote is None
-
-    @pytest.mark.asyncio
-    async def test_local_emulation_empty_candidates_handled_safely(self):
-        provider = JevTypeSafeVerifierProvider(api_key="")
-
-        decision = await provider.verify(
-            criterion_id="R_EMPTY",
-            criterion_description="Python",
-            candidate_chunks=[],
-            cv_full_text="Some text",
-            rule_state=EvaluationStatus.NOT_DEMONSTRATED,
-        )
-        assert decision.state == EvaluationStatus.NOT_DEMONSTRATED
-        assert decision.quote is None
-
-    @pytest.mark.asyncio
-    async def test_local_emulation_grounding_failure_annulment(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
-        provider = JevTypeSafeVerifierProvider(api_key="")
-
-        cv_text = "Frontend Engineer with React skills."
-        snippets = ["Architected cloud-native AWS Kubernetes microservices."]
-
-        decision = await provider.verify(
-            criterion_id="R_K8S",
-            criterion_description="AWS Kubernetes microservices",
-            candidate_chunks=snippets,
-            cv_full_text=cv_text,
-            rule_state=EvaluationStatus.PARTIAL,
-        )
-
-        assert decision.state == EvaluationStatus.PARTIAL
-        assert "GROUNDING_FAIL" in decision.flags
-        assert decision.quote is None
+        with pytest.raises(TypeSafeUnconfiguredError, match="TypeSafe Jev System One credentials"):
+            await provider.verify(
+                criterion_id="R_ARCH",
+                criterion_description="Python distributed microservices architecture",
+                candidate_chunks=snippets,
+                cv_full_text=cv_text,
+                kind=CriterionKind.SKILL,
+                context_type=ContextSectionType.WORK_EXPERIENCE,
+            )
 
 
 # ===========================================================================
@@ -445,7 +325,7 @@ class TestLiveSystemOneMode:
         assert decision.quote is None
 
     @pytest.mark.asyncio
-    async def test_live_mode_network_exception_falls_back_gracefully(self, mock_client: AsyncMock):
+    async def test_live_mode_network_exception_propagates_honestly(self, mock_client: AsyncMock):
         mock_client.system_one.side_effect = TypeSafeAPIConnectionError("Connection refused to https://api.typesafe.ai")
 
         provider = JevTypeSafeVerifierProvider(api_key="ts_test_key", client=mock_client)
@@ -453,21 +333,16 @@ class TestLiveSystemOneMode:
         cv_text = "Architected backend microservices in Python."
         snippets = ["Architected backend microservices in Python"]
 
-        # Must not raise an exception; gracefully fall back to local calibrated emulation
-        decision = await provider.verify(
-            criterion_id="R_PY",
-            criterion_description="Python backend microservices",
-            candidate_chunks=snippets,
-            cv_full_text=cv_text,
-            kind=CriterionKind.SKILL,
-            context_type=ContextSectionType.WORK_EXPERIENCE,
-        )
-
-        assert isinstance(decision, VerifierDecision)
-        assert decision.state == EvaluationStatus.STRONG
-        assert "TYPESAFE_LIVE_FALLBACK" in decision.flags
-        assert any("ERROR_" in f for f in decision.flags)
-        assert decision.quote == "Architected backend microservices in Python"
+        # Must not disguise as pseudo-Jev; fail-fast and propagate TypeSafe error honestly
+        with pytest.raises(TypeSafeAPIConnectionError):
+            await provider.verify(
+                criterion_id="R_PY",
+                criterion_description="Python backend microservices",
+                candidate_chunks=snippets,
+                cv_full_text=cv_text,
+                kind=CriterionKind.SKILL,
+                context_type=ContextSectionType.WORK_EXPERIENCE,
+            )
 
     @pytest.mark.asyncio
     async def test_live_mode_client_context_manager_lifecycle(self):
@@ -517,9 +392,12 @@ class TestLiveSystemOneMode:
 # ===========================================================================
 
 
-class TestGroundedVerifierToolDualMode:
+class TestGroundedVerifierToolFailFast:
     @pytest.mark.asyncio
-    async def test_tool_dispatches_to_jev_in_local_emulation(self):
+    async def test_tool_fails_fast_when_jev_unconfigured(self, monkeypatch: pytest.MonkeyPatch):
+        from src.domain.verifier import TypeSafeUnconfiguredError
+
+        monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
         tool = GroundedVerifierTool()
         input_data = VerifierActionInput(
             action_type="GROUNDED_VERIFIER",
@@ -533,28 +411,5 @@ class TestGroundedVerifierToolDualMode:
             "context_type": ContextSectionType.WORK_EXPERIENCE,
         }
 
-        decision = await tool.run(input_data, context=ctx)
-        assert isinstance(decision, VerifierDecision)
-        assert decision.state == EvaluationStatus.STRONG
-        assert decision.provider_name == "JEV_TYPESAFE"
-
-    @pytest.mark.asyncio
-    async def test_tool_forwards_noul_binary_gate(self):
-        tool = GroundedVerifierTool()
-        input_data = VerifierActionInput(
-            action_type="GROUNDED_VERIFIER",
-            criterion_id="R_DEGREE",
-            context_snippets=["Graduated with Bachelor of Computer Science."],
-            provider="JEV_TYPESAFE",
-        )
-        ctx = {
-            "criterion_description": "Bachelor degree in Computer Science",
-            "cv_full_text": "Graduated with Bachelor of Computer Science.",
-            "binary_gate": True,
-            "context_type": ContextSectionType.EDUCATION,
-        }
-
-        decision = await tool.run(input_data, context=ctx)
-        assert isinstance(decision, VerifierDecision)
-        assert decision.state == EvaluationStatus.STRONG
-        assert decision.confidence >= 0.90
+        with pytest.raises(TypeSafeUnconfiguredError):
+            await tool.run(input_data, context=ctx)

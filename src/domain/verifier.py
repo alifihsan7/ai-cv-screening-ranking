@@ -139,21 +139,18 @@ class BaseVerifierProvider(ABC):
         ...
 
 
+class TypeSafeUnconfiguredError(RuntimeError):
+    """Raised when TypeSafe Jev System One is invoked without valid credentials."""
+    pass
+
+
 class JevTypeSafeVerifierProvider(BaseVerifierProvider):
     """Jev (TypeSafe) Verifier Provider.
 
-    Dual-Mode Architecture:
-    1. Live System One API: Executes real-time async evaluations via `AsyncTypeSafeClient`
-       when `TYPESAFE_API_KEY` is present (or an active client is provided).
-       Evaluates requirements using TypeSafe primitives:
-       - `Choice`: Discrete ternary classification (STRONG, PARTIAL, NOT_DEMONSTRATED)
-         with calibrated probability distributions.
-       - `Noul`: Binary probability verification for hard-gate eligibility checks.
-    2. Local Calibrated Emulation (Fallback): Executes deterministic pointwise calibration
-       when `TYPESAFE_API_KEY` is absent (or when live API calls encounter unrecoverable network errors).
-
-    Strict Grounding & Context Elevation:
-    - Verbatim quotes are deterministically extracted from candidate chunks.
+    Strict Production Doctrine:
+    - Pure TypeSafe System One live API execution via official `typesafe-sdk`.
+    - Honest Fail-Fast: Dilarang keras menggunakan pseudo-Jev / emulasi lokal tiruan.
+      Jika `TYPESAFE_API_KEY` belum dikonfigurasi, sistem melempar `TypeSafeUnconfiguredError`.
     - Zero hallucination invariant verified via `verify_grounding()`.
     - Context elevation guard applied via `apply_context_elevation_guard()`.
     """
@@ -403,35 +400,21 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
         eval_state: EvaluationStatus
         confidence: float
 
-        # 1. Evaluate via Live System One or Calibrated Local Emulation
-        if self.is_live:
-            try:
-                eval_state, confidence, live_flags = await self._call_system_one_live(
-                    criterion_description=criterion_description,
-                    candidate_chunks=candidate_chunks,
-                    cv_full_text=cv_full_text,
-                    use_noul=use_noul,
-                )
-                flags.extend(live_flags)
-            except (TypeSafeError, Exception) as exc:
-                # Live call failed: log and gracefully fallback to local calibrated emulation
-                eval_state, confidence, _ = self._calibrate_pointwise(
-                    criterion_description=criterion_description,
-                    candidate_chunks=candidate_chunks,
-                    kind=kind,
-                    context_type=ctx_t,
-                    use_noul=use_noul,
-                )
-                flags.append("TYPESAFE_LIVE_FALLBACK")
-                flags.append(f"ERROR_{type(exc).__name__}")
-        else:
-            eval_state, confidence, _ = self._calibrate_pointwise(
-                criterion_description=criterion_description,
-                candidate_chunks=candidate_chunks,
-                kind=kind,
-                context_type=ctx_t,
-                use_noul=use_noul,
+        # 1. Evaluate via Live System One (Honest Fail-Fast: No Local Mock/Emulation)
+        if not self.is_live:
+            raise TypeSafeUnconfiguredError(
+                "TypeSafe Jev System One credentials (TYPESAFE_API_KEY) are not configured. "
+                "Local emulation is disabled by sovereign architecture doctrine. "
+                "Provide a valid API key from https://console.typesafe.ai to execute evaluations."
             )
+
+        eval_state, confidence, live_flags = await self._call_system_one_live(
+            criterion_description=criterion_description,
+            candidate_chunks=candidate_chunks,
+            cv_full_text=cv_full_text,
+            use_noul=use_noul,
+        )
+        flags.extend(live_flags)
 
         # 2. Extract verbatim quote from candidate chunks
         best_quote, _ = self._extract_verbatim_quote(criterion_description, candidate_chunks)
@@ -476,11 +459,7 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
         )
         flags.extend(elev_flags)
 
-        reason = (
-            f"TypeSafe System One ({self.model}) verified."
-            if (self.is_live and "TYPESAFE_LIVE_FALLBACK" not in flags)
-            else "Calibrated closed-choice pointwise verification with zero hallucination."
-        )
+        reason = f"TypeSafe System One ({self.model}) verified."
 
         return VerifierDecision(
             state=elev_state,
