@@ -85,6 +85,13 @@ async def test_batch_upload_and_edge_cases(client: httpx.AsyncClient, recruiter_
     assert "PROMPT_INJECTION" in docs["E3_hidden_prompt_injection.pdf"]["flags"]
     assert "HIDDEN_TEXT" in docs["E3_hidden_prompt_injection.pdf"]["flags"]
 
+    # 4. Clear all CVs and verify everything is removed from backend
+    del_res = await client.delete(f"/api/v1/jobs/{job_id}/cvs", headers=headers)
+    assert del_res.status_code == 200
+    st_after = await client.get(f"/api/v1/jobs/{job_id}/cvs/status", headers=headers)
+    assert st_after.status_code == 200
+    assert len(st_after.json()["documents"]) == 0
+
 
 import src.worker.adapter as adapter
 

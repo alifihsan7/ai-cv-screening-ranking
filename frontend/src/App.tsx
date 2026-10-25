@@ -1231,16 +1231,26 @@ export default function App() {
     if (!window.confirm('Kosongkan semua berkas CV yang telah diunggah untuk lowongan ini?')) return
     if (currentJobId) {
       try {
-        await fetch(`/api/v1/jobs/${currentJobId}/cvs`, {
+        const res = await fetch(`/api/v1/jobs/${currentJobId}/cvs`, {
           method: 'DELETE',
           headers: { ...getAuthHeaders() },
         })
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}))
+          showToast(`Gagal mengosongkan berkas di server: ${errData.detail || res.statusText}`, 'error')
+          return
+        }
       } catch (e) {
         console.warn('Clear CVs backend note:', e)
+        showToast('Koneksi jaringan terputus saat mengosongkan berkas.', 'error')
+        return
       }
     }
     setUploadedFiles([])
-    showToast('Daftar berkas CV berhasil dikosongkan.', 'info')
+    setCandidates([])
+    setSelectedCandidate(null)
+    setCurrentRunId(null)
+    showToast('Daftar berkas CV dan hasil evaluasi berhasil dikosongkan.', 'info')
   }, [currentJobId, getAuthHeaders, showToast, uploadedFiles.length])
 
   const handleCompileFromJd = async () => {

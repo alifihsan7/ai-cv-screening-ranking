@@ -220,17 +220,63 @@ async def clear_job_cvs(
     job_id: uuid.UUID,
     current_user: User = Depends(require_role([UserRole.ADMIN, UserRole.RECRUITER])),
 ) -> dict[str, Any]:
-    """Clears all uploaded documents, profiles, and score artifacts for a job."""
+    """Clears all uploaded documents, profiles, eligibility records, screening runs, and score artifacts for a job."""
     async with get_connection() as conn, conn.cursor() as cur:
         await get_job_for_tenant(cur, job_id, current_user.tenant_id)
+
+        # 1. Delete reviews associated with screening runs for this job
+        await cur.execute(
+            """
+            DELETE FROM reviews
+            WHERE run_id IN (SELECT id FROM screening_runs WHERE job_id = %s AND tenant_id = %s)
+            """,
+            (job_id, current_user.tenant_id),
+        )
+
+        # 2. Delete eligibility records referencing documents or screening runs of this job
+        await cur.execute(
+            """
+            DELETE FROM candidate_eligibility
+            WHERE document_id IN (SELECT id FROM documents WHERE job_id = %s AND tenant_id = %s)
+               OR run_id IN (SELECT id FROM screening_runs WHERE job_id = %s AND tenant_id = %s)
+            """,
+            (job_id, current_user.tenant_id, job_id, current_user.tenant_id),
+        )
+
+        # 3. Delete evidence, requirement scores, candidate scores referencing screening runs or documents
+        await cur.execute(
+            """
+            DELETE FROM evidence
+            WHERE run_id IN (SELECT id FROM screening_runs WHERE job_id = %s AND tenant_id = %s)
+            """,
+            (job_id, current_user.tenant_id),
+        )
+        await cur.execute(
+            """
+            DELETE FROM requirement_scores
+            WHERE run_id IN (SELECT id FROM screening_runs WHERE job_id = %s AND tenant_id = %s)
+            """,
+            (job_id, current_user.tenant_id),
+        )
         await cur.execute(
             """
             DELETE FROM candidate_scores
             WHERE document_id IN (SELECT id FROM documents WHERE job_id = %s AND tenant_id = %s)
-              AND tenant_id = %s
+               OR run_id IN (SELECT id FROM screening_runs WHERE job_id = %s AND tenant_id = %s)
             """,
-            (job_id, current_user.tenant_id, current_user.tenant_id),
+            (job_id, current_user.tenant_id, job_id, current_user.tenant_id),
         )
+
+        # 4. Delete screening runs for this job
+        await cur.execute(
+            """
+            DELETE FROM screening_runs
+            WHERE job_id = %s AND tenant_id = %s
+            """,
+            (job_id, current_user.tenant_id),
+        )
+
+        # 5. Delete profile chunks and candidate profiles
         await cur.execute(
             """
             DELETE FROM profile_chunks
@@ -250,6 +296,8 @@ async def clear_job_cvs(
             """,
             (job_id, current_user.tenant_id, current_user.tenant_id),
         )
+
+        # 6. Nullify duplicate_of self-reference and delete documents
         await cur.execute(
             """
             UPDATE documents SET duplicate_of = NULL
