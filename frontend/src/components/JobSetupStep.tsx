@@ -22,6 +22,7 @@ export interface JobSetupStepProps {
   setJobType: (val: string) => void
   jobDescription: string
   setJobDescription: (val: string) => void
+  requirementsCount?: number
   criteriaApproved: boolean
   criteriaVersion: number
   isCompiling: boolean
@@ -30,7 +31,7 @@ export interface JobSetupStepProps {
   onNext: () => void
   onBlurTitle?: () => void
   onBlurDetails?: () => void
-  onSelectTemplate?: (tmpl: JobTemplate) => void
+  onSelectTemplate?: (tmpl: JobTemplate) => void | Promise<void>
 }
 
 const JOB_TYPE_PRESETS = [
@@ -49,6 +50,7 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
   setJobType,
   jobDescription,
   setJobDescription,
+  requirementsCount = 0,
   criteriaApproved,
   criteriaVersion,
   isCompiling,
@@ -59,16 +61,19 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
   onBlurDetails,
   onSelectTemplate,
 }) => {
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(() => {
+    const match = ROLE_TEMPLATES.find((t) => t.title === jobTitle)
+    return match ? match.id : null
+  })
 
-  const handleApplyTemplate = (tmpl: JobTemplate) => {
+  const handleApplyTemplate = async (tmpl: JobTemplate) => {
     setSelectedTemplateId(tmpl.id)
     setJobTitle(tmpl.title)
     setJobLocation(tmpl.location)
     setJobType(tmpl.employmentType)
     setJobDescription(tmpl.jd_text)
     if (onSelectTemplate) {
-      onSelectTemplate(tmpl)
+      await onSelectTemplate(tmpl)
     }
   }
 
@@ -185,12 +190,22 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
               <span className="text-[#2D4439] text-[11px] font-medium">Status Kriteria:</span>
               <span
                 className={`font-mono text-[11px] font-bold px-2.5 py-0.5 rounded-md border mt-0.5 tabular-nums ${
-                  criteriaApproved
+                  isCompiling
+                    ? 'bg-[#EBF1EE] text-[#1B4938] border-[#D5DFD9] animate-pulse'
+                    : criteriaApproved
                     ? 'bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD]'
-                    : 'bg-[#FEF6E8] text-[#7A3E02] border-[#F8D8A7]'
+                    : requirementsCount > 0
+                    ? 'bg-[#FEF6E8] text-[#7A3E02] border-[#F8D8A7]'
+                    : 'bg-[#F2F5F3] text-[#2D4439] border-[#D5DFD9]'
                 }`}
               >
-                {criteriaApproved ? `Disetujui (v${criteriaVersion})` : 'Draf Baru'}
+                {isCompiling
+                  ? 'Mengekstrak...'
+                  : criteriaApproved
+                  ? `Disetujui (v${criteriaVersion})`
+                  : requirementsCount > 0
+                  ? `Draf Baru (${requirementsCount} Kriteria)`
+                  : 'Belum Ada Kriteria'}
               </span>
             </div>
           </div>
@@ -208,24 +223,57 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
             </div>
             <div className="flex flex-wrap gap-2">
               {ROLE_TEMPLATES.map((tmpl) => {
-                const isSelected = selectedTemplateId === tmpl.id || jobTitle === tmpl.title
+                const isSelected = selectedTemplateId === tmpl.id || (selectedTemplateId === null && jobTitle === tmpl.title)
+                const isApplyingThis = isCompiling && selectedTemplateId === tmpl.id
                 return (
                   <button
                     key={tmpl.id}
                     type="button"
+                    disabled={isCompiling}
                     onClick={() => handleApplyTemplate(tmpl)}
-                    className={`text-xs px-3 py-1.5 rounded-lg border font-semibold transition-all duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer shadow-tactile-sm flex items-center space-x-1.5 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] focus-visible:ring-offset-1 ${
-                      isSelected
+                    className={`text-xs px-3 py-1.5 rounded-lg border font-semibold transition-all duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer shadow-tactile-sm flex items-center space-x-1.5 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] focus-visible:ring-offset-1 disabled:cursor-not-allowed ${
+                      isSelected || isApplyingThis
                         ? 'bg-[#1B4938] text-[#FCFDFC] border-[#1B4938] font-bold ring-1 ring-[#1B4938]'
                         : 'bg-[#FCFDFC] border-[#D5DFD9] text-[#13221C] hover:text-[#1B4938] hover:border-[#1B4938]/40 hover:bg-[#EBF1EE]'
-                    }`}
+                    } ${isCompiling && !isApplyingThis ? 'opacity-50 pointer-events-none' : ''}`}
                   >
+                    {isApplyingThis ? (
+                      <Loader2 className="w-3 h-3 animate-spin text-[#BBE5CD]" />
+                    ) : isSelected ? (
+                      <CheckCircle2 className="w-3 h-3 text-[#BBE5CD]" />
+                    ) : null}
                     <span>{tmpl.role}</span>
-                    {isSelected && <CheckCircle2 className="w-3 h-3 text-[#BBE5CD]" />}
                   </button>
                 )
               })}
             </div>
+
+            {/* Tactile Feedback Banner */}
+            {isCompiling && (
+              <div className="mt-3 flex items-center space-x-2 text-xs text-[#124B2E] bg-[#EBF6EF] border border-[#BBE5CD] px-3.5 py-2.5 rounded-lg transition-all animate-pulse shadow-tactile-sm">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-[#1B4938] shrink-0" />
+                <span className="font-medium">
+                  {selectedTemplateId
+                    ? `Menerapkan template "${ROLE_TEMPLATES.find((t) => t.id === selectedTemplateId)?.role}" dan menyusun kriteria kompetensi deterministik...`
+                    : 'Sedang mengekstrak kriteria kompetensi deterministik dari teks Job Description...'}
+                </span>
+              </div>
+            )}
+
+            {!isCompiling && selectedTemplateId && requirementsCount > 0 && (
+              <div className="mt-3 flex items-center justify-between text-xs text-[#124B2E] bg-[#EBF6EF]/70 border border-[#BBE5CD] px-3.5 py-2 rounded-lg transition-all shadow-tactile-sm">
+                <div className="flex items-center space-x-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#1B4938] shrink-0" />
+                  <span>
+                    Template <strong>{ROLE_TEMPLATES.find((t) => t.id === selectedTemplateId)?.role}</strong> aktif ·{' '}
+                    <span className="font-semibold">{requirementsCount} kriteria kompetensi</span> siap ditinjau di Step 2.
+                  </span>
+                </div>
+                <span className="text-[11px] font-mono text-[#1B4938]/80 font-bold hidden sm:inline">
+                  DRAF TERSINKRON
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Form Fields */}
@@ -237,7 +285,15 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
               <input
                 type="text"
                 value={jobTitle}
-                onChange={(e) => setJobTitle(e.target.value)}
+                onChange={(e) => {
+                  setJobTitle(e.target.value)
+                  if (selectedTemplateId) {
+                    const match = ROLE_TEMPLATES.find((t) => t.id === selectedTemplateId)
+                    if (match && match.title !== e.target.value) {
+                      setSelectedTemplateId(null)
+                    }
+                  }
+                }}
                 onBlur={onBlurTitle}
                 placeholder="Misal: Senior Backend Engineer / AI Research Engineer"
                 className="w-full px-3.5 py-2.5 bg-[#FCFDFC] border border-[#D5DFD9] rounded-xl text-sm font-semibold text-[#13221C] placeholder-[#2D4439]/50 focus:border-[#1B4938] focus:ring-2 focus:ring-[#1B4938]/15 focus:outline-none transition-all duration-150 shadow-tactile-sm"
@@ -313,7 +369,15 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
               <textarea
                 rows={10}
                 value={jobDescription}
-                onChange={(e) => setJobDescription(e.target.value)}
+                onChange={(e) => {
+                  setJobDescription(e.target.value)
+                  if (selectedTemplateId) {
+                    const match = ROLE_TEMPLATES.find((t) => t.id === selectedTemplateId)
+                    if (match && match.jd_text !== e.target.value) {
+                      setSelectedTemplateId(null)
+                    }
+                  }
+                }}
                 onBlur={onBlurDetails}
                 placeholder="Tempel atau ketik teks Job Description lengkap di sini (Tanggung Jawab, Kualifikasi Wajib, Kualifikasi Nilai Tambah)..."
                 className="w-full px-3.5 py-3 bg-[#FCFDFC] border border-[#D5DFD9] rounded-xl text-xs sm:text-sm font-mono text-[#13221C] placeholder-[#2D4439]/50 focus:border-[#1B4938] focus:ring-2 focus:ring-[#1B4938]/15 focus:outline-none leading-relaxed transition-all duration-150 shadow-tactile-sm resize-y"
@@ -331,14 +395,17 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
           <div className="mt-8 pt-5 border-t border-[#E2E9E5] flex flex-col sm:flex-row items-center justify-between gap-4">
             <button
               type="button"
+              disabled={isCompiling}
               onClick={() => {
                 if (onBlurTitle) onBlurTitle()
                 if (onBlurDetails) onBlurDetails()
                 onNext()
               }}
-              className="text-xs font-bold text-[#2D4439] hover:text-[#13221C] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] rounded-lg px-2 py-1"
+              className="text-xs font-bold text-[#2D4439] hover:text-[#13221C] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] rounded-lg px-2 py-1 disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              Lewati ke Step 2 (Gunakan Kriteria yang Sudah Ada) →
+              {requirementsCount > 0
+                ? `Lanjut ke Step 2 (Tinjau ${requirementsCount} Kriteria) →`
+                : 'Lewati ke Step 2 (Gunakan Kriteria yang Sudah Ada) →'}
             </button>
 
             <button
@@ -350,12 +417,20 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
               {isCompiling ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin text-[#BBE5CD]" />
-                  <span>Mengekstrak Kriteria dari JD...</span>
+                  <span>
+                    {selectedTemplateId
+                      ? 'Menyusun Kriteria Template...'
+                      : 'Mengekstrak Kriteria dari JD...'}
+                  </span>
                 </>
               ) : (
                 <>
                   <Sparkles className="w-4 h-4 text-[#BBE5CD]" />
-                  <span>Ekstrak Kriteria & Lanjut ke Step 2</span>
+                  <span>
+                    {requirementsCount > 0
+                      ? 'Ekstrak Ulang & Lanjut ke Step 2'
+                      : 'Ekstrak Kriteria & Lanjut ke Step 2'}
+                  </span>
                   <ChevronRight className="w-4 h-4" />
                 </>
               )}

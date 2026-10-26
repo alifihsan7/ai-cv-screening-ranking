@@ -570,9 +570,127 @@ export default function App() {
     )
   }, [syncJobDetailsToBackend])
 
-  const handleSelectTemplate = useCallback((tmpl: JobTemplate) => {
-    syncJobDetailsToBackend(tmpl.location, tmpl.employmentType, tmpl.jd_text)
-  }, [syncJobDetailsToBackend])
+  const handleSelectTemplate = useCallback(
+    async (tmpl: JobTemplate) => {
+      // 1. Clear any pending title debouncer
+      if (debounceTitleTimerRef.current) {
+        clearTimeout(debounceTitleTimerRef.current)
+      }
+
+      // 2. Atomically update local form states & refs
+      setJobTitle(tmpl.title, false)
+      setJobLocation(tmpl.location)
+      setJobType(tmpl.employmentType)
+      setJobDescription(tmpl.jd_text)
+
+      jobTitleRef.current = tmpl.title
+      jobLocationRef.current = tmpl.location
+      jobTypeRef.current = tmpl.employmentType
+      jobDescriptionRef.current = tmpl.jd_text
+
+      // 3. Atomically purge obsolete criteria & approved snapshots to guarantee determinism
+      setRequirements([])
+      setApprovedSnapshot(null)
+      const targetVer = criteriaVersion || 1
+      setCriteriaVersion(targetVer)
+      setIsCompiling(true)
+
+      try {
+        const jId = currentJobIdRef.current || (await ensureJobExists())
+        if (jId) {
+          if (!currentJobIdRef.current) {
+            setCurrentJobId(jId)
+          }
+          // Synchronize updated metadata directly to backend
+          await fetch(`/api/v1/jobs/${jId}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              ...getAuthHeaders(),
+            },
+            body: JSON.stringify({
+              title: tmpl.title,
+              location: tmpl.location,
+              employment_type: tmpl.employmentType,
+              jd_text: tmpl.jd_text,
+            }),
+          })
+
+          setCurrentJobTitleState(tmpl.title)
+          setAvailableJobs((prev) => {
+            const next = prev.map((j) => (j.id === jId ? { ...j, title: tmpl.title } : j))
+            try {
+              localStorage.setItem('cv_screening_available_jobs', JSON.stringify(next))
+            } catch {}
+            return next
+          })
+        }
+
+        // 4. Compile criteria asynchronously from template JD text
+        const res = await fetch('/api/v1/requirements/compile-preview', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders(),
+          },
+          body: JSON.stringify({ jd_text: tmpl.jd_text }),
+        })
+
+        if (res.ok) {
+          const data = await res.json()
+          if (data.requirements && Array.isArray(data.requirements)) {
+            setRequirements(data.requirements)
+            const catWeights = data.category_weights || categoryWeights
+            if (data.category_weights) {
+              setCategoryWeights(data.category_weights)
+            }
+            setApprovedSnapshot(null)
+
+            // 5. Import newly compiled requirements as DRAFT into backend
+            if (jId) {
+              await fetch(`/api/v1/jobs/${jId}/requirements/import-approved`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...getAuthHeaders(),
+                },
+                body: JSON.stringify({
+                  requirement_set_version: targetVer,
+                  category_weights: catWeights,
+                  requirements: data.requirements,
+                  status: 'DRAFT',
+                }),
+              })
+            }
+
+            showToast(
+              `Template "${tmpl.role}" diterapkan & ${data.requirements.length} kriteria berhasil disusun!`,
+              'success'
+            )
+            return
+          }
+        }
+        showToast(`Template "${tmpl.role}" berhasil diterapkan.`, 'info')
+      } catch (err) {
+        console.warn('Apply template error:', err)
+        showToast('Gagal menyusun kriteria template ke server.', 'warning')
+      } finally {
+        setIsCompiling(false)
+      }
+    },
+    [
+      categoryWeights,
+      criteriaVersion,
+      ensureJobExists,
+      getAuthHeaders,
+      setCurrentJobId,
+      setJobDescription,
+      setJobLocation,
+      setJobTitle,
+      setJobType,
+      showToast,
+    ]
+  )
 
   const fetchLatestLeaderboard = useCallback(
     async (jId?: string, maxAttempts = 1) => {
@@ -1464,6 +1582,7 @@ export default function App() {
             setJobType={setJobType}
             jobDescription={jobDescription}
             setJobDescription={setJobDescription}
+            requirementsCount={requirements.length}
             criteriaApproved={criteriaApproved}
             criteriaVersion={criteriaVersion}
             isCompiling={isCompiling}
