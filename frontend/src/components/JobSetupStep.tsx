@@ -224,7 +224,6 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
             <div className="flex flex-wrap gap-2">
               {ROLE_TEMPLATES.map((tmpl) => {
                 const isSelected = selectedTemplateId === tmpl.id || (selectedTemplateId === null && jobTitle === tmpl.title)
-                const isApplyingThis = isCompiling && selectedTemplateId === tmpl.id
                 return (
                   <button
                     key={tmpl.id}
@@ -232,14 +231,12 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
                     disabled={isCompiling}
                     onClick={() => handleApplyTemplate(tmpl)}
                     className={`text-xs px-3 py-1.5 rounded-lg border font-semibold transition-all duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer shadow-tactile-sm flex items-center space-x-1.5 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] focus-visible:ring-offset-1 disabled:cursor-not-allowed ${
-                      isSelected || isApplyingThis
+                      isSelected
                         ? 'bg-[#1B4938] text-[#FCFDFC] border-[#1B4938] font-bold ring-1 ring-[#1B4938]'
                         : 'bg-[#FCFDFC] border-[#D5DFD9] text-[#13221C] hover:text-[#1B4938] hover:border-[#1B4938]/40 hover:bg-[#EBF1EE]'
-                    } ${isCompiling && !isApplyingThis ? 'opacity-50 pointer-events-none' : ''}`}
+                    } ${isCompiling ? 'opacity-50 pointer-events-none' : ''}`}
                   >
-                    {isApplyingThis ? (
-                      <Loader2 className="w-3 h-3 animate-spin text-[#BBE5CD]" />
-                    ) : isSelected ? (
+                    {isSelected ? (
                       <CheckCircle2 className="w-3 h-3 text-[#BBE5CD]" />
                     ) : null}
                     <span>{tmpl.role}</span>
@@ -253,10 +250,19 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
               <div className="mt-3 flex items-center space-x-2 text-xs text-[#124B2E] bg-[#EBF6EF] border border-[#BBE5CD] px-3.5 py-2.5 rounded-lg transition-all animate-pulse shadow-tactile-sm">
                 <Loader2 className="w-3.5 h-3.5 animate-spin text-[#1B4938] shrink-0" />
                 <span className="font-medium">
-                  {selectedTemplateId
-                    ? `Menerapkan template "${ROLE_TEMPLATES.find((t) => t.id === selectedTemplateId)?.role}" dan menyusun kriteria kompetensi deterministik...`
-                    : 'Sedang mengekstrak kriteria kompetensi deterministik dari teks Job Description...'}
+                  Sedang mengekstrak kriteria kompetensi deterministik dari teks Job Description...
                 </span>
+              </div>
+            )}
+
+            {!isCompiling && selectedTemplateId && requirementsCount === 0 && (
+              <div className="mt-3 flex items-center justify-between text-xs text-[#2D4439] bg-[#F2F5F3] border border-[#D5DFD9] px-3.5 py-2 rounded-lg transition-all shadow-tactile-sm">
+                <div className="flex items-center space-x-2">
+                  <BookmarkCheck className="w-3.5 h-3.5 text-[#1B4938] shrink-0" />
+                  <span>
+                    Template <strong>{ROLE_TEMPLATES.find((t) => t.id === selectedTemplateId)?.role}</strong> diterapkan. Tinjau teks deskripsi pekerjaan di bawah, lalu klik <strong>Ekstrak Kriteria & Lanjut ke Step 2</strong>.
+                  </span>
+                </div>
               </div>
             )}
 
@@ -395,8 +401,9 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
           <div className="mt-8 pt-5 border-t border-[#E2E9E5] flex flex-col sm:flex-row items-center justify-between gap-4">
             <button
               type="button"
-              disabled={isCompiling}
+              disabled={isCompiling || requirementsCount === 0}
               onClick={() => {
+                if (requirementsCount === 0) return
                 if (onBlurTitle) onBlurTitle()
                 if (onBlurDetails) onBlurDetails()
                 onNext()
@@ -405,7 +412,7 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
             >
               {requirementsCount > 0
                 ? `Lanjut ke Step 2 (Tinjau ${requirementsCount} Kriteria) →`
-                : 'Lewati ke Step 2 (Gunakan Kriteria yang Sudah Ada) →'}
+                : 'Pilih Ekstrak Kriteria untuk Melanjutkan'}
             </button>
 
             <button
@@ -417,11 +424,7 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
               {isCompiling ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin text-[#BBE5CD]" />
-                  <span>
-                    {selectedTemplateId
-                      ? 'Menyusun Kriteria Template...'
-                      : 'Mengekstrak Kriteria dari JD...'}
-                  </span>
+                  <span>Mengekstrak Kriteria dari JD...</span>
                 </>
               ) : (
                 <>

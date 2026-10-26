@@ -593,7 +593,6 @@ export default function App() {
       setApprovedSnapshot(null)
       const targetVer = criteriaVersion || 1
       setCriteriaVersion(targetVer)
-      setIsCompiling(true)
 
       try {
         const jId = currentJobIdRef.current || (await ensureJobExists())
@@ -626,60 +625,16 @@ export default function App() {
           })
         }
 
-        // 4. Compile criteria asynchronously from template JD text
-        const res = await fetch('/api/v1/requirements/compile-preview', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...getAuthHeaders(),
-          },
-          body: JSON.stringify({ jd_text: tmpl.jd_text }),
-        })
-
-        if (res.ok) {
-          const data = await res.json()
-          if (data.requirements && Array.isArray(data.requirements)) {
-            setRequirements(data.requirements)
-            const catWeights = data.category_weights || categoryWeights
-            if (data.category_weights) {
-              setCategoryWeights(data.category_weights)
-            }
-            setApprovedSnapshot(null)
-
-            // 5. Import newly compiled requirements as DRAFT into backend
-            if (jId) {
-              await fetch(`/api/v1/jobs/${jId}/requirements/import-approved`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  ...getAuthHeaders(),
-                },
-                body: JSON.stringify({
-                  requirement_set_version: targetVer,
-                  category_weights: catWeights,
-                  requirements: data.requirements,
-                  status: 'DRAFT',
-                }),
-              })
-            }
-
-            showToast(
-              `Template "${tmpl.role}" diterapkan & ${data.requirements.length} kriteria berhasil disusun!`,
-              'success'
-            )
-            return
-          }
-        }
-        showToast(`Template "${tmpl.role}" berhasil diterapkan.`, 'info')
+        showToast(
+          `Template "${tmpl.role}" diterapkan. Silakan tinjau dan klik Ekstrak Kriteria.`,
+          'info'
+        )
       } catch (err) {
         console.warn('Apply template error:', err)
-        showToast('Gagal menyusun kriteria template ke server.', 'warning')
-      } finally {
-        setIsCompiling(false)
+        showToast('Gagal menyinkronkan data template ke server.', 'warning')
       }
     },
     [
-      categoryWeights,
       criteriaVersion,
       ensureJobExists,
       getAuthHeaders,
