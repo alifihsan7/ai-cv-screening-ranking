@@ -70,7 +70,8 @@ def parse_ym(val: str | None, as_of: str | None = None, is_end: bool = False) ->
         as_of = date.today().isoformat()
     if not val:
         return None
-    val_clean = val.strip().lower()
+    val_clean = val.strip().strip("()[]{} \t.,").lower()
+    val_clean = re.sub(r"[–—―−]", "-", val_clean)
     if val_clean in ("present", "sekarang", "saat ini", "kini", "now", "current"):
         as_of_date = date.fromisoformat(as_of)
         return as_of_date.year, as_of_date.month
@@ -219,7 +220,7 @@ async def eval_experience_duration_async(
         if client is None and resolved_key:
             async with AsyncTypeSafeClient(
                 api_key=resolved_key,
-                base_url=os.environ.get("TYPESAFE_BASE_URL") or getattr(settings, "TYPESAFE_BASE_URL", None),
+                base_url=os.environ.get("TYPESAFE_BASE_URL") or getattr(settings, "TYPESAFE_BASE_URL", None) or None,
                 model=os.environ.get("TYPESAFE_MODEL") or getattr(settings, "TYPESAFE_MODEL", "jev-latest"),
                 timeout=getattr(settings, "TYPESAFE_TIMEOUT", 10.0),
             ) as session_client:

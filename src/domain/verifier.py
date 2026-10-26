@@ -41,6 +41,11 @@ VALID_STATES = {"STRONG", "PARTIAL", "NOT_DEMONSTRATED"}
 VERIFIER_PROMPT_VERSION = "v1"
 
 
+class TypeSafeUnconfiguredError(RuntimeError):
+    """Raised when TypeSafe Jev System One is invoked without valid credentials."""
+    pass
+
+
 async def record_jev_call(
     criterion_id: str,
     primitive_type: str,
@@ -136,10 +141,7 @@ def build_role_family_state(title: str, bullets: list[Any] | str = "") -> dict[s
     if isinstance(bullets, list):
         bullet_lines = []
         for b in bullets:
-            if isinstance(b, dict):
-                t = str(b.get("text", "")).strip()
-            else:
-                t = str(b).strip()
+            t = str(b.get("text", "")).strip() if isinstance(b, dict) else str(b).strip()
             if t:
                 bullet_lines.append(f"- {t}")
         formatted_bullets = "\n".join(bullet_lines)
@@ -272,10 +274,7 @@ async def classify_role_family_jev(
         pass
     else:
         env_key = os.environ.get("TYPESAFE_API_KEY")
-        if env_key is not None:
-            raw_key = env_key
-        else:
-            raw_key = getattr(settings, "TYPESAFE_API_KEY", "") or ""
+        raw_key = env_key if env_key is not None else getattr(settings, "TYPESAFE_API_KEY", "") or ""
         resolved_key = str(raw_key).strip() or None
         if not resolved_key:
             raise TypeSafeUnconfiguredError(
@@ -561,11 +560,6 @@ class BaseVerifierProvider(ABC):
     ) -> VerifierDecision:
         """Verifies candidate evidence against a criterion."""
         ...
-
-
-class TypeSafeUnconfiguredError(RuntimeError):
-    """Raised when TypeSafe Jev System One is invoked without valid credentials."""
-    pass
 
 
 class JevTypeSafeVerifierProvider(BaseVerifierProvider):
@@ -1326,3 +1320,17 @@ async def verify_requirement_with_llm(
     if any(f.startswith("GROUNDING_FAIL") for f in res_flags) and "GROUNDING_FAIL" not in res_flags:
         res_flags.insert(0, "GROUNDING_FAIL")
     return decision.state.value, decision.quote or "", res_flags
+
+
+# Re-exports for TypeSafe Jev System One Work Experience Extraction
+from src.domain.experience_extractor import (
+    WorkExperienceEntity,
+    calculate_experience_duration,
+    extract_work_experiences_jev,
+)
+
+__all__ = [
+    "WorkExperienceEntity",
+    "calculate_experience_duration",
+    "extract_work_experiences_jev",
+]

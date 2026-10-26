@@ -97,6 +97,17 @@ def normalize_profile_dict(p: dict[str, Any]) -> dict[str, Any]:
                 xd["start"] = xd["start_date"]
             if "end" not in xd and "end_date" in xd:
                 xd["end"] = xd["end_date"]
+            if "bullets" not in xd and "responsibilities" in xd:
+                resps = xd["responsibilities"]
+                if isinstance(resps, list):
+                    xd["bullets"] = [{"text": r} if isinstance(r, str) else r for r in resps]
+                elif isinstance(resps, str):
+                    xd["bullets"] = [{"text": resps}]
+            elif "responsibilities" not in xd and "bullets" in xd:
+                xd["responsibilities"] = [
+                    b.get("text", "") if isinstance(b, dict) else str(b)
+                    for b in xd.get("bullets", [])
+                ]
             norm_exps.append(xd)
     norm["experiences"] = norm_exps
     norm["work_experiences"] = norm_exps
