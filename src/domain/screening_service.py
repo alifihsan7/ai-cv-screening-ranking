@@ -24,7 +24,7 @@ from src.domain.kind_rules import (
     eval_skill,
 )
 from src.domain.scorer import rank, score
-from src.domain.verifier import verify_requirement_with_llm
+from src.domain.verifier import resolve_jev_primitive_params, verify_requirement_with_llm
 from src.infrastructure.config import settings
 from src.infrastructure.database import get_connection
 from src.infrastructure.logging import logger
@@ -84,6 +84,7 @@ async def _execute_screening_run_internal(
         params = dict(raw_params) if isinstance(raw_params, dict) else json.loads(raw_params or "{}")
         use_verifier = params.get("use_verifier", False)
         elig_snapshot = run_row["eligibility_snapshot"] or []
+        scoring_mode = params.get("scoring_mode") or getattr(settings, "SCORING_MODE", "rules")
 
         if use_agent is not None:
             effective_use_agent = use_agent
@@ -96,7 +97,16 @@ async def _execute_screening_run_internal(
         chosen_verifier: BaseVerifierProvider | None = verifier_provider
         configured_provider_name = params.get("verifier_provider")
 
-        if effective_use_agent:
+        if scoring_mode == "jev_hybrid":
+            params["scoring_mode"] = "jev_hybrid"
+            if chosen_verifier is None:
+                from src.domain.verifier import JevTypeSafeVerifierProvider
+
+                chosen_verifier = JevTypeSafeVerifierProvider()
+                provider_name = "JEV_TYPESAFE"
+            else:
+                provider_name = getattr(chosen_verifier, "provider_name", "JEV_TYPESAFE")
+        elif effective_use_agent:
             if chosen_verifier is None:
                 if configured_provider_name in ("LLM", "LLM_GATEWAY") or (use_verifier and not configured_provider_name):
                     from src.domain.verifier import LLMGatewayVerifierProvider
@@ -124,6 +134,7 @@ async def _execute_screening_run_internal(
         # Explicitly harmonize metadata in screening_runs.params
         params["use_agent"] = effective_use_agent
         params["verifier_provider"] = provider_name
+        params["scoring_mode"] = scoring_mode
 
         # Mark RUNNING and save harmonized params
         await cur.execute(
@@ -235,6 +246,7 @@ async def _execute_screening_run_internal(
                         as_of=effective_as_of,
                         category_weights=cat_weights,
                         verifier_provider=verifier_provider,
+                        run_id=str(run_id),
                     )
 
                     states_map: dict[str, str] = {}
@@ -363,9 +375,9 @@ async def _execute_screening_run_internal(
                     else:
                         st, conf, m, evs, flgs = "NOT_DEMONSTRATED", 0.9, {}, [], []
 
-                    # Hybrid semantic retrieval fallback (FX-32)
+                    # Hybrid semantic retrieval fallback (FX-32 / Mode 3 Jev Hybrid)
                     if (
-                        settings.SCORING_MODE == "hybrid"
+                        scoring_mode in ("hybrid", "jev_hybrid")
                         and kind in ("SKILL", "RESPONSIBILITY", "ACHIEVEMENT", "LEADERSHIP")
                         and st == "NOT_DEMONSTRATED"
                         and cv.get("profile_id")
@@ -387,15 +399,55 @@ async def _execute_screening_run_internal(
                     cand_flags.extend(flgs)
 
                     eval_method = "rule"
-                    # Optional LLM verifier bounded with semaphore
-                    if use_verifier and st in ("PARTIAL", "STRONG") and evs:
+                    # Optional verifier bounded with semaphore
+                    if (use_verifier or scoring_mode == "jev_hybrid") and st in ("PARTIAL", "STRONG") and evs:
                         async with verifier_semaphore:
-                            v_st, v_quote, v_flgs = await verify_requirement_with_llm(
-                                full_text, r, st, [e.get("quote", "") for e in evs]
-                            )
-                            st = v_st
-                            cand_flags.extend(v_flgs)
-                            eval_method = "verifier"
+                            if verifier_provider is not None and getattr(verifier_provider, "provider_name", "") == "JEV_TYPESAFE":
+                                prim_kwargs = resolve_jev_primitive_params(
+                                    kind=kind,
+                                    importance=r.get("importance"),
+                                    concepts=r.get("concepts"),
+                                )
+                                v_dec = await verifier_provider.verify(
+                                    criterion_id=rid,
+                                    criterion_description=str(r.get("description", "")),
+                                    candidate_chunks=[str(e.get("quote", "")) for e in evs if e.get("quote")],
+                                    cv_full_text=full_text,
+                                    rule_state=st,
+                                    kind=kind,
+                                    run_id=str(run_id),
+                                    candidate_id=str(cand_id),
+                                    **prim_kwargs,
+                                )
+                                st = v_dec.state.value
+                                cand_flags.extend(v_dec.flags)
+                                eval_method = "verifier"
+                                conf = v_dec.confidence
+
+                                # Synchronize evidence with verified grounded quote
+                                if st == "NOT_DEMONSTRATED":
+                                    evs = []
+                                elif v_dec.quote:
+                                    evs = [
+                                        {
+                                            "quote": v_dec.quote,
+                                            "context": str(v_dec.context_type.value if hasattr(v_dec.context_type, "value") else v_dec.context_type),
+                                            "verified": True,
+                                            "char_start": v_dec.char_start,
+                                            "char_end": v_dec.char_end,
+                                        }
+                                    ]
+                            else:
+                                v_st, v_quote, v_flgs = await verify_requirement_with_llm(
+                                    full_text, r, st, [e.get("quote", "") for e in evs]
+                                )
+                                st = v_st
+                                cand_flags.extend(v_flgs)
+                                eval_method = "verifier"
+                                if st == "NOT_DEMONSTRATED":
+                                    evs = []
+                                elif v_quote:
+                                    evs = [{"quote": v_quote, "context": "experience", "verified": True}]
 
                     states_map[rid] = st
                     ev_map[rid] = evs

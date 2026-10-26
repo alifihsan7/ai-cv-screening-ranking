@@ -396,8 +396,10 @@ class TestGroundedVerifierToolFailFast:
     @pytest.mark.asyncio
     async def test_tool_fails_fast_when_jev_unconfigured(self, monkeypatch: pytest.MonkeyPatch):
         from src.domain.verifier import TypeSafeUnconfiguredError
+        from src.infrastructure.config import settings
 
         monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+        monkeypatch.setattr(settings, "TYPESAFE_API_KEY", "")
         tool = GroundedVerifierTool()
         input_data = VerifierActionInput(
             action_type="GROUNDED_VERIFIER",

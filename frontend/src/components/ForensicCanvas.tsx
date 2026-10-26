@@ -13,6 +13,12 @@ import {
   MessageSquare,
 } from 'lucide-react'
 import type { CandidateDetail, Requirement } from '../types'
+import {
+  ScreeningTelemetryPanel,
+  DualLayerCriterionBadge,
+  VerbatimGroundingChip,
+} from './ScreeningTelemetryPanel'
+import { getScreeningTelemetry, isVerbatimGrounded } from '../utils/telemetry'
 
 export interface ForensicCanvasProps {
   candidate: CandidateDetail | null
@@ -52,6 +58,8 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
 
   const displayName =
     blindMode && !candidate.revealed ? candidate.blind_id : candidate.real_name
+
+  const telemetry = getScreeningTelemetry(candidate, requirements)
 
   const getDecileText = (score: number) => {
     if (score >= 90) return 'Desil 10 · Top 5%'
@@ -110,6 +118,9 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
                 }`}
               >
                 Band {candidate.band}
+              </span>
+              <span className="font-mono text-[9px] px-1.5 py-0.2 rounded border font-bold bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD] shadow-tactile-sm shrink-0">
+                {telemetry.scoring_mode}
               </span>
 
               {/* Tactile Action Button: Buka Audit AI */}
@@ -215,6 +226,9 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
 
       {/* Scrollable Canvas Body */}
       <div className="flex-1 overflow-y-auto p-5 space-y-5">
+        {/* Screening Telemetry Avionics HUD */}
+        <ScreeningTelemetryPanel telemetry={telemetry} />
+
         {/* 1. RINGKASAN EKSEKUTIF (Executive Summary) */}
         <section className="bg-[#FCFDFC] border border-[#D5DFD9] rounded-2xl p-4 sm:p-5 shadow-tactile space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E2E9E5] pb-3">
@@ -226,7 +240,7 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
             </div>
             <div className="flex items-center space-x-2">
               <span className="text-[10px] font-mono text-[#2D4439]">
-                Rekomendasi:{' '}
+                Saran Rekomendasi (Decision-Support):{' '}
                 <strong className="text-[#13221C]">
                   {candidate.recommendation.replace('_', ' ')}
                 </strong>
@@ -278,9 +292,12 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
                     </div>
                     <p className="font-semibold text-[#13221C]">{s.description}</p>
                     {s.quote && (
-                      <p className="font-mono text-[11px] text-[#124B2E] italic truncate">
-                        &quot;{s.quote}&quot;
-                      </p>
+                      <div className="flex items-center gap-1.5 pt-0.5">
+                        <VerbatimGroundingChip isGrounded={true} />
+                        <p className="font-mono text-[11px] text-[#124B2E] italic truncate">
+                          &quot;{s.quote}&quot;
+                        </p>
+                      </div>
                     )}
                   </div>
                 ))}
@@ -354,10 +371,11 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
                 >
                   {/* Kriteria Title Row */}
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center space-x-2 min-w-0">
+                    <div className="flex items-center space-x-2 min-w-0 flex-wrap">
                       <span className="font-mono font-bold text-xs text-[#1B4938] bg-[#EBF1EE] px-2 py-0.5 rounded border border-[#D5DFD9]">
                         {r.requirement_id}
                       </span>
+                      <DualLayerCriterionBadge req={r} />
                       <span className="font-semibold text-xs text-[#13221C]">
                         {r.description}
                       </span>
@@ -392,19 +410,22 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
 
                   {/* Kutipan Verbatim CV Terpadu di Bawah Kriteria */}
                   {evidenceQuote ? (
-                    <div className="mt-1 pl-3 border-l-2 border-[#1B4938] bg-[#F5F8F6] p-2.5 rounded-r-lg flex items-start justify-between gap-3">
+                    <div className="mt-1 pl-3 border-l-2 border-[#1B4938] bg-[#F5F8F6] p-2.5 rounded-r-lg space-y-1.5">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <VerbatimGroundingChip isGrounded={isVerbatimGrounded(evidenceQuote, candidate.full_text)} />
+                        <button
+                          type="button"
+                          onClick={() => onOpenAuditDrawer?.('grounding', evidenceQuote)}
+                          className="shrink-0 text-[10px] font-bold text-[#1B4938] hover:text-[#124B2E] underline cursor-pointer flex items-center gap-1 transition-colors"
+                          title="Buka kutipan ini di Audit Drawer CV"
+                        >
+                          <span>Lihat di CV</span>
+                          <ChevronRight className="w-3 h-3 text-[#1B4938]" />
+                        </button>
+                      </div>
                       <p className="font-mono text-[11px] text-[#124B2E] leading-relaxed select-text">
                         &ldquo;{evidenceQuote}&rdquo;
                       </p>
-                      <button
-                        type="button"
-                        onClick={() => onOpenAuditDrawer?.('grounding', evidenceQuote)}
-                        className="shrink-0 text-[10px] font-bold text-[#1B4938] hover:text-[#124B2E] underline cursor-pointer flex items-center gap-1 transition-colors"
-                        title="Buka kutipan ini di Audit Drawer CV"
-                      >
-                        <span>Lihat di CV</span>
-                        <ChevronRight className="w-3 h-3 text-[#1B4938]" />
-                      </button>
                     </div>
                   ) : (
                     <div className="mt-1 pl-3 border-l-2 border-[#D5DFD9] py-1 text-[11px] text-[#2D4439]/70 italic font-mono">

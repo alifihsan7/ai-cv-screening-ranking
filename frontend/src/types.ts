@@ -31,6 +31,23 @@ export interface CandidateScore {
   quality_status?: string
   eligibility_status?: 'ELIGIBLE' | 'NOT_ELIGIBLE' | 'UNKNOWN'
   eligibility_reasons?: string[]
+  scoring_mode?: string
+  telemetry?: ScreeningTelemetry
+}
+
+export type EvaluatorLayer = 'RULE_GATE' | 'JEV_SYSTEM_ONE'
+export type JevPrimitive = 'NOUL' | 'SCORE' | 'CHOICE'
+
+export interface ScreeningTelemetry {
+  mode: string
+  scoring_mode: 'JEV_HYBRID' | 'AI_FORENSIC' | 'RULES_DETERMINISTIC' | string
+  latency_p50_ms: number
+  latency_p95_ms: number
+  total_inference_tokens: number
+  estimated_cost_usd: number
+  grounding_pass_rate_pct: number
+  grounded_citations_count: number
+  total_citations_count: number
 }
 
 export interface EvidenceItem {
@@ -39,6 +56,8 @@ export interface EvidenceItem {
   verified: boolean
   char_start?: number
   char_end?: number
+  grounding_status?: 'VERBATIM_GROUNDED' | 'NOT_GROUNDED' | 'SEMANTIC_MATCH' | 'UNVERIFIED'
+  exact_match?: boolean
 }
 
 export interface ReasoningStep {

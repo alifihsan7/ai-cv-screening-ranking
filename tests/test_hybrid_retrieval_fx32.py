@@ -11,5 +11,5 @@ def test_split_sentences():
 
 
 def test_scoring_mode_configuration_and_defaults():
-    assert settings.SCORING_MODE in ("rules", "hybrid")
+    assert settings.SCORING_MODE in ("rules", "hybrid", "jev_hybrid")
     assert 0.5 <= settings.SEMANTIC_THRESHOLD <= 0.9

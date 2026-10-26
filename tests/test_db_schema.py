@@ -29,6 +29,7 @@ async def test_all_19_tables_exist():
         "audit_logs",
         "model_calls",
         "llm_cache",
+        "jev_calls",
     }
     async with get_connection() as conn, conn.cursor() as cur:
         await cur.execute(

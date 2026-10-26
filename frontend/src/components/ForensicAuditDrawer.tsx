@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import {
   X,
   ShieldCheck,
@@ -7,19 +7,30 @@ import {
   Cpu,
   Clock,
   Search,
-  CheckCircle2,
   Copy,
   Check,
+  Sparkles,
 } from 'lucide-react'
-import type { CandidateDetail } from '../types'
+import type { CandidateDetail, Requirement } from '../types'
+import {
+  ScreeningTelemetryPanel,
+  DualLayerCriterionBadge,
+  VerbatimGroundingChip,
+} from './ScreeningTelemetryPanel'
+import { getScreeningTelemetry } from '../utils/telemetry'
 
 export interface ForensicAuditDrawerProps {
   isOpen: boolean
   onClose: () => void
   candidate: CandidateDetail | null
+  requirements?: Requirement[]
   initialTab?: 'trajectory' | 'grounding'
   highlightedQuote?: string | null
   blindMode?: boolean
+}
+
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 const getActionBadgeClass = (action: string) => {
@@ -48,6 +59,7 @@ export const ForensicAuditDrawer: React.FC<ForensicAuditDrawerProps> = ({
   isOpen,
   onClose,
   candidate,
+  requirements = [],
   initialTab = 'trajectory',
   highlightedQuote = null,
   blindMode = false,
@@ -56,6 +68,12 @@ export const ForensicAuditDrawer: React.FC<ForensicAuditDrawerProps> = ({
   const [prevInitialTab, setPrevInitialTab] = useState(initialTab)
   const [searchTerm, setSearchTerm] = useState('')
   const [copied, setCopied] = useState(false)
+  const [localQuote, setLocalQuote] = useState<string | null>(highlightedQuote)
+  const [selectedReqId, setSelectedReqId] = useState<string | null>(null)
+
+  useEffect(() => {
+    setLocalQuote(highlightedQuote)
+  }, [highlightedQuote])
 
   // Sync activeTab when initialTab prop updates upon opening
   if (initialTab !== prevInitialTab) {
@@ -77,6 +95,8 @@ export const ForensicAuditDrawer: React.FC<ForensicAuditDrawerProps> = ({
 
   if (!candidate) return null
 
+  const telemetry = getScreeningTelemetry(candidate, requirements)
+
   const displayName =
     blindMode && !candidate.revealed ? candidate.blind_id : candidate.real_name
   const isAiVerified =
@@ -97,6 +117,125 @@ ${Object.entries(candidate.evidence || {})
 PENDIDIKAN & LATAR BELAKANG:
 • Terverifikasi dalam kategori ${candidate.band} dengan skor total ${candidate.final_score.toFixed(1)}.`
 
+  const effectiveQuote = localQuote || highlightedQuote
+
+  const activeRequirement = useMemo(() => {
+    if (selectedReqId) {
+      const found = requirements.find((r) => r.requirement_id === selectedReqId)
+      if (found) return found
+    }
+    if (effectiveQuote && candidate?.evidence) {
+      const found = requirements.find((r) => {
+        const evList = candidate.evidence?.[r.requirement_id] || []
+        return evList.some((e) => e.quote === effectiveQuote)
+      })
+      if (found) return found
+    }
+    return null
+  }, [selectedReqId, effectiveQuote, requirements, candidate?.evidence])
+
+  const { highlightedContent, isMatchFound, matchCount } = useMemo(() => {
+    if (!defaultCvText) {
+      return { highlightedContent: null, isMatchFound: false, matchCount: 0 }
+    }
+
+    let pattern = ''
+    let isTarget = false
+
+    if (effectiveQuote && effectiveQuote.trim().length >= 3) {
+      const words = effectiveQuote.trim().split(/\s+/).filter(Boolean)
+      if (words.length > 0) {
+        const fullPattern = words.map((w) => escapeRegex(w)).join('\\s+')
+        try {
+          if (new RegExp(fullPattern, 'i').test(defaultCvText)) {
+            pattern = fullPattern
+            isTarget = true
+          } else if (words.length >= 4) {
+            const subPattern = words.slice(0, 5).map((w) => escapeRegex(w)).join('\\s+')
+            if (new RegExp(subPattern, 'i').test(defaultCvText)) {
+              pattern = subPattern
+              isTarget = true
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+    }
+
+    if (!pattern && searchTerm && searchTerm.trim().length >= 2) {
+      try {
+        const cleanTerm = escapeRegex(searchTerm.trim())
+        if (new RegExp(cleanTerm, 'i').test(defaultCvText)) {
+          pattern = cleanTerm
+          isTarget = false
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    if (!pattern) {
+      return {
+        highlightedContent: <span>{defaultCvText}</span>,
+        isMatchFound: false,
+        matchCount: 0,
+      }
+    }
+
+    try {
+      const regex = new RegExp(`(${pattern})`, 'gi')
+      const testRegex = new RegExp(`^${pattern}$`, 'i')
+      const parts = defaultCvText.split(regex)
+      let count = 0
+
+      const nodes = parts.map((part, index) => {
+        if (testRegex.test(part)) {
+          count++
+          const isFirst = count === 1
+          return (
+            <mark
+              key={index}
+              id={isFirst ? 'forensic-cv-highlight' : undefined}
+              className={`font-semibold px-1 py-0.5 rounded shadow-sm transition-all duration-300 ${
+                isTarget
+                  ? 'bg-[#FEF08A] text-[#713F12] border border-[#FDE047] ring-2 ring-[#F59E0B]/40'
+                  : 'bg-[#DCFCE7] text-[#14532D] border border-[#86EFAC]'
+              }`}
+            >
+              {part}
+            </mark>
+          )
+        }
+        return <span key={index}>{part}</span>
+      })
+
+      return {
+        highlightedContent: <>{nodes}</>,
+        isMatchFound: count > 0,
+        matchCount: count,
+      }
+    } catch {
+      return {
+        highlightedContent: <span>{defaultCvText}</span>,
+        isMatchFound: false,
+        matchCount: 0,
+      }
+    }
+  }, [defaultCvText, effectiveQuote, searchTerm])
+
+  useEffect(() => {
+    if (activeTab === 'grounding' && isMatchFound) {
+      const timer = setTimeout(() => {
+        const el = document.getElementById('forensic-cv-highlight')
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+      }, 150)
+      return () => clearTimeout(timer)
+    }
+  }, [activeTab, isMatchFound, effectiveQuote, searchTerm])
+
   const handleCopyCvText = () => {
     navigator.clipboard.writeText(defaultCvText)
     setCopied(true)
@@ -116,7 +255,7 @@ PENDIDIKAN & LATAR BELAKANG:
 
       {/* Slide-Over Drawer Container */}
       <aside
-        className={`fixed inset-y-0 right-0 w-full sm:w-[540px] lg:w-[620px] z-50 bg-[#FCFDFC] border-l border-[#D5DFD9] shadow-2xl flex flex-col transform transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+        className={`fixed inset-y-0 right-0 w-full sm:w-[680px] lg:w-[780px] xl:w-[860px] z-50 bg-[#FCFDFC] border-l border-[#D5DFD9] shadow-2xl flex flex-col transform transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           isOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'
         }`}
         aria-label="Forensic Audit Drawer"
@@ -140,6 +279,9 @@ PENDIDIKAN & LATAR BELAKANG:
                     <span>AI Verified</span>
                   </span>
                 )}
+                <span className="font-mono text-[9px] px-1.5 py-0.2 rounded border font-bold bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD] shadow-tactile-sm shrink-0">
+                  {telemetry.scoring_mode}
+                </span>
               </div>
               <p className="text-[11px] text-[#2D4439] font-mono truncate mt-0.5">
                 Audit Telemetri AI • {candidate.file_name}
@@ -193,12 +335,14 @@ PENDIDIKAN & LATAR BELAKANG:
           </div>
 
           <span className="text-[10px] font-mono text-[#2D4439] shrink-0 hidden sm:inline">
-            Provider: <strong>{candidate.verifier_provider === 'JEV_TYPESAFE' ? 'AI_FORENSIC' : (candidate.verifier_provider || 'AI_FORENSIC')}</strong>
+            Mode: <strong className="text-[#13221C]">{telemetry.mode}</strong>
           </span>
         </div>
 
         {/* Scrollable Drawer Body */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+          {/* Screening Telemetry Avionics HUD */}
+          <ScreeningTelemetryPanel telemetry={telemetry} />
           {/* TAB 1: REASONING TRAJECTORY RAIL */}
           {activeTab === 'trajectory' && (
             <div className="space-y-4">
@@ -281,9 +425,12 @@ PENDIDIKAN & LATAR BELAKANG:
 
                       {/* Observation (Verbatim Evidence Box in Soft Mint Sage) */}
                       <div className="bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD] p-3 rounded-lg space-y-1.5 font-mono text-xs shadow-tactile-sm">
-                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-[#124B2E] uppercase tracking-wider">
-                          <Terminal className="w-3 h-3 text-[#124B2E]" />
-                          <span>Observation (Verbatim CV Grounding)</span>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-[#124B2E] uppercase tracking-wider">
+                            <Terminal className="w-3 h-3 text-[#124B2E]" />
+                            <span>Observation (Verbatim CV Grounding)</span>
+                          </div>
+                          <VerbatimGroundingChip isGrounded={true} />
                         </div>
                         <p className="font-mono text-xs text-[#124B2E] leading-relaxed whitespace-pre-wrap">
                           {step.observation}
@@ -336,6 +483,99 @@ PENDIDIKAN & LATAR BELAKANG:
                 </div>
               </div>
 
+              {/* Quick Jump Requirement Pills */}
+              {requirements.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 p-2 rounded-xl bg-[#FCFDFC] border border-[#D5DFD9]">
+                  <span className="text-[10px] font-mono text-[#2D4439] uppercase font-bold shrink-0 flex items-center gap-1 mr-1">
+                    <Sparkles className="w-3 h-3 text-[#1B4938]" />
+                    Kriteria:
+                  </span>
+                  {requirements.map((r) => {
+                    const evList = candidate.evidence?.[r.requirement_id] || []
+                    const firstQuote = evList[0]?.quote || ''
+                    const hasEvidence = evList.length > 0 && !!firstQuote
+                    const isSelected = activeRequirement?.requirement_id === r.requirement_id
+                    return (
+                      <button
+                        key={r.requirement_id}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedReqId(null)
+                            setLocalQuote(null)
+                          } else {
+                            setSelectedReqId(r.requirement_id)
+                            setLocalQuote(firstQuote || null)
+                            setSearchTerm('')
+                          }
+                        }}
+                        className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                          isSelected
+                            ? 'bg-[#1B4938] text-white shadow-tactile-sm ring-2 ring-[#1B4938]/30'
+                            : hasEvidence
+                            ? 'bg-[#F0F4F2] text-[#13221C] hover:bg-[#E2EBE5] border border-[#D5DFD9]'
+                            : 'bg-[#F9FAFB] text-[#6B7280] hover:bg-[#F3F4F6] border border-[#E5E7EB]'
+                        }`}
+                        title={`${r.requirement_id}: ${r.description}`}
+                      >
+                        <span>{r.requirement_id}</span>
+                        {hasEvidence && (
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              isSelected ? 'bg-emerald-300' : 'bg-[#1B4938]'
+                            }`}
+                          />
+                        )}
+                      </button>
+                    )
+                  })}
+                  {activeRequirement && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedReqId(null)
+                        setLocalQuote(null)
+                      }}
+                      className="ml-auto text-[9px] font-mono text-[#7A3E02] bg-[#FEF6E8] px-1.5 py-0.5 rounded border border-[#F8D8A7] cursor-pointer"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Detail Kriteria Terpilih (Muncul Persis di Bawahnya) */}
+              {activeRequirement && (
+                <div className="p-3 rounded-xl bg-[#FCFDFC] border-2 border-[#1B4938]/40 shadow-tactile space-y-2 transition-all">
+                  <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-[#E2E9E5] pb-1.5">
+                    <div className="flex items-center space-x-1.5 flex-wrap">
+                      <span className="font-mono font-bold text-[10px] text-white bg-[#1B4938] px-1.5 py-0.5 rounded">
+                        {activeRequirement.requirement_id}
+                      </span>
+                      <DualLayerCriterionBadge req={activeRequirement} />
+                      <span className="font-mono text-[10px] text-[#2D4439]">
+                        Bobot: <strong>{activeRequirement.weight}%</strong>
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedReqId(null)
+                        setLocalQuote(null)
+                      }}
+                      className="p-1 rounded-lg hover:bg-black/5 text-[#2D4439] cursor-pointer"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+
+                  <p className="text-xs font-semibold text-[#13221C] leading-snug">
+                    {activeRequirement.description}
+                  </p>
+                </div>
+              )}
+
               {/* In-text Filter / Search */}
               <div className="relative">
                 <Search className="w-3.5 h-3.5 text-[#2D4439] absolute left-3 top-1/2 -translate-y-1/2" />
@@ -359,22 +599,45 @@ PENDIDIKAN & LATAR BELAKANG:
 
               {/* Target Highlight Banner (if initiated from a matrix quote click) */}
               {highlightedQuote && (
-                <div className="p-2.5 rounded-xl bg-[#EBF6EF] border border-[#BBE5CD] flex items-start justify-between gap-2 text-xs">
-                  <div className="space-y-0.5">
-                    <span className="font-mono text-[10px] font-bold text-[#124B2E] uppercase tracking-wider flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3 text-[#124B2E]" />
-                      Target Kutipan Verifikasi:
-                    </span>
-                    <p className="font-mono text-[11px] text-[#124B2E] italic">
+                <div className="p-3 rounded-xl bg-[#FEF6E8] border border-[#F8D8A7] flex items-center justify-between gap-3 text-xs shadow-tactile-sm">
+                  <div className="space-y-0.5 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono text-[10px] font-bold text-[#7A3E02] uppercase tracking-wider flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 text-[#7A3E02]" />
+                        Target Kutipan Verifikasi:
+                      </span>
+                      {isMatchFound ? (
+                        <span className="font-mono text-[9px] text-[#124B2E] bg-[#EBF6EF] px-1.5 py-0.5 rounded border border-[#BBE5CD] font-bold">
+                          Ditemukan dalam Berkas ({matchCount} lokasi) ✓
+                        </span>
+                      ) : (
+                        <span className="font-mono text-[9px] text-[#1E3A5F] bg-[#F0F4F8] px-1.5 py-0.5 rounded border border-[#CBD5E1] font-bold">
+                          Semantic Match (Makna Kontekstual)
+                        </span>
+                      )}
+                    </div>
+                    <p className="font-mono text-[11px] text-[#713F12] truncate select-text">
                       &quot;{highlightedQuote}&quot;
                     </p>
                   </div>
+                  {isMatchFound && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const el = document.getElementById('forensic-cv-highlight')
+                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                      }}
+                      className="px-2 py-1 rounded-lg bg-[#FCFDFC] hover:bg-[#F3ECE0] border border-[#D5DFD9] text-[10px] font-bold text-[#7A3E02] cursor-pointer shadow-tactile-sm shrink-0"
+                    >
+                      Scroll ke Sorotan
+                    </button>
+                  )}
                 </div>
               )}
 
               {/* Raw CV Content Container */}
               <div className="p-4 bg-[#F2F5F3] text-[#13221C] rounded-xl font-mono text-xs whitespace-pre-wrap leading-relaxed max-h-[560px] overflow-y-auto border border-[#D5DFD9] shadow-inner select-text">
-                {defaultCvText}
+                {highlightedContent}
               </div>
             </div>
           )}

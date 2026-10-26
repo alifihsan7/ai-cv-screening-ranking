@@ -172,11 +172,26 @@ async def get_latest_screening(
                 FROM requirement_scores
                 WHERE run_id = %s AND tenant_id = %s
                 GROUP BY candidate_id
+            ),
+            ev_agg AS (
+                SELECT candidate_id, requirement_id, jsonb_agg(
+                    jsonb_build_object('quote', quote, 'verified', verified, 'context', context)
+                ) as items
+                FROM evidence
+                WHERE run_id = %s AND tenant_id = %s
+                GROUP BY candidate_id, requirement_id
+            ),
+            ev_summary AS (
+                SELECT candidate_id, jsonb_object_agg(requirement_id, items) as ev_map
+                FROM ev_agg
+                GROUP BY candidate_id
             )
             SELECT cs.rank, cs.candidate_id as cv_id, cs.candidate_id, d.original_filename as file_name, cs.final_score, cs.raw_score,
                    cs.band, cs.recommendation, cs.category_scores as category_breakdown, cs.flags, d.status as quality_status,
                    d.reasons as document_reasons,
                    COALESCE(rs.states, '{}'::jsonb) as requirement_states,
+                   COALESCE(evs.ev_map, '{}'::jsonb) as evidence,
+                   COALESCE(cp.full_text_redacted, '') as full_text,
                    COALESCE(ce.overall_status, 'NOT_APPLICABLE') as eligibility_status,
                    COALESCE(
                        ARRAY(SELECT jsonb_array_elements(ce.details)->>'reason_code'),
@@ -184,12 +199,14 @@ async def get_latest_screening(
                    ) as eligibility_reasons
             FROM candidate_scores cs
             LEFT JOIN documents d ON cs.document_id = d.id AND d.tenant_id = cs.tenant_id
+            LEFT JOIN candidate_profiles cp ON cp.document_id = cs.document_id AND cp.tenant_id = cs.tenant_id
             LEFT JOIN req_summary rs ON rs.candidate_id = cs.candidate_id
+            LEFT JOIN ev_summary evs ON evs.candidate_id = cs.candidate_id
             LEFT JOIN candidate_eligibility ce ON ce.candidate_id = cs.candidate_id AND ce.run_id = cs.run_id AND ce.tenant_id = cs.tenant_id
             WHERE cs.run_id = %s AND cs.tenant_id = %s
             ORDER BY cs.rank ASC NULLS LAST, cs.final_score DESC
             """,
-            (run_id, current_user.tenant_id, run_id, current_user.tenant_id),
+            (run_id, current_user.tenant_id, run_id, current_user.tenant_id, run_id, current_user.tenant_id),
         )
         rows = await cur.fetchall()
         return {
@@ -260,11 +277,26 @@ async def get_rankings(
                 FROM requirement_scores
                 WHERE run_id = %s AND tenant_id = %s
                 GROUP BY candidate_id
+            ),
+            ev_agg AS (
+                SELECT candidate_id, requirement_id, jsonb_agg(
+                    jsonb_build_object('quote', quote, 'verified', verified, 'context', context)
+                ) as items
+                FROM evidence
+                WHERE run_id = %s AND tenant_id = %s
+                GROUP BY candidate_id, requirement_id
+            ),
+            ev_summary AS (
+                SELECT candidate_id, jsonb_object_agg(requirement_id, items) as ev_map
+                FROM ev_agg
+                GROUP BY candidate_id
             )
             SELECT cs.rank, cs.candidate_id as cv_id, cs.candidate_id, d.original_filename as file_name, cs.final_score, cs.raw_score,
                    cs.band, cs.recommendation, cs.category_scores as category_breakdown, cs.flags, d.status as quality_status,
                    d.reasons as document_reasons,
                    COALESCE(rs.states, '{}'::jsonb) as requirement_states,
+                   COALESCE(evs.ev_map, '{}'::jsonb) as evidence,
+                   COALESCE(cp.full_text_redacted, '') as full_text,
                    COALESCE(ce.overall_status, 'NOT_APPLICABLE') as eligibility_status,
                    COALESCE(
                        ARRAY(SELECT jsonb_array_elements(ce.details)->>'reason_code'),
@@ -272,12 +304,14 @@ async def get_rankings(
                    ) as eligibility_reasons
             FROM candidate_scores cs
             LEFT JOIN documents d ON cs.document_id = d.id AND d.tenant_id = cs.tenant_id
+            LEFT JOIN candidate_profiles cp ON cp.document_id = cs.document_id AND cp.tenant_id = cs.tenant_id
             LEFT JOIN req_summary rs ON rs.candidate_id = cs.candidate_id
+            LEFT JOIN ev_summary evs ON evs.candidate_id = cs.candidate_id
             LEFT JOIN candidate_eligibility ce ON ce.candidate_id = cs.candidate_id AND ce.run_id = cs.run_id AND ce.tenant_id = cs.tenant_id
             WHERE cs.run_id = %s AND cs.tenant_id = %s
             ORDER BY cs.rank ASC NULLS LAST, cs.final_score DESC
             """,
-            (run_id, current_user.tenant_id, run_id, current_user.tenant_id),
+            (run_id, current_user.tenant_id, run_id, current_user.tenant_id, run_id, current_user.tenant_id),
         )
         rows = [dict(r) for r in await cur.fetchall()]
 
@@ -327,9 +361,11 @@ async def get_candidate_detail(
             SELECT cs.rank, cs.final_score, cs.raw_score, cs.band, cs.recommendation,
                    cs.category_scores as category_breakdown, cs.flags,
                    cs.reasoning_trajectory,
-                   d.original_filename as file_name
+                   d.original_filename as file_name,
+                   COALESCE(cp.full_text_redacted, '') as full_text
             FROM candidate_scores cs
             LEFT JOIN documents d ON cs.document_id = d.id AND d.tenant_id = cs.tenant_id
+            LEFT JOIN candidate_profiles cp ON cp.document_id = cs.document_id AND cp.tenant_id = cs.tenant_id
             WHERE cs.run_id = %s AND cs.candidate_id = %s AND cs.tenant_id = %s
             """,
             (run_id, cv_id, current_user.tenant_id),
@@ -436,6 +472,7 @@ async def get_candidate_detail(
             "flags": cand_score["flags"],
             "requirement_states": req_states,
             "evidence": ev_map,
+            "full_text": cand_score["full_text"] or "",
             "reasoning_trajectory": trajectory,
             "verifier_provider": verifier_provider,
             "verifier_metadata": {

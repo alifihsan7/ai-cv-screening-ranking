@@ -249,6 +249,10 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
               <ShieldCheck className="w-3 h-3 text-[#124B2E]" />
               {stats.aiVerified} AI Verified
             </span>
+            <span className="text-[#D5DFD9]">·</span>
+            <span className="inline-flex items-center gap-1 text-[#124B2E] font-bold font-mono text-[10px] bg-[#EBF6EF] px-1.5 py-0.5 rounded border border-[#BBE5CD] shadow-tactile-sm">
+              JEV_HYBRID
+            </span>
           </div>
         </div>
       </header>
@@ -345,6 +349,10 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
                             )}`}
                           >
                             Band {c.band}
+                          </span>
+
+                          <span className="font-mono text-[8.5px] px-1 py-0.2 rounded border font-semibold bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD] shrink-0">
+                            {c.scoring_mode || (c.verifier_provider === 'JEV_TYPESAFE' ? 'JEV_HYBRID' : 'AI_FORENSIC')}
                           </span>
                         </div>
 

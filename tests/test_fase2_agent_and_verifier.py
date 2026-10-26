@@ -24,6 +24,7 @@ from src.domain.tools.parser import DoclingParserTool
 from src.domain.tools.retrieval import HybridRetrievalTool
 from src.domain.tools.taxonomy_reflector import TaxonomyReflectorTool
 from src.domain.tools.verifier import GroundedVerifierTool
+from typesafe_sdk import ChoiceAnswer, SystemOneResponse, Usage
 from src.domain.verifier import (
     JevTypeSafeVerifierProvider,
     LLMGatewayVerifierProvider,
@@ -211,7 +212,21 @@ class TestVerifierProviders:
 
     @pytest.mark.asyncio
     async def test_jev_typesafe_context_elevation_enforced(self):
-        provider = JevTypeSafeVerifierProvider()
+        choice_ans = ChoiceAnswer(
+            type="choice",
+            choice="STRONG",
+            confidence=0.92,
+            probabilities={"STRONG": 0.92, "PARTIAL": 0.05, "NOT_DEMONSTRATED": 0.03},
+        )
+        mock_response = SystemOneResponse(
+            model="jev-latest",
+            usage=Usage(),
+            answers={"criterion_evaluation": choice_ans},
+        )
+        mock_client = AsyncMock()
+        mock_client.system_one.return_value = mock_response
+
+        provider = JevTypeSafeVerifierProvider(client=mock_client)
         cv_text = "Skills: Microservices, Architecture, Distributed Systems, Python."
         snippets = ["Skills: Microservices, Architecture, Distributed Systems, Python."]
 
@@ -352,7 +367,21 @@ class TestDomainTools:
 
     @pytest.mark.asyncio
     async def test_grounded_verifier_tool_dispatch(self):
-        tool = GroundedVerifierTool()
+        choice_ans = ChoiceAnswer(
+            type="choice",
+            choice="STRONG",
+            confidence=0.95,
+            probabilities={"STRONG": 0.95, "PARTIAL": 0.04, "NOT_DEMONSTRATED": 0.01},
+        )
+        mock_response = SystemOneResponse(
+            model="jev-latest",
+            usage=Usage(),
+            answers={"criterion_evaluation": choice_ans},
+        )
+        mock_client = AsyncMock()
+        mock_client.system_one.return_value = mock_response
+
+        tool = GroundedVerifierTool(jev_provider=JevTypeSafeVerifierProvider(client=mock_client))
         input_data = VerifierActionInput(
             action_type="GROUNDED_VERIFIER",
             criterion_id="R1",

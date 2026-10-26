@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import {
   X,
   Award,
@@ -18,8 +18,19 @@ import {
   Check,
   Eye,
   Search,
+  Sparkles,
 } from 'lucide-react'
 import type { CandidateDetail, Requirement } from '../types'
+import {
+  ScreeningTelemetryPanel,
+  DualLayerCriterionBadge,
+  VerbatimGroundingChip,
+} from './ScreeningTelemetryPanel'
+import { getScreeningTelemetry, isVerbatimGrounded } from '../utils/telemetry'
+
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
 
 export interface CandidateInspectorProps {
   isOpen: boolean
@@ -71,6 +82,7 @@ export const CandidateInspector: React.FC<CandidateInspectorProps> = ({
   const [expandedQuotes, setExpandedQuotes] = useState<Record<string, boolean>>({})
   const [groundingSearchTerm, setGroundingSearchTerm] = useState('')
   const [highlightedQuote, setHighlightedQuote] = useState<string | null>(null)
+  const [selectedReqId, setSelectedReqId] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
   const [prevInitialTab, setPrevInitialTab] = useState(initialTab)
@@ -137,15 +149,40 @@ export const CandidateInspector: React.FC<CandidateInspectorProps> = ({
     }
   }
 
-  const handleJumpToGrounding = (quote: string) => {
+  const handleJumpToGrounding = (quote: string, reqId?: string) => {
     setHighlightedQuote(quote)
-    setGroundingSearchTerm(quote.slice(0, 30))
+    if (reqId) {
+      setSelectedReqId(reqId)
+    } else {
+      const match = requirements.find((r) =>
+        (candidate.evidence?.[r.requirement_id] || []).some((e) => e.quote === quote)
+      )
+      if (match) setSelectedReqId(match.requirement_id)
+    }
+    setGroundingSearchTerm('')
     setActiveTab('grounding')
   }
+
+  const activeRequirement = useMemo(() => {
+    if (selectedReqId) {
+      const found = requirements.find((r) => r.requirement_id === selectedReqId)
+      if (found) return found
+    }
+    if (highlightedQuote) {
+      const found = requirements.find((r) => {
+        const evList = candidate?.evidence?.[r.requirement_id] || []
+        return evList.some((e) => e.quote === highlightedQuote)
+      })
+      if (found) return found
+    }
+    return null
+  }, [selectedReqId, highlightedQuote, requirements, candidate?.evidence])
 
   const isAiVerified =
     candidate.verifier_provider === 'JEV_TYPESAFE' ||
     (candidate.reasoning_trajectory && candidate.reasoning_trajectory.length > 0)
+
+  const telemetry = getScreeningTelemetry(candidate, requirements)
 
   const defaultCvText =
     candidate.full_text ||
@@ -160,6 +197,110 @@ ${Object.entries(candidate.evidence || {})
 
 PENDIDIKAN & LATAR BELAKANG:
 • Terverifikasi dalam kategori ${candidate.band} dengan skor total ${candidate.final_score.toFixed(1)}.`
+
+  const { highlightedContent, isMatchFound, matchCount } = useMemo(() => {
+    if (!defaultCvText) {
+      return { highlightedContent: null, isMatchFound: false, matchCount: 0 }
+    }
+
+    let pattern = ''
+    let isTarget = false
+
+    // Priority 1: highlightedQuote (with whitespace-tolerant regex)
+    if (highlightedQuote && highlightedQuote.trim().length >= 3) {
+      const words = highlightedQuote.trim().split(/\s+/).filter(Boolean)
+      if (words.length > 0) {
+        const fullPattern = words.map((w) => escapeRegex(w)).join('\\s+')
+        try {
+          if (new RegExp(fullPattern, 'i').test(defaultCvText)) {
+            pattern = fullPattern
+            isTarget = true
+          } else if (words.length >= 4) {
+            const subPattern = words.slice(0, 5).map((w) => escapeRegex(w)).join('\\s+')
+            if (new RegExp(subPattern, 'i').test(defaultCvText)) {
+              pattern = subPattern
+              isTarget = true
+            }
+          }
+        } catch {
+          // ignore invalid pattern
+        }
+      }
+    }
+
+    // Priority 2: user search term in input bar
+    if (!pattern && groundingSearchTerm && groundingSearchTerm.trim().length >= 2) {
+      try {
+        const cleanTerm = escapeRegex(groundingSearchTerm.trim())
+        if (new RegExp(cleanTerm, 'i').test(defaultCvText)) {
+          pattern = cleanTerm
+          isTarget = false
+        }
+      } catch {
+        // ignore invalid pattern
+      }
+    }
+
+    if (!pattern) {
+      return {
+        highlightedContent: <span>{defaultCvText}</span>,
+        isMatchFound: false,
+        matchCount: 0,
+      }
+    }
+
+    try {
+      const regex = new RegExp(`(${pattern})`, 'gi')
+      const testRegex = new RegExp(`^${pattern}$`, 'i')
+      const parts = defaultCvText.split(regex)
+      let count = 0
+
+      const nodes = parts.map((part, index) => {
+        if (testRegex.test(part)) {
+          count++
+          const isFirst = count === 1
+          return (
+            <mark
+              key={index}
+              id={isFirst ? 'active-cv-highlight' : undefined}
+              className={`font-semibold px-1 py-0.5 rounded shadow-sm transition-all duration-300 ${
+                isTarget
+                  ? 'bg-[#FEF08A] text-[#713F12] border border-[#FDE047] ring-2 ring-[#F59E0B]/40'
+                  : 'bg-[#DCFCE7] text-[#14532D] border border-[#86EFAC]'
+              }`}
+            >
+              {part}
+            </mark>
+          )
+        }
+        return <span key={index}>{part}</span>
+      })
+
+      return {
+        highlightedContent: <>{nodes}</>,
+        isMatchFound: count > 0,
+        matchCount: count,
+      }
+    } catch {
+      return {
+        highlightedContent: <span>{defaultCvText}</span>,
+        isMatchFound: false,
+        matchCount: 0,
+      }
+    }
+  }, [defaultCvText, highlightedQuote, groundingSearchTerm])
+
+  useEffect(() => {
+    if (activeTab === 'grounding' && isMatchFound) {
+      const timer = setTimeout(() => {
+        const el = document.getElementById('active-cv-highlight')
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+      }, 150)
+      return () => clearTimeout(timer)
+    }
+  }, [activeTab, isMatchFound, highlightedQuote, groundingSearchTerm])
 
   const handleCopyCvText = () => {
     navigator.clipboard.writeText(defaultCvText)
@@ -178,9 +319,9 @@ PENDIDIKAN & LATAR BELAKANG:
         />
       )}
 
-      {/* Slide-over Inspector Panel (Focused 600px / max-w-2xl width) */}
+      {/* Slide-over Inspector Panel */}
       <aside
-        className={`fixed inset-y-0 right-0 w-full sm:w-[600px] max-w-full sm:max-w-2xl z-50 bg-[#FCFDFC] border-l border-[#D5DFD9] shadow-tactile-lg flex flex-col transform transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+        className={`fixed inset-y-0 right-0 w-full sm:w-[680px] lg:w-[780px] xl:w-[860px] max-w-full z-50 bg-[#FCFDFC] border-l border-[#D5DFD9] shadow-tactile-lg flex flex-col transform transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           isOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'
         }`}
         aria-label="Panel Inspeksi Kandidat"
@@ -216,7 +357,7 @@ PENDIDIKAN & LATAR BELAKANG:
                     </button>
                   )}
                   <span
-                    className={`font-mono text-[10px] px-1.5 py-0.2 rounded border font-bold shrink-0 ${
+                    className={`font-mono text-[9px] px-1.5 py-0.2 rounded border shrink-0 ${
                       candidate.band === 'A'
                         ? 'bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD]'
                         : candidate.band === 'B'
@@ -225,6 +366,9 @@ PENDIDIKAN & LATAR BELAKANG:
                     }`}
                   >
                     Band {candidate.band}
+                  </span>
+                  <span className="font-mono text-[9px] px-1.5 py-0.2 rounded border shrink-0 font-bold bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD] shadow-tactile-sm">
+                    {telemetry.scoring_mode}
                   </span>
                 </div>
                 <p
@@ -414,6 +558,9 @@ PENDIDIKAN & LATAR BELAKANG:
           {/* TAB 1: EVALUASI FORENSIK (Progressive Disclosure) */}
           {activeTab === 'evaluation' && (
             <div className="space-y-4">
+              {/* Screening Telemetry Avionics HUD */}
+              <ScreeningTelemetryPanel telemetry={telemetry} />
+
               {/* Ringkasan Eksekutif */}
               <section className="bg-[#FCFDFC] border border-[#D5DFD9] rounded-2xl p-4 shadow-tactile space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E2E9E5] pb-2.5">
@@ -424,7 +571,7 @@ PENDIDIKAN & LATAR BELAKANG:
                     </h3>
                   </div>
                   <span className="text-[10px] font-mono text-[#2D4439]">
-                    Saran Rekomendasi:{' '}
+                    Saran Rekomendasi (Decision-Support):{' '}
                     <strong className="text-[#13221C]">
                       {candidate.recommendation.replace('_', ' ')}
                     </strong>
@@ -474,9 +621,12 @@ PENDIDIKAN & LATAR BELAKANG:
                           </div>
                           <p className="font-semibold text-[#13221C] text-[11px]">{s.description}</p>
                           {s.quote && (
-                            <p className="font-mono text-[10px] text-[#124B2E] italic truncate">
-                              &quot;{s.quote}&quot;
-                            </p>
+                            <div className="flex items-center gap-1.5 pt-0.5">
+                              <VerbatimGroundingChip isGrounded={true} />
+                              <p className="font-mono text-[10px] text-[#124B2E] italic truncate">
+                                &quot;{s.quote}&quot;
+                              </p>
+                            </div>
                           )}
                         </div>
                       ))}
@@ -565,10 +715,11 @@ PENDIDIKAN & LATAR BELAKANG:
                       >
                         {/* Header Row Kriteria */}
                         <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div className="flex items-center space-x-2 min-w-0">
+                          <div className="flex items-center space-x-2 min-w-0 flex-wrap">
                             <span className="font-mono font-bold text-xs text-[#1B4938] bg-[#EBF1EE] px-2 py-0.5 rounded border border-[#D5DFD9]">
                               {r.requirement_id}
                             </span>
+                            <DualLayerCriterionBadge req={r} />
                             <span className="font-semibold text-xs text-[#13221C]">
                               {r.description}
                             </span>
@@ -604,7 +755,7 @@ PENDIDIKAN & LATAR BELAKANG:
                         {/* Progressive Disclosure: Expandable Kutipan Bukti CV */}
                         {evidenceQuote ? (
                           <div className="pt-1 border-t border-[#E2E9E5]/60">
-                            <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
                               <button
                                 type="button"
                                 onClick={() => toggleQuote(r.requirement_id)}
@@ -616,9 +767,10 @@ PENDIDIKAN & LATAR BELAKANG:
                                   <ChevronRight className="w-3.5 h-3.5 text-[#1B4938]" />
                                 )}
                                 <span>{isExpanded ? 'Sembunyikan Kutipan CV' : 'Lihat Bukti Kutipan CV'}</span>
+                                <VerbatimGroundingChip isGrounded={isVerbatimGrounded(evidenceQuote, candidate.full_text)} />
                                 {!isExpanded && (
-                                  <span className="text-[#2D4439]/60 font-mono text-[10px] truncate max-w-[280px]">
-                                    — &ldquo;{evidenceQuote.slice(0, 45)}...&rdquo;
+                                  <span className="text-[#2D4439]/60 font-mono text-[10px] truncate max-w-[220px]">
+                                    — &ldquo;{evidenceQuote.slice(0, 40)}...&rdquo;
                                   </span>
                                 )}
                               </button>
@@ -626,7 +778,7 @@ PENDIDIKAN & LATAR BELAKANG:
                               {isExpanded && (
                                 <button
                                   type="button"
-                                  onClick={() => handleJumpToGrounding(evidenceQuote)}
+                                  onClick={() => handleJumpToGrounding(evidenceQuote, r.requirement_id)}
                                   className="text-[10px] font-bold text-[#1B4938] hover:underline cursor-pointer flex items-center gap-1"
                                   title="Lihat konteks penuh di berkas CV asli"
                                 >
@@ -638,16 +790,37 @@ PENDIDIKAN & LATAR BELAKANG:
 
                             {/* Expanded Kutipan Verbatim */}
                             {isExpanded && (
-                              <div className="mt-2 pl-3 border-l-2 border-[#1B4938] bg-[#F5F8F6] p-2.5 rounded-r-lg">
-                                <p className="font-mono text-[11px] text-[#124B2E] leading-relaxed select-text">
-                                  &ldquo;{evidenceQuote}&rdquo;
-                                </p>
+                              <div className="mt-2.5 p-3 rounded-xl bg-[#FEFCE8] border border-[#FEF08A] shadow-tactile-sm space-y-2">
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-1.5">
+                                    <VerbatimGroundingChip isGrounded={isVerbatimGrounded(evidenceQuote, candidate.full_text)} />
+                                    <span className="font-mono text-[9px] text-[#713F12]">
+                                      {evList[0]?.char_start !== undefined && evList[0]?.char_end !== undefined
+                                        ? `Karakter ${evList[0].char_start}–${evList[0].char_end}`
+                                        : 'Kutipan Bukti Terverifikasi'}
+                                    </span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleJumpToGrounding(evidenceQuote, r.requirement_id)}
+                                    className="px-2.5 py-1 rounded-lg bg-[#1B4938] hover:bg-[#153A2D] text-white text-[10px] font-bold flex items-center gap-1 shadow-tactile-sm cursor-pointer transition-all active:scale-95"
+                                    title="Lihat teks ini disorot di dokumen CV asli"
+                                  >
+                                    <span>Sorot di Teks CV</span>
+                                    <ChevronRight className="w-3 h-3 text-white" />
+                                  </button>
+                                </div>
+                                <div className="bg-white/90 p-2.5 rounded-lg border border-[#FDE047] shadow-inner">
+                                  <p className="font-mono text-xs text-[#713F12] leading-relaxed select-text font-medium">
+                                    &ldquo;{evidenceQuote}&rdquo;
+                                  </p>
+                                </div>
                               </div>
                             )}
                           </div>
                         ) : (
-                          <div className="pt-1 text-[10px] text-[#2D4439]/70 italic font-mono">
-                            Tidak ditemukan kutipan eksplisit dalam berkas CV untuk kriteria ini.
+                          <div className="pt-1 text-[10px] text-[#2D4439]/70 italic font-mono flex items-center gap-2">
+                            <span>Tidak ditemukan kutipan eksplisit dalam berkas CV untuk kriteria ini.</span>
                           </div>
                         )}
                       </div>
@@ -703,6 +876,9 @@ PENDIDIKAN & LATAR BELAKANG:
           {/* TAB 2: REACT REASONING TRAJECTORY RAIL */}
           {activeTab === 'trajectory' && (
             <div className="space-y-4">
+              {/* Screening Telemetry Avionics HUD */}
+              <ScreeningTelemetryPanel telemetry={telemetry} />
+
               <div className="bg-[#F5F8F6] p-3 rounded-xl border border-[#D5DFD9] text-xs text-[#2D4439] flex items-center justify-between">
                 <span>
                   Jejak penalaran AI & verifikasi bukti kualifikasi langkah demi langkah
@@ -771,9 +947,12 @@ PENDIDIKAN & LATAR BELAKANG:
                         )}
 
                         {step.observation && (
-                          <div className="text-xs text-[#2D4439] pl-2 border-l-2 border-[#BBE5CD] py-0.5 font-mono">
-                            <strong className="text-[#124B2E]">Observation: </strong>
-                            {step.observation}
+                          <div className="text-xs text-[#2D4439] pl-2 border-l-2 border-[#BBE5CD] py-1 font-mono space-y-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <strong className="text-[#124B2E]">Observation: </strong>
+                              <VerbatimGroundingChip isGrounded={true} />
+                            </div>
+                            <p className="leading-relaxed">{step.observation}</p>
                           </div>
                         )}
 
@@ -794,6 +973,240 @@ PENDIDIKAN & LATAR BELAKANG:
           {/* TAB 3: KUTIPAN CV ASLI (Grounding View) */}
           {activeTab === 'grounding' && (
             <div className="space-y-3">
+              {/* Quick Jump Requirement Pills */}
+              {requirements.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 p-2.5 rounded-xl bg-[#FCFDFC] border border-[#D5DFD9]">
+                  <span className="text-[10px] font-mono text-[#2D4439] uppercase font-bold shrink-0 flex items-center gap-1 mr-1">
+                    <Sparkles className="w-3 h-3 text-[#1B4938]" />
+                    Pilih Kriteria:
+                  </span>
+                  {requirements.map((r) => {
+                    const evList = candidate.evidence?.[r.requirement_id] || []
+                    const firstQuote = evList[0]?.quote || ''
+                    const hasEvidence = evList.length > 0 && !!firstQuote
+                    const isSelected = activeRequirement?.requirement_id === r.requirement_id
+                    return (
+                      <button
+                        key={r.requirement_id}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedReqId(null)
+                            setHighlightedQuote(null)
+                          } else {
+                            setSelectedReqId(r.requirement_id)
+                            setHighlightedQuote(firstQuote || null)
+                            setGroundingSearchTerm('')
+                          }
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                          isSelected
+                            ? 'bg-[#1B4938] text-white shadow-tactile-sm ring-2 ring-[#1B4938]/30'
+                            : hasEvidence
+                            ? 'bg-[#F0F4F2] text-[#13221C] hover:bg-[#E2EBE5] border border-[#D5DFD9]'
+                            : 'bg-[#F9FAFB] text-[#6B7280] hover:bg-[#F3F4F6] border border-[#E5E7EB]'
+                        }`}
+                        title={`${r.requirement_id}: ${r.description}`}
+                      >
+                        <span>{r.requirement_id}</span>
+                        {hasEvidence && (
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              isSelected ? 'bg-emerald-300' : 'bg-[#1B4938]'
+                            }`}
+                          />
+                        )}
+                      </button>
+                    )
+                  })}
+                  {activeRequirement && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedReqId(null)
+                        setHighlightedQuote(null)
+                      }}
+                      className="ml-auto text-[10px] font-mono text-[#7A3E02] bg-[#FEF6E8] hover:bg-[#FEEFD8] px-2 py-0.5 rounded border border-[#F8D8A7] cursor-pointer"
+                    >
+                      Reset Pilihan
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Detail Kriteria Terpilih (Muncul Persis di Bawahnya) */}
+              {activeRequirement && (
+                <div className="p-3.5 rounded-2xl bg-[#FCFDFC] border-2 border-[#1B4938]/40 shadow-tactile space-y-2.5 transition-all animate-in fade-in duration-200">
+                  {/* Header: ID, Badge Evaluasi, Bobot, Status Pemenuhan */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E2E9E5] pb-2">
+                    <div className="flex items-center space-x-2 flex-wrap">
+                      <span className="font-mono font-bold text-xs text-white bg-[#1B4938] px-2 py-0.5 rounded shadow-tactile-sm">
+                        {activeRequirement.requirement_id}
+                      </span>
+                      <DualLayerCriterionBadge req={activeRequirement} />
+                      {activeRequirement.importance === 'MUST_HAVE' && (
+                        <span className="font-mono text-[9px] px-1.5 py-0.5 rounded font-bold uppercase bg-[#FEF6E8] text-[#7A3E02] border border-[#F8D8A7]">
+                          Wajib (Must-Have)
+                        </span>
+                      )}
+                      <span className="font-mono text-xs tabular-nums text-[#2D4439]">
+                        Bobot: <strong>{activeRequirement.weight}%</strong>
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {(() => {
+                        const state =
+                          candidate.requirement_states[activeRequirement.requirement_id] ||
+                          'NOT_DEMONSTRATED'
+                        return (
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border ${
+                              state === 'STRONG'
+                                ? 'bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD]'
+                                : state === 'PARTIAL'
+                                ? 'bg-[#FEF6E8] text-[#7A3E02] border-[#F8D8A7]'
+                                : 'bg-[#FCEBEB] text-[#8C1819] border-[#F6C1C1]'
+                            }`}
+                          >
+                            {state === 'STRONG'
+                              ? 'Terbukti (Strong Match)'
+                              : state === 'PARTIAL'
+                              ? 'Terbukti Sebagian (Partial)'
+                              : 'Tidak Tercantum dalam Berkas'}
+                          </span>
+                        )
+                      })()}
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedReqId(null)
+                          setHighlightedQuote(null)
+                        }}
+                        className="p-1 rounded-lg hover:bg-black/5 text-[#2D4439] cursor-pointer"
+                        title="Tutup Detail Kriteria"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Deskripsi Lengkap Kriteria */}
+                  <div className="space-y-1">
+                    <div className="text-[10px] font-mono uppercase tracking-wider text-[#2D4439] font-bold">
+                      Kriteria Lowongan:
+                    </div>
+                    <p className="text-xs font-semibold text-[#13221C] leading-snug">
+                      {activeRequirement.description}
+                    </p>
+                  </div>
+
+                  {/* Kutipan Bukti yang Disorot */}
+                  {highlightedQuote ? (
+                    <div className="p-3 rounded-xl bg-[#FEF6E8] border border-[#F8D8A7] flex items-center justify-between gap-3 text-xs shadow-tactile-sm">
+                      <div className="space-y-1 min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-mono text-[10px] font-bold text-[#7A3E02] uppercase tracking-wider flex items-center gap-1">
+                            <Sparkles className="w-3 h-3 text-[#7A3E02]" />
+                            Kutipan Bukti Terverifikasi:
+                          </span>
+                          <VerbatimGroundingChip
+                            isGrounded={isVerbatimGrounded(highlightedQuote, candidate.full_text)}
+                          />
+                          {isMatchFound ? (
+                            <span className="font-mono text-[9px] text-[#124B2E] bg-[#EBF6EF] px-1.5 py-0.5 rounded border border-[#BBE5CD] font-bold">
+                              Ditemukan dalam Berkas ({matchCount} lokasi) ✓
+                            </span>
+                          ) : (
+                            <span className="font-mono text-[9px] text-[#1E3A5F] bg-[#F0F4F8] px-1.5 py-0.5 rounded border border-[#CBD5E1] font-bold">
+                              Semantic Match (Makna Kontekstual)
+                            </span>
+                          )}
+                        </div>
+                        <p className="font-mono text-[11px] text-[#713F12] select-text leading-relaxed bg-white/70 p-2 rounded-lg border border-[#F8D8A7]">
+                          &ldquo;{highlightedQuote}&rdquo;
+                        </p>
+                      </div>
+
+                      {isMatchFound && (
+                        <div className="shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const el = document.getElementById('active-cv-highlight')
+                              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                            }}
+                            className="px-2.5 py-1.5 rounded-lg bg-[#1B4938] hover:bg-[#153A2D] text-white text-[10px] font-bold cursor-pointer shadow-tactile-sm flex items-center gap-1 transition-all active:scale-95"
+                          >
+                            <span>Scroll ke Sorotan</span>
+                            <ChevronDown className="w-3 h-3" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="p-2.5 rounded-xl bg-[#F0F4F2] border border-[#D5DFD9] text-xs text-[#2D4439] flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#8C1819]" />
+                      <span className="font-mono text-[11px]">
+                        Tidak ada kutipan bukti spesifik yang terverifikasi untuk kriteria ini pada berkas CV.
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Target Highlight Banner (jika ada highlightedQuote tapi tidak ada activeRequirement) */}
+              {!activeRequirement && highlightedQuote && (
+                <div className="p-3 rounded-xl bg-[#FEF6E8] border border-[#F8D8A7] flex items-center justify-between gap-3 text-xs shadow-tactile-sm">
+                  <div className="space-y-0.5 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono text-[10px] font-bold text-[#7A3E02] uppercase tracking-wider flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 text-[#7A3E02]" />
+                        Menyorot Bukti Kutipan:
+                      </span>
+                      {isMatchFound ? (
+                        <span className="font-mono text-[9px] text-[#124B2E] bg-[#EBF6EF] px-1.5 py-0.5 rounded border border-[#BBE5CD] font-bold">
+                          Ditemukan dalam Berkas ({matchCount} lokasi) ✓
+                        </span>
+                      ) : (
+                        <span className="font-mono text-[9px] text-[#1E3A5F] bg-[#F0F4F8] px-1.5 py-0.5 rounded border border-[#CBD5E1] font-bold">
+                          Semantic Match (Makna Kontekstual)
+                        </span>
+                      )}
+                    </div>
+                    <p className="font-mono text-[11px] text-[#713F12] truncate select-text">
+                      &ldquo;{highlightedQuote}&rdquo;
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {isMatchFound && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const el = document.getElementById('active-cv-highlight')
+                          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                        }}
+                        className="px-2 py-1 rounded-lg bg-[#FCFDFC] hover:bg-[#F3ECE0] border border-[#D5DFD9] text-[10px] font-bold text-[#7A3E02] cursor-pointer shadow-tactile-sm"
+                      >
+                        Scroll ke Sorotan
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHighlightedQuote(null)
+                        setGroundingSearchTerm('')
+                      }}
+                      className="p-1 rounded-lg hover:bg-black/5 text-[#7A3E02] cursor-pointer"
+                      title="Reset Sorotan"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Grounding Controls Header */}
               <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-[#F5F8F6] border border-[#D5DFD9]">
                 <div className="flex items-center space-x-2">
@@ -807,7 +1220,7 @@ PENDIDIKAN & LATAR BELAKANG:
                       className="pl-8 pr-3 py-1 bg-[#FCFDFC] border border-[#D5DFD9] rounded-lg text-xs text-[#13221C] focus:outline-none focus:border-[#1B4938] w-64 shadow-tactile-sm"
                     />
                   </div>
-                  {highlightedQuote && (
+                  {(highlightedQuote || groundingSearchTerm) && (
                     <button
                       type="button"
                       onClick={() => {
@@ -843,7 +1256,7 @@ PENDIDIKAN & LATAR BELAKANG:
               {/* Berkas CV Monospace Box */}
               <div className="bg-[#FCFDFC] border border-[#D5DFD9] rounded-2xl p-4 shadow-tactile overflow-x-auto max-h-[580px]">
                 <pre className="font-mono text-xs text-[#13221C] leading-relaxed whitespace-pre-wrap select-text">
-                  {defaultCvText}
+                  {highlightedContent}
                 </pre>
               </div>
             </div>

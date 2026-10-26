@@ -617,7 +617,7 @@ export default function App() {
                   eligibility_status: r.eligibility_status || 'ELIGIBLE',
                   eligibility_reasons: r.eligibility_reasons || [],
                   requirement_states: r.requirement_states || {},
-                  evidence: {},
+                  evidence: r.evidence || {},
                   explanation: {
                     band: r.band,
                     recommendation: r.recommendation,
@@ -629,9 +629,11 @@ export default function App() {
                     unproven: [],
                     interview_questions: [],
                   },
-                  full_text: `Dokumen: ${r.file_name}\nStatus Ingestion: ${
-                    r.quality_status || 'READY'
-                  }\nSkor Evaluasi: ${r.final_score}`,
+                  full_text:
+                    r.full_text ||
+                    `Dokumen: ${r.file_name}\nStatus Ingestion: ${
+                      r.quality_status || 'READY'
+                    }\nSkor Evaluasi: ${r.final_score}`,
                 })
               )
               setCandidates(mappedCandidates)
@@ -1024,6 +1026,7 @@ export default function App() {
               if (!prev) return null
               return {
                 ...prev,
+                full_text: detail.full_text || prev.full_text,
                 requirement_states: detail.requirement_states || prev.requirement_states,
                 evidence: detail.evidence || prev.evidence,
                 explanation: detail.explanation || prev.explanation,

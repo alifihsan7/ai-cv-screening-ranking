@@ -7,7 +7,9 @@ import hashlib
 import json
 import os
 import re
+import time
 import unicodedata
+import uuid
 from abc import ABC, abstractmethod
 from typing import Any
 
@@ -20,6 +22,8 @@ from typesafe_sdk import (
     NoulAnswer,
     NoulCriteria,
     Question,
+    Score,
+    ScoreAnswer,
     SystemOneResponse,
     TypeSafeError,
 )
@@ -28,9 +32,63 @@ from src.domain.models import ContextSectionType, CriterionKind, EvaluationStatu
 from src.infrastructure.config import settings
 from src.infrastructure.database import get_connection
 from src.infrastructure.gateway import gateway
+from src.infrastructure.logging import logger
 
 VALID_STATES = {"STRONG", "PARTIAL", "NOT_DEMONSTRATED"}
 VERIFIER_PROMPT_VERSION = "v1"
+
+
+async def record_jev_call(
+    criterion_id: str,
+    primitive_type: str,
+    model: str,
+    latency_ms: float,
+    input_tokens: int,
+    output_tokens: int,
+    decision_value: str,
+    confidence: float,
+    grounding_valid: bool,
+    run_id: str | uuid.UUID | None = None,
+    candidate_id: str | None = None,
+) -> None:
+    """Records a live TypeSafe Jev System One call telemetry to `jev_calls` table."""
+    try:
+        parsed_run_id = None
+        if run_id:
+            try:
+                parsed_run_id = uuid.UUID(str(run_id))
+            except ValueError:
+                parsed_run_id = None
+
+        cand_str = str(candidate_id) if candidate_id is not None else None
+
+        async with get_connection() as conn, conn.cursor() as cur:
+            await cur.execute(
+                """
+                INSERT INTO jev_calls (
+                    run_id, candidate_id, criterion_id, primitive_type,
+                    model, latency_ms, input_tokens, output_tokens,
+                    decision_value, confidence, grounding_valid
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    parsed_run_id,
+                    cand_str,
+                    criterion_id,
+                    primitive_type,
+                    model,
+                    float(latency_ms),
+                    int(input_tokens),
+                    int(output_tokens),
+                    str(decision_value),
+                    float(confidence),
+                    bool(grounding_valid),
+                ),
+            )
+            await conn.commit()
+    except Exception as e:
+        logger.warning(f"Failed to record jev call telemetry: {e}")
 
 
 def normalize_text_nfkc(text: str) -> str:
@@ -102,6 +160,39 @@ def apply_context_elevation_guard(
             return EvaluationStatus.PARTIAL, ["CONTEXT_ELEVATION_DOWNGRADE"]
 
     return current_status, []
+
+
+def resolve_jev_primitive_params(
+    kind: str | CriterionKind,
+    importance: str | None = None,
+    concepts: list[str] | None = None,
+) -> dict[str, Any]:
+    """Resolves TypeSafe System One primitive configuration based on criterion properties.
+
+    Trio Primitives Alignment:
+    - RESPONSIBILITY / LEADERSHIP: CHOICE with role polarity (CANDIDATE_DID_IT, OTHERS_DID_IT, etc.)
+    - ACHIEVEMENT: SCORE (0-3 proficiency depth)
+    - SKILL:
+        - Binary tools / nice-to-have: NOUL (binary requirement gate)
+        - Core technical skills: SCORE (0-3 proficiency depth)
+    - Others: CHOICE (default fallback)
+    """
+    kind_str = kind.value if isinstance(kind, CriterionKind) else str(kind).upper()
+    if kind_str in ("RESPONSIBILITY", "LEADERSHIP"):
+        return {"primitive": "polarity", "use_noul": False, "use_score": False}
+    elif kind_str == "ACHIEVEMENT":
+        return {"primitive": "score", "use_noul": False, "use_score": True}
+    elif kind_str == "SKILL":
+        concept_list = [str(c).lower() for c in (concepts or [])]
+        is_binary = any(
+            any(k in c for k in ("docker", "git", "linux", "jira", "cert:", "degree"))
+            for c in concept_list
+        )
+        if is_binary or (importance and str(importance).upper() == "NICE_TO_HAVE"):
+            return {"primitive": "noul", "use_noul": True, "use_score": False}
+        else:
+            return {"primitive": "score", "use_noul": False, "use_score": True}
+    return {"primitive": "choice", "use_noul": False, "use_score": False}
 
 
 class VerifierDecision(BaseModel):
@@ -265,7 +356,9 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
         candidate_chunks: list[str],
         cv_full_text: str,
         use_noul: bool = False,
-    ) -> tuple[EvaluationStatus, float, list[str]]:
+        use_score: bool = False,
+        primitive: str | None = None,
+    ) -> tuple[EvaluationStatus, float, list[str], dict[str, Any]]:
         """Executes live asynchronous call to TypeSafe System One."""
         state: dict[str, Any] = {
             "criterion": criterion_description,
@@ -275,7 +368,10 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
 
         q_key = "criterion_evaluation"
         questions: dict[str, Question]
-        if use_noul:
+
+        prim_req = (primitive or "").lower()
+        if prim_req == "noul" or use_noul:
+            primitive_type = "NOUL"
             questions = {
                 q_key: Noul(
                     instructions=f"Does the candidate's evidence satisfy this criterion: '{criterion_description}'?",
@@ -285,7 +381,48 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
                     ),
                 )
             }
+        elif prim_req == "score" or use_score:
+            primitive_type = "SCORE"
+            questions = {
+                q_key: Score(
+                    instructions=(
+                        f"Evaluate the candidate's proficiency depth for criterion: '{criterion_description}'. "
+                        "0: Unmentioned or no relevant evidence. "
+                        "1: Basic, theoretical, academic, or introductory. "
+                        "2: Proficient practitioner with direct production experience. "
+                        "3: Advanced expert, lead, or architect."
+                    ),
+                    criteria=[
+                        "No evidence or unmentioned.",
+                        "Basic or introductory familiarity.",
+                        "Proficient professional practitioner in production.",
+                        "Advanced expert, architect, or leadership level.",
+                    ],
+                )
+            }
+        elif prim_req == "polarity":
+            primitive_type = "CHOICE"
+            questions = {
+                q_key: Choice(
+                    instructions=(
+                        f"Determine candidate role polarity for criterion: '{criterion_description}'. "
+                        "CANDIDATE_DID_IT: Candidate directly performed, led, or architected this work. "
+                        "OTHERS_DID_IT: Performed by team/external party; candidate only assisted. "
+                        "NOT_STATED: Evidence does not mention or establish this criterion. "
+                        "NEGATED: Explicitly denies experience in this area. "
+                        "ASPIRATIONAL: Theoretical interest or future aspiration without execution."
+                    ),
+                    criteria={
+                        "CANDIDATE_DID_IT": "Candidate directly executed or led the work.",
+                        "OTHERS_DID_IT": "Collaborated or external party led the work.",
+                        "NOT_STATED": "No mention or unstated in evidence.",
+                        "NEGATED": "Explicitly lacks or denies this experience.",
+                        "ASPIRATIONAL": "Interest without production execution.",
+                    },
+                )
+            }
         else:
+            primitive_type = "CHOICE"
             questions = {
                 q_key: Choice(
                     instructions=(
@@ -302,6 +439,7 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
                 )
             }
 
+        start_time = time.perf_counter()
         if self._client is not None:
             response: SystemOneResponse = await self._client.system_one(
                 state=state,
@@ -322,10 +460,16 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
                     model=self.model,
                     timeout=self.timeout,
                 )
+        latency_ms = (time.perf_counter() - start_time) * 1000.0
 
         flags: list[str] = ["TYPESAFE_LIVE"]
 
-        if use_noul:
+        # Parse usage safely
+        in_tokens = int(response.usage.input_tokens) if response.usage and response.usage.input_tokens is not None else 0
+        out_tokens = int(response.usage.output_tokens) if response.usage and response.usage.output_tokens is not None else 0
+        model_used = response.model or self.model
+
+        if primitive_type == "NOUL":
             noul_ans = response.nouls.get(q_key)
             if noul_ans is None and q_key in response.answers:
                 raw_ans = response.answers[q_key]
@@ -336,6 +480,7 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
                 raise ValueError(f"Missing noul answer for key '{q_key}'")
 
             prob = float(noul_ans.noul)
+            decision_value = f"{prob:.4f}"
             if prob >= 0.70:
                 eval_st = EvaluationStatus.STRONG
                 conf = prob
@@ -345,7 +490,25 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
             else:
                 eval_st = EvaluationStatus.NOT_DEMONSTRATED
                 conf = 1.0 - prob
-            return eval_st, conf, flags
+        elif primitive_type == "SCORE":
+            score_ans = response.scores.get(q_key)
+            if score_ans is None and q_key in response.answers:
+                raw_ans = response.answers[q_key]
+                if isinstance(raw_ans, ScoreAnswer):
+                    score_ans = raw_ans
+
+            if score_ans is None:
+                raise ValueError(f"Missing score answer for key '{q_key}'")
+
+            score_val = float(score_ans.score)
+            conf = float(score_ans.confidence)
+            decision_value = f"{score_val:.2f}"
+            if score_val >= 2.0:
+                eval_st = EvaluationStatus.STRONG
+            elif score_val >= 0.8:
+                eval_st = EvaluationStatus.PARTIAL
+            else:
+                eval_st = EvaluationStatus.NOT_DEMONSTRATED
         else:
             choice_ans = response.choices.get(q_key)
             if choice_ans is None and q_key in response.answers:
@@ -357,12 +520,31 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
                 raise ValueError(f"Missing choice answer for key '{q_key}'")
 
             raw_choice = choice_ans.choice.upper()
-            try:
-                eval_st = EvaluationStatus(raw_choice)
-            except ValueError:
-                eval_st = EvaluationStatus.PARTIAL
+            decision_value = raw_choice
             conf = float(choice_ans.confidence)
-            return eval_st, conf, flags
+            if raw_choice == "CANDIDATE_DID_IT":
+                eval_st = EvaluationStatus.STRONG
+            elif raw_choice in ("OTHERS_DID_IT", "ASPIRATIONAL"):
+                eval_st = EvaluationStatus.PARTIAL
+            elif raw_choice in ("NEGATED", "NOT_STATED"):
+                eval_st = EvaluationStatus.NOT_DEMONSTRATED
+            else:
+                try:
+                    eval_st = EvaluationStatus(raw_choice)
+                except ValueError:
+                    eval_st = EvaluationStatus.PARTIAL
+
+        telemetry = {
+            "primitive_type": primitive_type,
+            "model": model_used,
+            "latency_ms": latency_ms,
+            "input_tokens": in_tokens,
+            "output_tokens": out_tokens,
+            "decision_value": decision_value,
+            "confidence": conf,
+        }
+
+        return eval_st, conf, flags, telemetry
 
     async def verify(
         self,
@@ -394,7 +576,14 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
             or kwargs.get("binary_gate", False)
             or kwargs.get("hard_gate", False)
             or kwargs.get("primitive") == "noul"
+            or kwargs.get("primitive_type") == "NOUL"
         )
+        use_score = bool(
+            kwargs.get("use_score", False)
+            or kwargs.get("primitive") == "score"
+            or kwargs.get("primitive_type") == "SCORE"
+        )
+        prim = kwargs.get("primitive") or kwargs.get("primitive_type")
 
         flags: list[str] = []
         eval_state: EvaluationStatus
@@ -408,11 +597,13 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
                 "Provide a valid API key from https://console.typesafe.ai to execute evaluations."
             )
 
-        eval_state, confidence, live_flags = await self._call_system_one_live(
+        eval_state, confidence, live_flags, telemetry = await self._call_system_one_live(
             criterion_description=criterion_description,
             candidate_chunks=candidate_chunks,
             cv_full_text=cv_full_text,
             use_noul=use_noul,
+            use_score=use_score,
+            primitive=prim,
         )
         flags.extend(live_flags)
 
@@ -424,9 +615,26 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
         char_start: int | None = None
         char_end: int | None = None
 
+        run_id_val = kwargs.get("run_id")
+        cand_id_val = kwargs.get("candidate_id")
+
         if selected_quote:
             is_grounded, g_reason = verify_grounding(selected_quote, cv_full_text, candidate_chunks)
             if not is_grounded:
+                # Telemetry record even if grounding fails, with grounding_valid=False
+                await record_jev_call(
+                    criterion_id=criterion_id,
+                    primitive_type=telemetry["primitive_type"],
+                    model=telemetry["model"],
+                    latency_ms=telemetry["latency_ms"],
+                    input_tokens=telemetry["input_tokens"],
+                    output_tokens=telemetry["output_tokens"],
+                    decision_value=telemetry["decision_value"],
+                    confidence=telemetry["confidence"],
+                    grounding_valid=False,
+                    run_id=run_id_val,
+                    candidate_id=cand_id_val,
+                )
                 # Grounding failed: verifier decision annulled, fallback to rule_state
                 return VerifierDecision(
                     state=rule_st,
@@ -440,6 +648,21 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
                     provider_name=self.provider_name,
                 )
 
+            # Record successful telemetry with grounding_valid=True
+            await record_jev_call(
+                criterion_id=criterion_id,
+                primitive_type=telemetry["primitive_type"],
+                model=telemetry["model"],
+                latency_ms=telemetry["latency_ms"],
+                input_tokens=telemetry["input_tokens"],
+                output_tokens=telemetry["output_tokens"],
+                decision_value=telemetry["decision_value"],
+                confidence=telemetry["confidence"],
+                grounding_valid=True,
+                run_id=run_id_val,
+                candidate_id=cand_id_val,
+            )
+
             # Compute character offsets in cv_full_text
             norm_quote = normalize_text_nfkc(selected_quote).lower()
             norm_cv = normalize_text_nfkc(cv_full_text).lower()
@@ -450,6 +673,21 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
             else:
                 char_start = 0
                 char_end = max(5, len(selected_quote))
+        else:
+            # NOT_DEMONSTRATED has no quote claimed, record telemetry with grounding_valid=True
+            await record_jev_call(
+                criterion_id=criterion_id,
+                primitive_type=telemetry["primitive_type"],
+                model=telemetry["model"],
+                latency_ms=telemetry["latency_ms"],
+                input_tokens=telemetry["input_tokens"],
+                output_tokens=telemetry["output_tokens"],
+                decision_value=telemetry["decision_value"],
+                confidence=telemetry["confidence"],
+                grounding_valid=True,
+                run_id=run_id_val,
+                candidate_id=cand_id_val,
+            )
 
         # 4. Context-Elevation Invariant
         elev_state, elev_flags = apply_context_elevation_guard(

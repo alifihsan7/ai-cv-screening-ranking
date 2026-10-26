@@ -60,8 +60,8 @@ class Settings(BaseSettings):
     # Taxonomy & Domain Configuration
     TAXONOMY_DIR: str = str(_REPO_ROOT / "config" / "taxonomy")
 
-    # Hybrid Retrieval & Scoring Mode (FX-32)
-    SCORING_MODE: str = "rules"  # "rules" | "hybrid"
+    # Hybrid Retrieval & Scoring Mode (FX-32 / Mode 3 Jev Hybrid)
+    SCORING_MODE: str = "rules"  # "rules" | "hybrid" | "jev_hybrid"
     SEMANTIC_THRESHOLD: float = 0.65
     USE_SCREENING_AGENT: bool = True
 

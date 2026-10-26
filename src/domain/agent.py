@@ -52,9 +52,11 @@ from src.domain.tools.taxonomy_reflector import TaxonomyReflectorOutput
 from src.domain.verifier import (
     BaseVerifierProvider,
     JevTypeSafeVerifierProvider,
+    TypeSafeUnconfiguredError,
     VerifierDecision,
     apply_context_elevation_guard,
     normalize_text_nfkc,
+    resolve_jev_primitive_params,
 )
 from src.infrastructure.logging import logger
 
@@ -142,10 +144,12 @@ class ScreeningAgent:
         max_reflection_budget: int = 3,
         as_of: str | None = None,
         category_weights: dict[str, float] | None = None,
+        run_id: str | None = None,
     ) -> None:
         self.session_id = session_id or str(uuid.uuid4())
         self.job_id = job_id
         self.candidate_id = candidate_id
+        self.run_id = run_id
         self.requirements = requirements
         self.raw_cv_text = raw_cv_text
         self.max_reflection_budget = max_reflection_budget
@@ -535,17 +539,38 @@ class ScreeningAgent:
                 context_snippets=candidate_snippets,
                 provider=verifier_prov_name,
             )
-            raw_decision = await self.tools.execute(
-                verifier_input,
-                context={
-                    "criterion_description": desc,
-                    "cv_full_text": self.raw_cv_text,
-                    "rule_state": rule_st,
-                    "kind": kind,
-                    "context_type": selected_context_type,
-                    "verifier_provider": self.verifier,
-                },
+            prim_kwargs = resolve_jev_primitive_params(
+                kind=kind,
+                importance=req.get("importance"),
+                concepts=req.get("concepts"),
             )
+            try:
+                raw_decision = await self.tools.execute(
+                    verifier_input,
+                    context={
+                        "criterion_description": desc,
+                        "cv_full_text": self.raw_cv_text,
+                        "rule_state": rule_st,
+                        "kind": kind,
+                        "context_type": selected_context_type,
+                        "verifier_provider": self.verifier,
+                        "run_id": self.run_id,
+                        "candidate_id": self.candidate_id,
+                        **prim_kwargs,
+                    },
+                )
+            except TypeSafeUnconfiguredError as unconf_err:
+                logger.warning(
+                    f"TypeSafe not configured for candidate {self.candidate_id}, criterion {req_id}: {unconf_err}. "
+                    "Applying honest degradation to deterministic baseline."
+                )
+                raw_decision = VerifierDecision(
+                    state=EvaluationStatus(rule_st) if rule_st in EvaluationStatus._value2member_map_ else EvaluationStatus.PARTIAL,
+                    confidence=0.50,
+                    flags=["TYPESAFE_UNCONFIGURED_FALLBACK"],
+                    reason=f"Honest degradation: {unconf_err}",
+                    provider_name="DETERMINISTIC_FALLBACK",
+                )
             if isinstance(raw_decision, VerifierDecision):
                 decision = raw_decision
             else:
@@ -734,6 +759,7 @@ async def run_screening_agent(
     max_reflection_budget: int = 3,
     as_of: str | None = None,
     category_weights: dict[str, float] | None = None,
+    run_id: str | None = None,
 ) -> ScreeningAgentState:
     """Convenience functional interface to instantiate and run ScreeningAgent."""
     agent = ScreeningAgent(
@@ -748,5 +774,6 @@ async def run_screening_agent(
         max_reflection_budget=max_reflection_budget,
         as_of=as_of,
         category_weights=category_weights,
+        run_id=run_id,
     )
     return await agent.run()
