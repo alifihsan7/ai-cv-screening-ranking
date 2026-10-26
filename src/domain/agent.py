@@ -321,7 +321,17 @@ class ScreeningAgent:
             st, conf, m, evs, flgs = eval_education(self._profile_dict, req)
             source_sec = ContextSectionType.EDUCATION
         elif kind == CriterionKind.EXPERIENCE_DURATION.value:
-            st, conf, m, evs, flgs = eval_experience_duration(self._profile_dict, req, as_of=self.as_of)
+            client = getattr(self.verifier, "_client", None)
+            is_jev = getattr(self.verifier, "provider_name", "") == "JEV_TYPESAFE"
+            st, conf, m, evs, flgs = await eval_experience_duration(
+                self._profile_dict,
+                req,
+                as_of=self.as_of,
+                client=client,
+                candidate_id=self.candidate_id,
+                run_id=self.run_id,
+                use_jev=is_jev,
+            )
             source_sec = ContextSectionType.WORK_EXPERIENCE
         elif kind == CriterionKind.CERTIFICATION.value:
             st, conf, m, evs, flgs = eval_certification(self._profile_dict, req)

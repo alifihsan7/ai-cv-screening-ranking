@@ -358,7 +358,20 @@ async def _execute_screening_run_internal(
                     flgs: list[str] = []
 
                     if kind == "EXPERIENCE_DURATION":
-                        st, conf, m, evs, flgs = eval_experience_duration(matching_prof, r, as_of=effective_as_of)
+                        use_j = (
+                            verifier_provider is not None
+                            and getattr(verifier_provider, "provider_name", "") == "JEV_TYPESAFE"
+                        ) or (scoring_mode == "jev_hybrid")
+                        v_client = getattr(verifier_provider, "_client", None) if verifier_provider else None
+                        st, conf, m, evs, flgs = await eval_experience_duration(
+                            matching_prof,
+                            r,
+                            as_of=effective_as_of,
+                            client=v_client,
+                            candidate_id=str(cand_id),
+                            run_id=str(run_id),
+                            use_jev=use_j,
+                        )
                         metrics_map.update(m)
                     elif kind == "SKILL":
                         st, conf, m, evs, flgs = eval_skill(matching_prof, r)

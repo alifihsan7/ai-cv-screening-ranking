@@ -2,12 +2,25 @@
 
 from __future__ import annotations
 
+import asyncio
+import os
 import re
+import uuid
 from datetime import date
 from typing import Any
 
+from typesafe_sdk import AsyncTypeSafeClient
+
 from src.domain.taxonomy import get_taxonomy
 from src.domain.text_match import match_skill
+from src.domain.verifier import (
+    STANDARD_ROLE_FAMILIES,
+    RoleFamilyChoiceResult,
+    TypeSafeUnconfiguredError,
+    classify_role_family_jev,
+    record_jev_call,
+)
+from src.infrastructure.config import settings
 
 
 def get_concept_aliases() -> dict[str, list[str]]:
@@ -88,12 +101,216 @@ def merge_intervals(intervals: list[tuple[int, int]]) -> list[tuple[int, int]]:
     return merged
 
 
-def eval_experience_duration(
+def is_role_family_accepted(rf_str: str, accepted: list[str]) -> bool:
+    """Checks whether a classified role family matches accepted role families."""
+    rf_norm = rf_str.strip().lower()
+    if rf_norm in accepted:
+        return True
+    if rf_norm == "devops_sre" and any(r in accepted for r in ("devops", "sre", "devops_sre")):
+        return True
+    if rf_norm == "data_ai" and any(r in accepted for r in ("data", "ai", "data_ai", "ml")):
+        return True
+    if rf_norm == "fullstack" and "backend" in accepted:
+        return True
+    if rf_norm == "backend" and "fullstack" in accepted:
+        return True
+    return False
+
+
+class DualEvaluationResult:
+    """Hybrid outcome that is awaitable in async workflows and unpackable in legacy synchronous calls."""
+
+    def __init__(self, coro_func: Any, sync_func: Any) -> None:
+        self._coro_func = coro_func
+        self._sync_func = sync_func
+        self._cached_sync: tuple[str, float, dict[str, Any], list[dict[str, Any]], list[str]] | None = None
+
+    def __await__(self) -> Any:
+        return self._coro_func().__await__()
+
+    def _get_sync(self) -> tuple[str, float, dict[str, Any], list[dict[str, Any]], list[str]]:
+        if self._cached_sync is None:
+            self._cached_sync = self._sync_func()
+        assert self._cached_sync is not None
+        return self._cached_sync
+
+    def __iter__(self) -> Any:
+        return iter(self._get_sync())
+
+    def __getitem__(self, idx: int) -> Any:
+        return self._get_sync()[idx]
+
+    def __len__(self) -> int:
+        return len(self._get_sync())
+
+    def __eq__(self, other: Any) -> bool:
+        return tuple(self) == other
+
+    def __repr__(self) -> str:
+        return repr(self._get_sync())
+
+
+async def eval_experience_duration_async(
+    profile: dict[str, Any],
+    req: dict[str, Any],
+    as_of: str | None = None,
+    client: AsyncTypeSafeClient | None = None,
+    candidate_id: str | None = None,
+    run_id: str | uuid.UUID | None = None,
+    use_jev: bool = True,
+    role_classifier: Any = None,
+) -> tuple[str, float, dict[str, Any], list[dict[str, Any]], list[str]]:
+    """Evaluates EXPERIENCE_DURATION with concurrent Jev CHOICE role classification (Pure Fail-Fast)."""
+    if not as_of:
+        as_of = date.today().isoformat()
+    params = req.get("params", {})
+    accepted_rfs = [rf.lower() for rf in params.get("accepted_role_families", [])]
+    desc_text = ((req.get("description") or "") + " " + (req.get("source_text") or "")).lower()
+
+    if not accepted_rfs:
+        concepts = [c.lower() for c in req.get("concepts", [])]
+        tax = get_taxonomy()
+        for rf_name, rf_entry in tax.role_families.items():
+            if any(term in desc_text for term in rf_entry.domain_terms) or any(rf_name in c for c in concepts):
+                accepted_rfs.append(rf_name)
+                accepted_rfs.extend(rf_entry.related)
+        if not accepted_rfs:
+            accepted_rfs = ["backend", "fullstack"]
+
+    min_months = params.get("min_months")
+    if min_months is None:
+        m_dur = re.search(r"(\d+)\s*(?:-\s*(\d+))?\s*(?:tahun|year)", desc_text)
+        min_months = int(m_dur.group(1)) * 12 if m_dur else 36
+
+    as_of_y, as_of_m = parse_ym("present", as_of)  # type: ignore[misc]
+    as_of_total_m = as_of_y * 12 + as_of_m
+
+    experiences = profile.get("experiences", [])
+    if not experiences:
+        return "NOT_DEMONSTRATED", 0.95, {"backend_months": 0.0}, [], []
+
+    req_id = str(req.get("requirement_id") or req.get("id") or "EXPERIENCE_DURATION")
+
+    classified_experiences: list[tuple[dict[str, Any], str, float]]
+    if use_jev:
+        async def _classify(exp_item: dict[str, Any], cl: AsyncTypeSafeClient | None) -> tuple[dict[str, Any], str, float]:
+            title = exp_item.get("title", "")
+            bullets = exp_item.get("bullets", [])
+            if role_classifier is not None:
+                res = await role_classifier(title, bullets)
+                rf = res.role_family if hasattr(res, "role_family") else str(res)
+                conf = res.confidence if hasattr(res, "confidence") else 0.95
+            else:
+                res = await classify_role_family_jev(
+                    title=title,
+                    bullets=bullets,
+                    client=cl,
+                    candidate_id=candidate_id,
+                    run_id=run_id,
+                    criterion_id=req_id,
+                )
+                rf = res.role_family
+                conf = res.confidence
+            return exp_item, rf, conf
+
+        env_key = os.environ.get("TYPESAFE_API_KEY")
+        raw_key = env_key if env_key is not None else (getattr(settings, "TYPESAFE_API_KEY", "") or "")
+        resolved_key = str(raw_key).strip()
+        if client is None and resolved_key:
+            async with AsyncTypeSafeClient(
+                api_key=resolved_key,
+                base_url=os.environ.get("TYPESAFE_BASE_URL") or getattr(settings, "TYPESAFE_BASE_URL", None),
+                model=os.environ.get("TYPESAFE_MODEL") or getattr(settings, "TYPESAFE_MODEL", "jev-latest"),
+                timeout=getattr(settings, "TYPESAFE_TIMEOUT", 10.0),
+            ) as session_client:
+                classified_experiences = await asyncio.gather(
+                    *[_classify(e, session_client) for e in experiences]
+                )
+        else:
+            classified_experiences = await asyncio.gather(
+                *[_classify(e, client) for e in experiences]
+            )
+    else:
+        classified_experiences = []
+        for e in experiences:
+            title = e.get("title", "")
+            bullet_text = " ".join(b.get("text", "") for b in e.get("bullets", []) if isinstance(b, dict))
+            rf = classify_role_family(title, bullet_text)
+            classified_experiences.append((e, rf.upper(), 0.95))
+
+    full_intervals: list[tuple[int, int]] = []
+    intern_intervals: list[tuple[int, int]] = []
+    flags: list[str] = []
+    evidence: list[dict[str, Any]] = []
+
+    for exp, rf, conf in classified_experiences:
+        if not is_role_family_accepted(rf, accepted_rfs):
+            continue
+
+        title = exp.get("title", "")
+        start_obj = exp.get("start")
+        end_obj = exp.get("end")
+        s_val = start_obj.get("value") if isinstance(start_obj, dict) else start_obj
+        e_val = end_obj.get("value") if isinstance(end_obj, dict) else end_obj
+
+        s_val_str = str(s_val or "").strip()
+        e_val_str = str(e_val or "").strip()
+        if re.match(r"^\d{4}$", s_val_str) or re.match(r"^\d{4}$", e_val_str):
+            flags.append("DATE_YEAR_ONLY_INFERRED")
+
+        s_ym = parse_ym(s_val, as_of, is_end=False)
+        e_ym = parse_ym(e_val, as_of, is_end=True)
+
+        if not s_ym or not e_ym:
+            continue
+
+        s_tot = s_ym[0] * 12 + s_ym[1]
+        e_tot = e_ym[0] * 12 + e_ym[1]
+
+        if s_tot > as_of_total_m or e_tot > as_of_total_m or e_tot < s_tot:
+            flags.append("DATE_ANOMALY")
+            continue
+
+        is_intern = exp.get("context") == "internship" or exp.get("employment_type") == "internship"
+        if is_intern:
+            intern_intervals.append((s_tot, e_tot))
+        else:
+            full_intervals.append((s_tot, e_tot))
+
+        evidence.append(
+            {
+                "quote": f"{title} ({s_val}..{e_val})",
+                "context": exp.get("context", "experience"),
+                "verified": True,
+            }
+        )
+
+    merged_full = merge_intervals(full_intervals)
+    merged_intern = merge_intervals(intern_intervals)
+
+    full_m = sum(end - start + 1 for start, end in merged_full)
+    intern_m = sum(end - start + 1 for start, end in merged_intern)
+
+    total_months = round(full_m + (intern_m * 0.5), 1)
+
+    if total_months >= min_months:
+        state = "STRONG"
+    elif total_months > 0:
+        state = "PARTIAL"
+    else:
+        state = "NOT_DEMONSTRATED"
+
+    metrics = {"backend_months": total_months}
+    confidence = 0.95
+    return state, confidence, metrics, evidence, flags
+
+
+def _eval_experience_duration_sync(
     profile: dict[str, Any],
     req: dict[str, Any],
     as_of: str | None = None,
 ) -> tuple[str, float, dict[str, Any], list[dict[str, Any]], list[str]]:
-    """Evaluates EXPERIENCE_DURATION requirements (e.g. R1: min 3 years)."""
+    """Synchronous deterministic experience duration evaluation using local taxonomy regex."""
     if not as_of:
         as_of = date.today().isoformat()
     params = req.get("params", {})
@@ -120,14 +337,14 @@ def eval_experience_duration(
 
     full_intervals: list[tuple[int, int]] = []
     intern_intervals: list[tuple[int, int]] = []
-    flags = []
-    evidence = []
+    flags: list[str] = []
+    evidence: list[dict[str, Any]] = []
 
     for exp in profile.get("experiences", []):
         title = exp.get("title", "")
-        bullet_text = " ".join(b.get("text", "") for b in exp.get("bullets", []))
+        bullet_text = " ".join(b.get("text", "") for b in exp.get("bullets", []) if isinstance(b, dict))
         rf = classify_role_family(title, bullet_text)
-        if rf not in accepted_rfs:
+        if not is_role_family_accepted(rf, accepted_rfs):
             continue
 
         start_obj = exp.get("start")
@@ -185,6 +402,52 @@ def eval_experience_duration(
     metrics = {"backend_months": total_months}
     confidence = 0.95
     return state, confidence, metrics, evidence, flags
+
+
+def eval_experience_duration(
+    profile: dict[str, Any],
+    req: dict[str, Any],
+    as_of: str | None = None,
+    client: AsyncTypeSafeClient | None = None,
+    candidate_id: str | None = None,
+    run_id: str | uuid.UUID | None = None,
+    use_jev: bool | None = None,
+    role_classifier: Any = None,
+) -> Any:
+    """Evaluates EXPERIENCE_DURATION requirements (e.g. R1: min 3 years).
+
+    Dual-mode architecture:
+    - Awaited (`await eval_experience_duration(...)`): Runs high-throughput concurrent
+      TypeSafe Jev System One CHOICE role classification with Pure Fail-Fast (Opsi 1).
+    - Unpacked synchronously (`st, conf, m, ev, flg = eval_experience_duration(...)`):
+      Executes deterministic local regex rules without stalling synchronous test suites.
+    """
+    effective_use_jev = (
+        True
+        if (use_jev is True or (use_jev is None and (client is not None or bool(os.environ.get("TYPESAFE_API_KEY") or getattr(settings, "TYPESAFE_API_KEY", "")))))
+        else (False if use_jev is False else True)
+    )
+
+    async def _coro() -> tuple[str, float, dict[str, Any], list[dict[str, Any]], list[str]]:
+        return await eval_experience_duration_async(
+            profile=profile,
+            req=req,
+            as_of=as_of,
+            client=client,
+            candidate_id=candidate_id,
+            run_id=run_id,
+            use_jev=effective_use_jev,
+            role_classifier=role_classifier,
+        )
+
+    def _sync() -> tuple[str, float, dict[str, Any], list[dict[str, Any]], list[str]]:
+        return _eval_experience_duration_sync(
+            profile=profile,
+            req=req,
+            as_of=as_of,
+        )
+
+    return DualEvaluationResult(_coro, _sync)
 
 
 def eval_skill(
