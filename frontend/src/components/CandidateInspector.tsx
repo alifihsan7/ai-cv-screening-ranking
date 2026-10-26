@@ -105,30 +105,6 @@ export const CandidateInspector: React.FC<CandidateInspectorProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, onClose])
 
-  if (!candidate) return null
-
-  const displayName =
-    blindMode && !candidate.revealed ? candidate.blind_id : candidate.real_name
-
-  const getDecileText = (score: number) => {
-    if (score >= 90) return 'Desil 10 · Top 5%'
-    if (score >= 85) return 'Desil 9 · Top 10%'
-    if (score >= 75) return 'Desil 8 · Top 20%'
-    if (score >= 65) return 'Desil 7 · Top 30%'
-    if (score >= 50) return 'Desil 5 · Median'
-    return 'Desil Bawah · Cek Manual'
-  }
-
-  // Must-have requirements status check
-  const mustHaveReqs = requirements.filter((r) => r.importance === 'MUST_HAVE')
-  const mustHaveFulfilled = mustHaveReqs.filter(
-    (r) => candidate.requirement_states[r.requirement_id] === 'STRONG'
-  )
-  const mustHavePartialOrUnproven = mustHaveReqs.filter(
-    (r) => candidate.requirement_states[r.requirement_id] !== 'STRONG'
-  )
-  const allMustHavesMet = mustHavePartialOrUnproven.length === 0
-
   const toggleQuote = (reqId: string) => {
     setExpandedQuotes((prev) => ({
       ...prev,
@@ -155,7 +131,7 @@ export const CandidateInspector: React.FC<CandidateInspectorProps> = ({
       setSelectedReqId(reqId)
     } else {
       const match = requirements.find((r) =>
-        (candidate.evidence?.[r.requirement_id] || []).some((e) => e.quote === quote)
+        (candidate?.evidence?.[r.requirement_id] || []).some((e) => e.quote === quote)
       )
       if (match) setSelectedReqId(match.requirement_id)
     }
@@ -168,9 +144,9 @@ export const CandidateInspector: React.FC<CandidateInspectorProps> = ({
       const found = requirements.find((r) => r.requirement_id === selectedReqId)
       if (found) return found
     }
-    if (highlightedQuote) {
+    if (highlightedQuote && candidate?.evidence) {
       const found = requirements.find((r) => {
-        const evList = candidate?.evidence?.[r.requirement_id] || []
+        const evList = candidate.evidence?.[r.requirement_id] || []
         return evList.some((e) => e.quote === highlightedQuote)
       })
       if (found) return found
@@ -178,15 +154,10 @@ export const CandidateInspector: React.FC<CandidateInspectorProps> = ({
     return null
   }, [selectedReqId, highlightedQuote, requirements, candidate?.evidence])
 
-  const isAiVerified =
-    candidate.verifier_provider === 'JEV_TYPESAFE' ||
-    (candidate.reasoning_trajectory && candidate.reasoning_trajectory.length > 0)
-
-  const telemetry = getScreeningTelemetry(candidate, requirements)
-
   const defaultCvText =
-    candidate.full_text ||
-    `${candidate.real_name.toUpperCase()}
+    candidate?.full_text ||
+    (candidate
+      ? `${candidate.real_name.toUpperCase()}
 Berkas: ${candidate.file_name}
 Status Verifikasi: ${candidate.quality_status || 'VERIFIED'}
 
@@ -197,6 +168,7 @@ ${Object.entries(candidate.evidence || {})
 
 PENDIDIKAN & LATAR BELAKANG:
 • Terverifikasi dalam kategori ${candidate.band} dengan skor total ${candidate.final_score.toFixed(1)}.`
+      : '')
 
   const { highlightedContent, isMatchFound, matchCount } = useMemo(() => {
     if (!defaultCvText) {
@@ -301,6 +273,37 @@ PENDIDIKAN & LATAR BELAKANG:
       return () => clearTimeout(timer)
     }
   }, [activeTab, isMatchFound, highlightedQuote, groundingSearchTerm])
+
+  // Guard: all hooks have been declared unconditionally above. Return null if no candidate.
+  if (!candidate) return null
+
+  const displayName =
+    blindMode && !candidate.revealed ? candidate.blind_id : candidate.real_name
+
+  const getDecileText = (score: number) => {
+    if (score >= 90) return 'Desil 10 · Top 5%'
+    if (score >= 85) return 'Desil 9 · Top 10%'
+    if (score >= 75) return 'Desil 8 · Top 20%'
+    if (score >= 65) return 'Desil 7 · Top 30%'
+    if (score >= 50) return 'Desil 5 · Median'
+    return 'Desil Bawah · Cek Manual'
+  }
+
+  // Must-have requirements status check
+  const mustHaveReqs = requirements.filter((r) => r.importance === 'MUST_HAVE')
+  const mustHaveFulfilled = mustHaveReqs.filter(
+    (r) => candidate.requirement_states[r.requirement_id] === 'STRONG'
+  )
+  const mustHavePartialOrUnproven = mustHaveReqs.filter(
+    (r) => candidate.requirement_states[r.requirement_id] !== 'STRONG'
+  )
+  const allMustHavesMet = mustHavePartialOrUnproven.length === 0
+
+  const isAiVerified =
+    candidate.verifier_provider === 'JEV_TYPESAFE' ||
+    (candidate.reasoning_trajectory && candidate.reasoning_trajectory.length > 0)
+
+  const telemetry = getScreeningTelemetry(candidate, requirements)
 
   const handleCopyCvText = () => {
     navigator.clipboard.writeText(defaultCvText)

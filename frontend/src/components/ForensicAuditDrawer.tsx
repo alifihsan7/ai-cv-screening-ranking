@@ -93,30 +93,6 @@ export const ForensicAuditDrawer: React.FC<ForensicAuditDrawerProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, onClose])
 
-  if (!candidate) return null
-
-  const telemetry = getScreeningTelemetry(candidate, requirements)
-
-  const displayName =
-    blindMode && !candidate.revealed ? candidate.blind_id : candidate.real_name
-  const isAiVerified =
-    candidate.verifier_provider === 'JEV_TYPESAFE' ||
-    (candidate.reasoning_trajectory && candidate.reasoning_trajectory.length > 0)
-
-  const defaultCvText =
-    candidate.full_text ||
-    `${candidate.real_name.toUpperCase()}
-Berkas: ${candidate.file_name}
-Status Verifikasi: ${candidate.quality_status || 'VERIFIED'}
-
-RINGKASAN BUKTI KUALIFIKASI:
-${Object.entries(candidate.evidence || {})
-  .flatMap(([reqId, items]) => items.map((i) => `• [${reqId}] ${i.quote}`))
-  .join('\n') || 'Tidak ada kutipan bukti yang tercatat.'}
-
-PENDIDIKAN & LATAR BELAKANG:
-• Terverifikasi dalam kategori ${candidate.band} dengan skor total ${candidate.final_score.toFixed(1)}.`
-
   const effectiveQuote = localQuote || highlightedQuote
 
   const activeRequirement = useMemo(() => {
@@ -133,6 +109,22 @@ PENDIDIKAN & LATAR BELAKANG:
     }
     return null
   }, [selectedReqId, effectiveQuote, requirements, candidate?.evidence])
+
+  const defaultCvText =
+    candidate?.full_text ||
+    (candidate
+      ? `${candidate.real_name.toUpperCase()}
+Berkas: ${candidate.file_name}
+Status Verifikasi: ${candidate.quality_status || 'VERIFIED'}
+
+RINGKASAN BUKTI KUALIFIKASI:
+${Object.entries(candidate.evidence || {})
+  .flatMap(([reqId, items]) => items.map((i) => `• [${reqId}] ${i.quote}`))
+  .join('\n') || 'Tidak ada kutipan bukti yang tercatat.'}
+
+PENDIDIKAN & LATAR BELAKANG:
+• Terverifikasi dalam kategori ${candidate.band} dengan skor total ${candidate.final_score.toFixed(1)}.`
+      : '')
 
   const { highlightedContent, isMatchFound, matchCount } = useMemo(() => {
     if (!defaultCvText) {
@@ -235,6 +227,17 @@ PENDIDIKAN & LATAR BELAKANG:
       return () => clearTimeout(timer)
     }
   }, [activeTab, isMatchFound, effectiveQuote, searchTerm])
+
+  // Guard: all hooks have been declared unconditionally above. Return null if no candidate.
+  if (!candidate) return null
+
+  const telemetry = getScreeningTelemetry(candidate, requirements)
+
+  const displayName =
+    blindMode && !candidate.revealed ? candidate.blind_id : candidate.real_name
+  const isAiVerified =
+    candidate.verifier_provider === 'JEV_TYPESAFE' ||
+    (candidate.reasoning_trajectory && candidate.reasoning_trajectory.length > 0)
 
   const handleCopyCvText = () => {
     navigator.clipboard.writeText(defaultCvText)
