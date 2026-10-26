@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { AlertCircle, AlertTriangle, CheckCircle2, Info, X } from 'lucide-react'
 import type { CandidateDetail, Requirement, WorkflowStep, UploadedCvFile } from './types'
-import type { JobTemplate } from './jobTemplates'
+import { ROLE_TEMPLATES, type JobTemplate } from './jobTemplates'
 import { MOCK_CANDIDATES } from './mockData'
 import { Topbar } from './components/Topbar'
 import { WorkflowStepper } from './components/WorkflowStepper'
@@ -11,6 +11,15 @@ import { UploadStep } from './components/UploadStep'
 import { CandidateRoster } from './components/CandidateRoster'
 import { CandidateInspector } from './components/CandidateInspector'
 import { UploadModal } from './components/UploadModal'
+
+export interface CachedTemplateCriteria {
+  requirements: Requirement[]
+  categoryWeights?: Record<string, number>
+  criteriaApproved: boolean
+  approvedSnapshot: string | null
+  criteriaVersion: number
+  jdTextSnapshot: string
+}
 
 // Snapshot creation helper for criteria dirty-checking
 const createCriteriaSnapshot = (
@@ -186,6 +195,72 @@ export default function App() {
   }, [approvedSnapshot, currentCriteriaSnapshot])
 
   const criteriaApproved = isCriteriaLocked
+
+  // Active industry template & criteria cache per template
+  const [activeTemplateId, setActiveTemplateIdState] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem('cv_screening_active_template_id')
+    } catch {
+      return null
+    }
+  })
+  const activeTemplateIdRef = useRef<string | null>(activeTemplateId)
+  useEffect(() => {
+    activeTemplateIdRef.current = activeTemplateId
+  }, [activeTemplateId])
+
+  const handleSetActiveTemplateId = useCallback((id: string | null) => {
+    setActiveTemplateIdState(id)
+    activeTemplateIdRef.current = id
+    try {
+      if (id) {
+        localStorage.setItem('cv_screening_active_template_id', id)
+      } else {
+        localStorage.removeItem('cv_screening_active_template_id')
+      }
+    } catch {}
+  }, [])
+
+  const [templateCriteriaCache, setTemplateCriteriaCache] = useState<
+    Record<string, CachedTemplateCriteria>
+  >(() => {
+    try {
+      const raw = localStorage.getItem('cv_screening_template_criteria_cache')
+      return raw ? JSON.parse(raw) : {}
+    } catch {
+      return {}
+    }
+  })
+  const templateCriteriaCacheRef = useRef<Record<string, CachedTemplateCriteria>>(
+    templateCriteriaCache
+  )
+  useEffect(() => {
+    templateCriteriaCacheRef.current = templateCriteriaCache
+  }, [templateCriteriaCache])
+
+  const updateTemplateCriteriaCache = useCallback(
+    (templateId: string, entry: CachedTemplateCriteria) => {
+      setTemplateCriteriaCache((prev) => {
+        const next = { ...prev, [templateId]: entry }
+        try {
+          localStorage.setItem(
+            'cv_screening_template_criteria_cache',
+            JSON.stringify(next)
+          )
+        } catch (e) {
+          console.warn('Failed to save template criteria cache to localStorage:', e)
+        }
+        return next
+      })
+    },
+    []
+  )
+
+  const cachedTemplateIds = useMemo(() => {
+    return Object.keys(templateCriteriaCache).filter(
+      (id) => templateCriteriaCache[id]?.requirements?.length > 0
+    )
+  }, [templateCriteriaCache])
 
   // Auth & Backend Jobs state with instant stale-while-revalidate cache
   const [authToken, setAuthTokenState] = useState<string | null>(() =>
@@ -588,56 +663,135 @@ export default function App() {
       jobTypeRef.current = tmpl.employmentType
       jobDescriptionRef.current = tmpl.jd_text
 
-      // 3. Atomically purge obsolete criteria & approved snapshots to guarantee determinism
-      setRequirements([])
-      setApprovedSnapshot(null)
-      const targetVer = criteriaVersion || 1
-      setCriteriaVersion(targetVer)
+      handleSetActiveTemplateId(tmpl.id)
 
-      try {
-        const jId = currentJobIdRef.current || (await ensureJobExists())
-        if (jId) {
-          if (!currentJobIdRef.current) {
-            setCurrentJobId(jId)
-          }
-          // Synchronize updated metadata directly to backend
-          await fetch(`/api/v1/jobs/${jId}`, {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-              ...getAuthHeaders(),
-            },
-            body: JSON.stringify({
-              title: tmpl.title,
-              location: tmpl.location,
-              employment_type: tmpl.employmentType,
-              jd_text: tmpl.jd_text,
-            }),
-          })
+      const cached = templateCriteriaCacheRef.current[tmpl.id]
 
-          setCurrentJobTitleState(tmpl.title)
-          setAvailableJobs((prev) => {
-            const next = prev.map((j) => (j.id === jId ? { ...j, title: tmpl.title } : j))
-            try {
-              localStorage.setItem('cv_screening_available_jobs', JSON.stringify(next))
-            } catch {}
-            return next
-          })
+      if (cached && cached.requirements && cached.requirements.length > 0) {
+        // KASUS ADA CACHE
+        setRequirements(cached.requirements)
+        const catWeights = cached.categoryWeights || categoryWeights
+        if (cached.categoryWeights) {
+          setCategoryWeights(cached.categoryWeights)
         }
-
-        showToast(
-          `Template "${tmpl.role}" diterapkan. Silakan tinjau dan klik Ekstrak Kriteria.`,
-          'info'
+        const targetVer = cached.criteriaVersion || criteriaVersion || 1
+        setCriteriaVersion(targetVer)
+        const isAppr = Boolean(cached.criteriaApproved)
+        setApprovedSnapshot(
+          isAppr
+            ? cached.approvedSnapshot ||
+                createCriteriaSnapshot(cached.requirements, catWeights)
+            : null
         )
-      } catch (err) {
-        console.warn('Apply template error:', err)
-        showToast('Gagal menyinkronkan data template ke server.', 'warning')
+
+        try {
+          const jId = currentJobIdRef.current || (await ensureJobExists())
+          if (jId) {
+            if (!currentJobIdRef.current) {
+              setCurrentJobId(jId)
+            }
+            // Synchronize updated metadata directly to backend
+            await fetch(`/api/v1/jobs/${jId}`, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                ...getAuthHeaders(),
+              },
+              body: JSON.stringify({
+                title: tmpl.title,
+                location: tmpl.location,
+                employment_type: tmpl.employmentType,
+                jd_text: tmpl.jd_text,
+              }),
+            })
+
+            // Synchronize restored requirements to backend
+            await fetch(`/api/v1/jobs/${jId}/requirements/import-approved`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...getAuthHeaders(),
+              },
+              body: JSON.stringify({
+                requirement_set_version: targetVer,
+                category_weights: catWeights,
+                requirements: cached.requirements,
+                status: isAppr ? 'APPROVED' : 'DRAFT',
+              }),
+            })
+
+            setCurrentJobTitleState(tmpl.title)
+            setAvailableJobs((prev) => {
+              const next = prev.map((j) => (j.id === jId ? { ...j, title: tmpl.title } : j))
+              try {
+                localStorage.setItem('cv_screening_available_jobs', JSON.stringify(next))
+              } catch {}
+              return next
+            })
+          }
+
+          showToast(
+            `Kriteria template "${tmpl.role}" dipulihkan (${cached.requirements.length} kriteria).`,
+            'success'
+          )
+        } catch (err) {
+          console.warn('Apply template error:', err)
+          showToast('Gagal menyinkronkan data template ke server.', 'warning')
+        }
+      } else {
+        // KASUS BELUM ADA CACHE
+        setRequirements([])
+        setApprovedSnapshot(null)
+        const targetVer = criteriaVersion || 1
+        setCriteriaVersion(targetVer)
+
+        try {
+          const jId = currentJobIdRef.current || (await ensureJobExists())
+          if (jId) {
+            if (!currentJobIdRef.current) {
+              setCurrentJobId(jId)
+            }
+            // Synchronize updated metadata directly to backend
+            await fetch(`/api/v1/jobs/${jId}`, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                ...getAuthHeaders(),
+              },
+              body: JSON.stringify({
+                title: tmpl.title,
+                location: tmpl.location,
+                employment_type: tmpl.employmentType,
+                jd_text: tmpl.jd_text,
+              }),
+            })
+
+            setCurrentJobTitleState(tmpl.title)
+            setAvailableJobs((prev) => {
+              const next = prev.map((j) => (j.id === jId ? { ...j, title: tmpl.title } : j))
+              try {
+                localStorage.setItem('cv_screening_available_jobs', JSON.stringify(next))
+              } catch {}
+              return next
+            })
+          }
+
+          showToast(
+            `Template "${tmpl.role}" diterapkan. Silakan tinjau dan klik Ekstrak Kriteria.`,
+            'info'
+          )
+        } catch (err) {
+          console.warn('Apply template error:', err)
+          showToast('Gagal menyinkronkan data template ke server.', 'warning')
+        }
       }
     },
     [
+      categoryWeights,
       criteriaVersion,
       ensureJobExists,
       getAuthHeaders,
+      handleSetActiveTemplateId,
       setCurrentJobId,
       setJobDescription,
       setJobLocation,
@@ -1044,6 +1198,7 @@ export default function App() {
         loadedJobIdRef.current = jobId
         setCurrentJobId(jobId)
         currentJobIdRef.current = jobId
+        handleSetActiveTemplateId(null)
         setJobTitleState('')
         try {
           localStorage.setItem('cv_screening_job_title', '')
@@ -1357,10 +1512,30 @@ export default function App() {
         const data = await res.json()
         if (data.requirements && Array.isArray(data.requirements)) {
           setRequirements(data.requirements)
+          const catWeights = data.category_weights || categoryWeights
           if (data.category_weights) setCategoryWeights(data.category_weights)
           setApprovedSnapshot(null)
           const targetVer = criteriaVersion || 1
           setCriteriaVersion(targetVer)
+
+          // Deteksi apakah lowongan saat ini cocok dengan salah satu template di ROLE_TEMPLATES
+          const matchedTemplate = ROLE_TEMPLATES.find(
+            (t) =>
+              t.id === activeTemplateIdRef.current ||
+              t.title === jobTitleRef.current ||
+              t.jd_text.trim() === jobDescription.trim()
+          )
+          const templateKey = activeTemplateIdRef.current || matchedTemplate?.id
+          if (templateKey) {
+            updateTemplateCriteriaCache(templateKey, {
+              requirements: data.requirements,
+              categoryWeights: catWeights,
+              criteriaApproved: false,
+              approvedSnapshot: null,
+              criteriaVersion: targetVer,
+              jdTextSnapshot: jobDescription,
+            })
+          }
 
           if (jId) {
             await fetch(`/api/v1/jobs/${jId}/requirements/import-approved`, {
@@ -1368,7 +1543,7 @@ export default function App() {
               headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
               body: JSON.stringify({
                 requirement_set_version: targetVer,
-                category_weights: data.category_weights || categoryWeights,
+                category_weights: catWeights,
                 requirements: data.requirements,
                 status: 'DRAFT',
               }),
@@ -1396,6 +1571,22 @@ export default function App() {
     setCriteriaVersion(nextVer)
     const newSnapshot = createCriteriaSnapshot(requirements, categoryWeights)
     setApprovedSnapshot(newSnapshot)
+
+    // Update template cache if active
+    const matchedTemplate = ROLE_TEMPLATES.find(
+      (t) => t.id === activeTemplateIdRef.current || t.title === jobTitleRef.current
+    )
+    const templateKey = activeTemplateIdRef.current || matchedTemplate?.id
+    if (templateKey) {
+      updateTemplateCriteriaCache(templateKey, {
+        requirements,
+        categoryWeights,
+        criteriaApproved: true,
+        approvedSnapshot: newSnapshot,
+        criteriaVersion: nextVer,
+        jdTextSnapshot: jobDescriptionRef.current,
+      })
+    }
 
     try {
       const jId = currentJobId || (await ensureJobExists())
@@ -1546,6 +1737,9 @@ export default function App() {
             onBlurTitle={handleBlurTitle}
             onBlurDetails={handleBlurDetails}
             onSelectTemplate={handleSelectTemplate}
+            selectedTemplateId={activeTemplateId}
+            onSelectTemplateId={handleSetActiveTemplateId}
+            cachedTemplateIds={cachedTemplateIds}
             onNext={() => {
               if (debounceTitleTimerRef.current) {
                 clearTimeout(debounceTitleTimerRef.current)

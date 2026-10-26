@@ -32,6 +32,9 @@ export interface JobSetupStepProps {
   onBlurTitle?: () => void
   onBlurDetails?: () => void
   onSelectTemplate?: (tmpl: JobTemplate) => void | Promise<void>
+  selectedTemplateId?: string | null
+  onSelectTemplateId?: (id: string | null) => void
+  cachedTemplateIds?: string[]
 }
 
 const JOB_TYPE_PRESETS = [
@@ -60,14 +63,35 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
   onBlurTitle,
   onBlurDetails,
   onSelectTemplate,
+  selectedTemplateId: propSelectedTemplateId,
+  onSelectTemplateId,
+  cachedTemplateIds = [],
 }) => {
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(() => {
+  const [internalSelectedId, setInternalSelectedId] = useState<string | null>(() => {
+    if (propSelectedTemplateId !== undefined) return propSelectedTemplateId
     const match = ROLE_TEMPLATES.find((t) => t.title === jobTitle)
     return match ? match.id : null
   })
 
+  // Synchronize internal state with prop if prop is explicitly supplied
+  React.useEffect(() => {
+    if (propSelectedTemplateId !== undefined) {
+      setInternalSelectedId(propSelectedTemplateId)
+    }
+  }, [propSelectedTemplateId])
+
+  const selectedTemplateId =
+    propSelectedTemplateId !== undefined ? propSelectedTemplateId : internalSelectedId
+
+  const updateSelectedId = (id: string | null) => {
+    setInternalSelectedId(id)
+    if (onSelectTemplateId) {
+      onSelectTemplateId(id)
+    }
+  }
+
   const handleApplyTemplate = async (tmpl: JobTemplate) => {
-    setSelectedTemplateId(tmpl.id)
+    updateSelectedId(tmpl.id)
     setJobTitle(tmpl.title)
     setJobLocation(tmpl.location)
     setJobType(tmpl.employmentType)
@@ -223,7 +247,11 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
             </div>
             <div className="flex flex-wrap gap-2">
               {ROLE_TEMPLATES.map((tmpl) => {
-                const isSelected = selectedTemplateId === tmpl.id || (selectedTemplateId === null && jobTitle === tmpl.title)
+                const isSelected =
+                  selectedTemplateId === tmpl.id ||
+                  (selectedTemplateId === null && jobTitle === tmpl.title)
+                const hasCache = cachedTemplateIds.includes(tmpl.id)
+
                 return (
                   <button
                     key={tmpl.id}
@@ -237,9 +265,26 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
                     } ${isCompiling ? 'opacity-50 pointer-events-none' : ''}`}
                   >
                     {isSelected ? (
-                      <CheckCircle2 className="w-3 h-3 text-[#BBE5CD]" />
+                      <CheckCircle2 className="w-3.5 h-3.5 text-[#BBE5CD] shrink-0" />
                     ) : null}
                     <span>{tmpl.role}</span>
+                    {hasCache && (
+                      <span
+                        className={`inline-flex items-center px-1.5 py-0.5 text-[10px] rounded-full font-medium tracking-tight ${
+                          isSelected
+                            ? 'bg-[#12382B] text-[#BBE5CD] border border-[#2D8A58]/50'
+                            : 'bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD]'
+                        }`}
+                        title="Kriteria tersimpan di memori cache"
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full mr-1 shrink-0 ${
+                            isSelected ? 'bg-[#52D48E]' : 'bg-[#1B4938]'
+                          }`}
+                        />
+                        Tersimpan
+                      </span>
+                    )}
                   </button>
                 )
               })}
@@ -260,7 +305,7 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
                 <div className="flex items-center space-x-2">
                   <BookmarkCheck className="w-3.5 h-3.5 text-[#1B4938] shrink-0" />
                   <span>
-                    Template <strong>{ROLE_TEMPLATES.find((t) => t.id === selectedTemplateId)?.role}</strong> diterapkan. Tinjau teks deskripsi pekerjaan di bawah, lalu klik <strong>Ekstrak Kriteria & Lanjut ke Step 2</strong>.
+                    Template <strong>{ROLE_TEMPLATES.find((t) => t.id === selectedTemplateId)?.role}</strong> diterapkan. Tinjau teks deskripsi dan klik <strong>Ekstrak Kriteria & Lanjut ke Step 2</strong>.
                   </span>
                 </div>
               </div>
@@ -272,7 +317,7 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
                   <CheckCircle2 className="w-3.5 h-3.5 text-[#1B4938] shrink-0" />
                   <span>
                     Template <strong>{ROLE_TEMPLATES.find((t) => t.id === selectedTemplateId)?.role}</strong> aktif ·{' '}
-                    <span className="font-semibold">{requirementsCount} kriteria kompetensi</span> siap ditinjau di Step 2.
+                    <span className="font-semibold">{requirementsCount} kriteria tersimpan berhasil dipulihkan</span>
                   </span>
                 </div>
                 <span className="text-[11px] font-mono text-[#1B4938]/80 font-bold hidden sm:inline">
@@ -296,7 +341,7 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
                   if (selectedTemplateId) {
                     const match = ROLE_TEMPLATES.find((t) => t.id === selectedTemplateId)
                     if (match && match.title !== e.target.value) {
-                      setSelectedTemplateId(null)
+                      updateSelectedId(null)
                     }
                   }
                 }}
@@ -380,7 +425,7 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
                   if (selectedTemplateId) {
                     const match = ROLE_TEMPLATES.find((t) => t.id === selectedTemplateId)
                     if (match && match.jd_text !== e.target.value) {
-                      setSelectedTemplateId(null)
+                      updateSelectedId(null)
                     }
                   }
                 }}
