@@ -7,6 +7,8 @@ from pathlib import Path
 import httpx
 import pytest
 
+from src.worker.main import drain_jobs_queue
+
 
 @pytest.mark.asyncio
 async def test_batch_upload_and_edge_cases(client: httpx.AsyncClient, recruiter_token: str):
@@ -54,6 +56,9 @@ async def test_batch_upload_and_edge_cases(client: httpx.AsyncClient, recruiter_
     up_res = await client.post(f"/api/v1/jobs/{job_id}/cvs", files=files_to_upload, headers=headers)
     assert up_res.status_code == 202
     assert up_res.json()["total_files"] == 6
+
+    # Drain worker daemon queue to process the uploaded documents asynchronously
+    await drain_jobs_queue()
 
     # 3. Check status
     st_res = await client.get(f"/api/v1/jobs/{job_id}/cvs/status", headers=headers)
@@ -117,6 +122,9 @@ async def test_extraction_export_matches_evaluator(client: httpx.AsyncClient, re
 
     up_res = await client.post(f"/api/v1/jobs/{job_id}/cvs", files=files_to_upload, headers=headers)
     assert up_res.status_code == 202
+
+    # Drain worker daemon queue to process candidate profiles
+    await drain_jobs_queue()
 
     # Get extraction export
     export_res = await client.get(f"/api/v1/jobs/{job_id}/extraction-export", headers=headers)

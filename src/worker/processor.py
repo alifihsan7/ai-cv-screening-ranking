@@ -20,24 +20,44 @@ from src.worker.sanitizer import sanitize_file
 
 
 async def _set_queue_status(cur, doc_id: uuid.UUID, status: str, error: str | None = None) -> None:
-    if error:
-        await cur.execute(
-            """
-            UPDATE jobs_queue
-            SET status = %s, error = %s
-            WHERE type = 'ingest_cv' AND payload->>'document_id' = %s AND status <> 'DONE'
-            """,
-            (status, error[:500], str(doc_id)),
-        )
+    if status == "RUNNING":
+        if error:
+            await cur.execute(
+                """
+                UPDATE jobs_queue
+                SET status = %s, locked_at = now(), error = %s
+                WHERE type = 'ingest_cv' AND payload->>'document_id' = %s AND status <> 'DONE'
+                """,
+                (status, error[:500], str(doc_id)),
+            )
+        else:
+            await cur.execute(
+                """
+                UPDATE jobs_queue
+                SET status = %s, locked_at = now()
+                WHERE type = 'ingest_cv' AND payload->>'document_id' = %s AND status <> 'DONE'
+                """,
+                (status, str(doc_id)),
+            )
     else:
-        await cur.execute(
-            """
-            UPDATE jobs_queue
-            SET status = %s
-            WHERE type = 'ingest_cv' AND payload->>'document_id' = %s AND status <> 'DONE'
-            """,
-            (status, str(doc_id)),
-        )
+        if error:
+            await cur.execute(
+                """
+                UPDATE jobs_queue
+                SET status = %s, error = %s
+                WHERE type = 'ingest_cv' AND payload->>'document_id' = %s AND status <> 'DONE'
+                """,
+                (status, error[:500], str(doc_id)),
+            )
+        else:
+            await cur.execute(
+                """
+                UPDATE jobs_queue
+                SET status = %s
+                WHERE type = 'ingest_cv' AND payload->>'document_id' = %s AND status <> 'DONE'
+                """,
+                (status, str(doc_id)),
+            )
 
 
 async def process_document(doc_id: uuid.UUID) -> dict[str, Any]:
@@ -45,7 +65,8 @@ async def process_document(doc_id: uuid.UUID) -> dict[str, Any]:
     async with get_connection() as conn, conn.cursor() as cur:
         await cur.execute(
             """
-            SELECT id, tenant_id, job_id, original_filename, size_bytes, sha256, storage_key, status
+            SELECT id, tenant_id, job_id, original_filename, size_bytes, sha256, storage_key, status,
+                   (status = 'PROCESSING' AND updated_at < now() - interval '10 minutes') AS is_stale_processing
             FROM documents
             WHERE id = %s
             FOR UPDATE
@@ -57,9 +78,18 @@ async def process_document(doc_id: uuid.UUID) -> dict[str, Any]:
             logger.error(f"Document {doc_id} not found")
             return {"status": "NOT_FOUND"}
 
-        if doc["status"] in ("READY", "REJECTED", "DUPLICATE", "PROCESSING"):
+        if doc["status"] in ("READY", "REJECTED", "DUPLICATE"):
             logger.info(f"Document {doc_id} already in state {doc['status']}, skipping.")
             return {"status": doc["status"]}
+
+        if doc["status"] == "PROCESSING":
+            if not doc.get("is_stale_processing"):
+                logger.info(f"Document {doc_id} actively being processed in state {doc['status']}, skipping.")
+                return {"status": doc["status"]}
+            logger.warning(
+                f"Document {doc_id} was stuck in state PROCESSING for > 10 minutes (stale lock). "
+                "Recovering and resuming processing..."
+            )
 
         # Mark document as PROCESSING and transition pending jobs_queue to RUNNING
         await cur.execute(

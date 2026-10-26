@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import io
 import json
@@ -11,35 +10,20 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
 from src.api.dependencies import get_current_user, get_job_for_tenant, require_role
 from src.domain.models import User, UserRole
 from src.infrastructure.config import settings
 from src.infrastructure.database import get_connection
 from src.infrastructure.logging import logger
-from src.worker.processor import process_document
 
 router = APIRouter(tags=["CV Ingestion"])
-
-
-async def _run_batch_processing(doc_ids: list[uuid.UUID]):
-    sem = asyncio.Semaphore(3)
-
-    async def _worker(did: uuid.UUID):
-        async with sem:
-            try:
-                await process_document(did)
-            except Exception as e:
-                logger.error(f"Async processing error for doc {did}: {e}")
-
-    await asyncio.gather(*[_worker(did) for did in doc_ids])
 
 
 @router.post("/api/v1/jobs/{job_id}/cvs", status_code=status.HTTP_202_ACCEPTED)
 async def upload_cvs(
     job_id: uuid.UUID,
-    background_tasks: BackgroundTasks,
     files: list[UploadFile] = File(...),
     current_user: User = Depends(require_role([UserRole.ADMIN, UserRole.RECRUITER])),
 ) -> dict[str, Any]:
@@ -151,11 +135,6 @@ async def upload_cvs(
             )
 
         await conn.commit()
-
-    # Dispatch asynchronous background extraction to prevent HTTP timeout
-    pending_ids = [uuid.UUID(d["id"]) for d in created_docs if d["status"] != "DUPLICATE"]
-    if pending_ids:
-        background_tasks.add_task(_run_batch_processing, pending_ids)
 
     return {
         "status": "ACCEPTED",
