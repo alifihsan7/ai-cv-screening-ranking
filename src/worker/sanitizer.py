@@ -11,6 +11,7 @@ from typing import Any
 
 import pymupdf
 
+from src.worker.adapter import clean_ocr_noise
 from src.worker.pdf_inspector import (
     ZERO_WIDTH_PATTERN,
     inspect_pdf_adversarial,
@@ -124,9 +125,19 @@ def sanitize_file(content: bytes, filename: str) -> SanitizeResult:
             page = doc[page_idx]
             page_text = page.get_text()
             text_str = page_text if isinstance(page_text, str) else str(page_text)
-            full_text_parts.append(text_str)
             img_cnt = len(page.get_images())
             total_images += img_cnt
+
+            if len(text_str.strip()) < 30 and img_cnt > 0:
+                try:
+                    tp = page.get_textpage_ocr(language="eng+ind", dpi=150)
+                    ocr_txt = clean_ocr_noise(page.get_text(textpage=tp))
+                    if len(ocr_txt.strip()) > len(text_str.strip()):
+                        text_str = ocr_txt
+                except Exception:
+                    pass
+
+            full_text_parts.append(text_str)
             pages_data.append({
                 "page_num": page_idx + 1,
                 "text": text_str,
@@ -156,7 +167,8 @@ def sanitize_file(content: bytes, filename: str) -> SanitizeResult:
         page_count = len(doc)
         doc.close()
         full_text = "\n".join(full_text_parts).strip()
-        canonical_text = inspection.canonical_text or normalize_canonical_text(full_text)
+        norm_full = normalize_canonical_text(full_text)
+        canonical_text = norm_full if len(norm_full) > len(inspection.canonical_text) else (inspection.canonical_text or norm_full)
 
         # Check injection across full text
         for pat in INJECTION_PATTERNS:
@@ -178,7 +190,12 @@ def sanitize_file(content: bytes, filename: str) -> SanitizeResult:
 
         # Check Insufficient / Empty content or Non-CV document using CVClassifierGate
         from src.worker.boundary import CV_CORE_INDICATORS, isolate_document_boundaries
-        from src.worker.classifier import classify_document_is_cv
+        from src.worker.classifier import (
+            CV_SECTIONS_PATTERNS,
+            EMAIL_PATTERN,
+            PHONE_PATTERN,
+            classify_document_is_cv,
+        )
 
         class_res = classify_document_is_cv(
             full_text,
@@ -194,20 +211,42 @@ def sanitize_file(content: bytes, filename: str) -> SanitizeResult:
             except Exception:
                 boundary_res = None
 
-        # Guard: If classifier marked PURE_PORTFOLIO, but boundary segmenter isolated CV_CORE pages
-        if not class_res.is_cv and class_res.doc_type == "PURE_PORTFOLIO" and boundary_res and boundary_res.cv_core_pages:
-            has_core_content = any(
-                any(ind.search(pages_data[p - 1].get("text", "")) for ind in CV_CORE_INDICATORS)
-                or len(pages_data[p - 1].get("text", "").split()) >= 30
-                for p in boundary_res.cv_core_pages
-                if p <= len(pages_data)
-            )
-            if has_core_content:
+        # Guard Hybrid: If classifier marked non-CV, but boundary segmenter isolated CV_CORE pages
+        # or there is a page with CV structure / work experience / education after OCR
+        if not class_res.is_cv:
+            has_core_cv = False
+            if boundary_res and boundary_res.cv_core_pages:
+                for p in boundary_res.cv_core_pages:
+                    if p <= len(pages_data):
+                        p_txt = pages_data[p - 1].get("text", "")
+                        if (
+                            any(ind.search(p_txt) for ind in CV_CORE_INDICATORS)
+                            or bool(CV_SECTIONS_PATTERNS[0].search(p_txt))
+                            or bool(CV_SECTIONS_PATTERNS[1].search(p_txt))
+                            or (len(p_txt.split()) >= 30 and class_res.doc_type == "PURE_PORTFOLIO")
+                        ):
+                            has_core_cv = True
+                            break
+
+            if not has_core_cv:
+                for p in pages_data:
+                    p_txt = p.get("text", "")
+                    p_has_exp = bool(CV_SECTIONS_PATTERNS[0].search(p_txt)) or bool(CV_CORE_INDICATORS[0].search(p_txt))
+                    p_has_edu = bool(CV_SECTIONS_PATTERNS[1].search(p_txt)) or bool(CV_CORE_INDICATORS[1].search(p_txt))
+                    p_has_contact = bool(EMAIL_PATTERN.search(p_txt) or PHONE_PATTERN.search(p_txt))
+                    p_has_core = any(ind.search(p_txt) for ind in CV_CORE_INDICATORS)
+                    if p_has_exp or (p_has_edu and p_has_contact) or (p_has_core and (p_has_contact or p_has_exp)):
+                        has_core_cv = True
+                        break
+
+            if has_core_cv:
                 class_res.is_cv = True
                 class_res.doc_type = "CV"
                 class_res.flags = [f for f in class_res.flags if f != "NOT_A_CV"]
-                class_res.flags.append("HYBRID_PORTFOLIO_CV")
-                flags.append("HYBRID_PORTFOLIO_CV")
+                if "HYBRID_PORTFOLIO_CV" not in class_res.flags:
+                    class_res.flags.append("HYBRID_PORTFOLIO_CV")
+                if "HYBRID_PORTFOLIO_CV" not in flags:
+                    flags.append("HYBRID_PORTFOLIO_CV")
 
         if not class_res.is_cv:
             if class_res.doc_type == "INSUFFICIENT_CONTENT":

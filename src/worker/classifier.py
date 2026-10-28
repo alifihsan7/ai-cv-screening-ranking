@@ -218,6 +218,8 @@ def classify_document_is_cv(
                 isolated_cv_pages = b_res.cv_core_pages
                 if b_res.attachment_pages:
                     flags.append("BOUNDARY_ISOLATED")
+                if (b_res.attachment_pages or b_res.cover_letter_pages) and "HYBRID_PORTFOLIO_CV" not in flags:
+                    flags.append("HYBRID_PORTFOLIO_CV")
         except Exception:
             pass
 

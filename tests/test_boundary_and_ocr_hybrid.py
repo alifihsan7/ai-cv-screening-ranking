@@ -14,6 +14,7 @@ import fitz  # PyMuPDF
 import pytest
 
 from src.worker.adapter import clean_ocr_noise, extract_candidate_profile
+from src.worker.sanitizer import sanitize_file
 from src.worker.boundary import (
     ATTACHMENT_INDICATORS,
     STRONG_ACADEMIC_COMBOS,
@@ -538,3 +539,26 @@ class TestAdapterEndToEndHybridPdf:
         assert len(profile["education"]) >= 1
         assert "Universitas Muhammadiyah Bandung" in profile["education"][0]["institution"]
         assert "Alamat" not in profile["education"][0]["degree_raw"]
+
+    def test_real_farhanul_tajira_pdf_sanitizer_received(self):
+        """Verifies that 2416_Muhammad Farhanul Haqim_CV_Tajira.pdf is classified
+        as RECEIVED and valid CV despite Page 1 & 2 being pure scanned images.
+        """
+        from pathlib import Path
+
+        pdf_path = Path("/home/alifihsan/.hermes/cache/documents/doc_b50633002039_2416_Muhammad Farhanul Haqim_CV_Tajira.pdf")
+        if not pdf_path.exists():
+            pytest.skip("Cached candidate PDF not present")
+
+        content = pdf_path.read_bytes()
+        res = sanitize_file(content, "2416_Muhammad Farhanul Haqim_CV_Tajira.pdf")
+
+        assert res.is_valid is True
+        assert res.status == "RECEIVED"
+        assert "NOT_A_CV" not in res.flags
+        assert "NOT_A_CV_PURE_PORTFOLIO" not in res.reasons
+        assert "HYBRID_PORTFOLIO_CV" in res.flags
+        assert "BOUNDARY_ISOLATED" in res.flags
+        assert "Muhammad Farhanul" in res.extracted_text
+        assert "doofarhan@gmail.com" in res.extracted_text
+        assert "087722311868" in res.extracted_text
