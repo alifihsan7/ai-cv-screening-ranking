@@ -21,6 +21,56 @@ def split_sentences(text: str) -> list[str]:
     return [s.strip() for s in raw_splits if len(s.strip()) > 5]
 
 
+def extract_granular_evidence_quote(text: str, target_terms: list[str], max_chars: int = 120) -> str:
+    """Extracts the most granular sentence or phrase matching target terms to prevent chunk bleed."""
+    if not text:
+        return ""
+    clean_text = text.strip()
+    if not target_terms:
+        return clean_text[:max_chars]
+
+    sentences = split_sentences(clean_text)
+    if not sentences:
+        sentences = [clean_text]
+
+    lower_terms = [t.lower().strip() for t in target_terms if t.strip()]
+
+    best_sentence = ""
+    best_matches = 0
+    for s in sentences:
+        s_low = s.lower()
+        match_count = sum(1 for term in lower_terms if term in s_low)
+        if match_count > best_matches:
+            best_matches = match_count
+            best_sentence = s
+
+    if not best_sentence:
+        best_sentence = sentences[0]
+
+    # If sentence is still wider than max_chars, isolate the immediate window around the target term
+    if len(best_sentence) > max_chars and lower_terms:
+        s_low = best_sentence.lower()
+        earliest_idx = -1
+        matched_term = ""
+        for term in lower_terms:
+            idx = s_low.find(term)
+            if idx != -1 and (earliest_idx == -1 or idx < earliest_idx):
+                earliest_idx = idx
+                matched_term = term
+
+        if earliest_idx != -1:
+            start = max(0, earliest_idx - 25)
+            end = min(len(best_sentence), earliest_idx + len(matched_term) + (max_chars - 25))
+            snippet = best_sentence[start:end].strip()
+            if start > 0:
+                snippet = "..." + snippet
+            if end < len(best_sentence):
+                snippet = snippet + "..."
+            return snippet
+
+    return best_sentence[:max_chars]
+
+
 async def retrieve_evidence(
     profile_id: uuid.UUID,
     requirement: dict[str, Any],
