@@ -600,23 +600,57 @@ export default function App() {
   )
 
   const ensureJobExists = useCallback(async (): Promise<string> => {
+    if (currentJobIdRef.current) return currentJobIdRef.current
     if (currentJobId) return currentJobId
     try {
-      const listRes = await fetch('/api/v1/jobs', { headers: { ...getAuthHeaders() } })
+      let headers = { ...getAuthHeaders() }
+      let listRes = await fetch('/api/v1/jobs', { headers })
+      if (listRes.status === 401) {
+        const freshToken = await loginRecruiter()
+        if (freshToken) {
+          headers = { Authorization: `Bearer ${freshToken}` }
+          listRes = await fetch('/api/v1/jobs', { headers })
+        }
+      }
       if (listRes.ok) {
         const jobs = await listRes.json()
         if (jobs && jobs.length > 0) {
           const bestJob = jobs
             .slice()
             .sort((a: any, b: any) => (b.cv_count || 0) - (a.cv_count || 0))[0]
-          return bestJob.id
+          if (bestJob && bestJob.id) {
+            setCurrentJobId(bestJob.id)
+            return bestJob.id
+          }
+        }
+      }
+
+      // Jika lowongan kosong di database, buat otomatis satu lowongan default
+      const defaultTitle = jobTitleRef.current.trim() || 'Lowongan Baru'
+      let createRes = await fetch('/api/v1/jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({
+          title: defaultTitle,
+          jd_text: jobDescriptionRef.current || '',
+          location: jobLocationRef.current || '',
+          employment_type: jobTypeRef.current || 'Full-time',
+          external_ref: `JD-${Date.now().toString().slice(-6)}`,
+        }),
+      })
+      if (createRes.ok) {
+        const newJob = await createRes.json()
+        if (newJob && newJob.id) {
+          setCurrentJobId(newJob.id)
+          setAvailableJobs([{ id: newJob.id, title: newJob.title || defaultTitle, cv_count: 0 }])
+          return newJob.id
         }
       }
     } catch (e) {
-      console.warn('Job listing error:', e)
+      console.warn('Job listing or auto-creation error:', e)
     }
     return ''
-  }, [currentJobId, getAuthHeaders])
+  }, [currentJobId, getAuthHeaders, loginRecruiter, setCurrentJobId])
 
   const syncJobDetailsToBackend = useCallback(async (loc: string, typ: string, jd: string) => {
     try {
@@ -1042,6 +1076,8 @@ export default function App() {
             }
           } else {
             setIsJobLoading(false)
+            // Database kosong (semua lowongan dihapus), otomatis buat 1 lowongan default
+            await handleCreateJob()
           }
         } else {
           setIsJobLoading(false)
@@ -1138,6 +1174,7 @@ export default function App() {
           setUploadStatusMsg('')
           setIsJobLoading(false)
           setCurrentStep('setup')
+          await handleCreateJob()
         }
       }
     } catch (e) {
@@ -1371,6 +1408,10 @@ export default function App() {
 
     try {
       const jId = await ensureJobExists()
+      if (!jId) {
+        showToast('Gagal menyiapkan wadah lowongan untuk CV. Silakan coba lagi.', 'error')
+        return
+      }
       const formData = new FormData()
       for (let i = 0; i < files.length; i++) {
         formData.append('files', files[i])
