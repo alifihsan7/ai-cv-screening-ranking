@@ -164,4 +164,86 @@ test.describe('AI CV Screener E2E Smoke Test Suite', () => {
     // Pastikan modal bertransisi tertutup (translate-x-full)
     await expect(inspectorDialog).toHaveClass(/translate-x-full/);
   });
+
+  test('5. Alur Upload CV Non-blocking dan Status Feedback Pipeline Terstruktur', async ({ page }) => {
+    await page.goto('/');
+
+    // Buka akses alur dengan Golden Dataset
+    const goldenBtn = page.getByRole('button', { name: /Golden Dataset/i });
+    await expect(goldenBtn).toBeVisible({ timeout: 15000 });
+    await goldenBtn.click();
+
+    // Navigasi ke Step 3 (Unggah Berkas CV) via stepper
+    const uploadStepBtn = page.getByRole('button', { name: /Unggah Berkas CV/i });
+    await expect(uploadStepBtn).toBeVisible();
+    await uploadStepBtn.click();
+
+    // Verifikasi heading dan area drop zone
+    await expect(page.getByRole('heading', { name: /Unggah Berkas CV & Pipeline Ingestion/i })).toBeVisible();
+    await expect(page.getByText('PDF (.pdf)')).toBeVisible();
+    await expect(page.getByText('DOCX (.docx)')).toBeVisible();
+    await expect(page.getByText('ZIP (.zip arsip batch)')).toBeVisible();
+
+    // Verifikasi alur terstruktur terlihat
+    await expect(page.getByText('Alur Terstruktur:')).toBeVisible();
+    await expect(page.getByText('Diterima (Antrean)').first()).toBeVisible();
+    await expect(page.getByText('Memproses Teks & Embedding').first()).toBeVisible();
+    await expect(page.getByText('Siap (READY)').first()).toBeVisible();
+
+    // Intercept upload API endpoint untuk mock 202 non-blocking
+    await page.route('**/api/v1/jobs/*/cvs', async (route) => {
+      await route.fulfill({
+        status: 202,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          job_id: 'test-job-id',
+          files: [
+            { id: 'doc-1', filename: 'kandidat_alif.pdf', status: 'RECEIVED' },
+            { id: 'doc-2', filename: 'kandidat_budi.docx', status: 'PROCESSING' },
+          ],
+        }),
+      });
+    });
+
+    // Intercept status polling endpoint
+    await page.route('**/api/v1/jobs/*/cvs/status', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          job_id: 'test-job-id',
+          documents: [
+            { id: 'doc-1', filename: 'kandidat_alif.pdf', size_bytes: 145000, status: 'READY', reasons: ['Ekstraksi teks selesai'] },
+            { id: 'doc-2', filename: 'kandidat_budi.docx', size_bytes: 98000, status: 'READY', reasons: ['Ekstraksi teks selesai'] },
+          ],
+        }),
+      });
+    });
+
+    // Upload berkas via input file tersembunyi
+    const fileChooserPromise = page.waitForEvent('filechooser');
+    await page.getByText(/Tarik & letakkan berkas CV ke sini/i).click();
+    const fileChooser = await fileChooserPromise;
+    await fileChooser.setFiles([
+      {
+        name: 'kandidat_alif.pdf',
+        mimeType: 'application/pdf',
+        buffer: (globalThis as any).Buffer.from('PDF test content'),
+      },
+      {
+        name: 'kandidat_budi.docx',
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        buffer: (globalThis as any).Buffer.from('DOCX test content'),
+      },
+    ]);
+
+    // Verifikasi berkas muncul di daftar tabel dan status terupdate
+    await expect(page.getByText('kandidat_alif.pdf')).toBeVisible();
+    await expect(page.getByText('kandidat_budi.docx')).toBeVisible();
+
+    // Verifikasi tombol skrining aktif dengan info jumlah CV siap
+    const startScreeningBtn = page.getByRole('button', { name: /Mulai Skrining AI & Buka Workbench/i });
+    await expect(startScreeningBtn).toBeEnabled();
+    await expect(startScreeningBtn).toContainText('CV Siap');
+  });
 });

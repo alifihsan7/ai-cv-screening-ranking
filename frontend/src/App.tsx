@@ -541,35 +541,41 @@ export default function App() {
           const data = await res.json()
           const rawDocs = data.documents || data.files || []
           if (Array.isArray(rawDocs) && rawDocs.length > 0) {
-            const mapped = rawDocs.map((f: any) => ({
-              name: f.filename,
-              size: f.size_bytes ? `${Math.round(f.size_bytes / 1024)} KB` : 'Terproses',
-              status:
-                f.status === 'READY'
-                  ? ('ready' as const)
-                  : f.status === 'NEEDS_REVIEW'
-                  ? ('review' as const)
-                  : f.status === 'DUPLICATE'
-                  ? ('duplicate' as const)
-                  : f.status === 'PROCESSING' || f.status === 'RECEIVED'
-                  ? ('processing' as const)
-                  : ('unqualified' as const),
-              reason: f.reasons && f.reasons.length > 0 ? f.reasons.join(', ') : '',
-            }))
+            const mapped: UploadedCvFile[] = rawDocs.map((f: any) => {
+              const rawStatus = (f.status || 'RECEIVED').toUpperCase()
+              let status: UploadedCvFile['status'] = 'RECEIVED'
+              if (rawStatus === 'READY') status = 'READY'
+              else if (rawStatus === 'PROCESSING') status = 'PROCESSING'
+              else if (rawStatus === 'REJECTED') status = 'REJECTED'
+              else if (rawStatus === 'DUPLICATE') status = 'DUPLICATE'
+              else if (rawStatus === 'NEEDS_REVIEW') status = 'NEEDS_REVIEW'
+              else if (rawStatus === 'RECEIVED') status = 'RECEIVED'
+              else status = rawStatus as any
+
+              return {
+                id: f.id,
+                name: f.filename || 'Dokumen CV',
+                size: f.size_bytes ? `${Math.round(f.size_bytes / 1024)} KB` : 'Terproses',
+                status,
+                reason:
+                  Array.isArray(f.reasons) && f.reasons.length > 0
+                    ? f.reasons.join(', ')
+                    : f.reason || '',
+                flags: Array.isArray(f.flags) ? f.flags : [],
+                duplicate_of: f.duplicate_of || undefined,
+              }
+            })
             setUploadedFiles(mapped)
-            return rawDocs.every(
-              (f: any) => f.status !== 'RECEIVED' && f.status !== 'PROCESSING'
-            )
+            return rawDocs.every((f: any) => {
+              const st = (f.status || '').toUpperCase()
+              return st !== 'RECEIVED' && st !== 'PROCESSING'
+            })
           } else {
-            setUploadedFiles([])
             return true
           }
-        } else {
-          setUploadedFiles([])
         }
       } catch (e) {
         console.warn('Error polling status:', e)
-        setUploadedFiles([])
       }
       return false
     },
@@ -1389,16 +1395,18 @@ export default function App() {
     showToast('15 Golden Dataset Kandidat & ReAct Trajectory berhasil dimuat!', 'success')
   }
 
-  const handleUploadFiles = async (files: FileList | File[]) => {
+  const handleUploadCvs = async (files: FileList | File[]) => {
     if (!files || files.length === 0) return
     setIsUploading(true)
     setUploadStatusMsg(`Mengunggah ${files.length} berkas CV...`)
 
-    const immediateItems = Array.from(files).map((f) => ({
+    const immediateItems: UploadedCvFile[] = Array.from(files).map((f) => ({
       name: f.name,
       size: `${Math.round(f.size / 1024)} KB`,
-      status: 'processing' as const,
-      reason: 'Sedang mengunggah dan menganalisis berkas di server...',
+      status: 'RECEIVED' as const,
+      reason: f.name.toLowerCase().endsWith('.zip')
+        ? 'Mengekstrak arsip ZIP di server...'
+        : 'Mendaftarkan berkas ke antrean ingestion...',
     }))
     setUploadedFiles((prev) => [
       ...immediateItems,
@@ -1421,16 +1429,65 @@ export default function App() {
         body: formData,
       })
 
-      if (res.ok) {
+      if (res.status === 202 || res.ok) {
+        const data = await res.json().catch(() => null)
+        if (data && Array.isArray(data.files) && data.files.length > 0) {
+          const zipNames = Array.from(files)
+            .filter((f) => f.name.toLowerCase().endsWith('.zip'))
+            .map((f) => f.name)
+
+          const returnedFiles: UploadedCvFile[] = data.files.map((df: any) => ({
+            id: df.id,
+            name: df.filename,
+            size: 'Terunggah',
+            status: (df.status || 'RECEIVED') as any,
+            reason:
+              df.status === 'DUPLICATE'
+                ? 'Duplikat SHA-256 terdeteksi'
+                : 'Diterima di antrean pemrosesan worker',
+          }))
+
+          setUploadedFiles((prev) => {
+            const filtered = prev.filter((p) => !zipNames.includes(p.name))
+            const merged = [...returnedFiles]
+            for (const item of filtered) {
+              if (!merged.some((m) => m.name === item.name)) {
+                merged.push(item)
+              }
+            }
+            return merged
+          })
+        }
         startPollingJobCvs(jId)
-        showToast('Berkas CV berhasil diunggah ke pipeline verifikasi.', 'success')
+        showToast('Berkas CV berhasil diterima di antrean ingestion.', 'success')
+      } else {
+        const errJson = await res.json().catch(() => ({}))
+        const errorDetail = errJson.detail || res.statusText || 'Gagal mengunggah berkas'
+        showToast(`Gagal mengunggah berkas: ${errorDetail}`, 'error')
+        setUploadedFiles((prev) =>
+          prev.map((item) =>
+            immediateItems.some((im) => im.name === item.name)
+              ? { ...item, status: 'REJECTED', reason: errorDetail }
+              : item
+          )
+        )
       }
     } catch (e: any) {
       showToast(`Gagal mengunggah berkas: ${e.message}`, 'warning')
+      setUploadedFiles((prev) =>
+        prev.map((item) =>
+          immediateItems.some((im) => im.name === item.name)
+            ? { ...item, status: 'REJECTED', reason: e.message }
+            : item
+        )
+      )
     } finally {
       setIsUploading(false)
+      setUploadStatusMsg('')
     }
   }
+
+  const handleUploadFiles = handleUploadCvs
 
   const handleStartScreening = async () => {
     setIsScreening(true)

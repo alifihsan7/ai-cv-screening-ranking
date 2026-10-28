@@ -88,10 +88,26 @@ export interface CandidateDetail extends CandidateScore {
 
 export type WorkflowStep = 'setup' | 'criteria' | 'upload' | 'workbench'
 
+export type CvDocumentStatus =
+  | 'RECEIVED'
+  | 'PROCESSING'
+  | 'READY'
+  | 'REJECTED'
+  | 'DUPLICATE'
+  | 'NEEDS_REVIEW'
+  | 'ready'
+  | 'processing'
+  | 'review'
+  | 'unqualified'
+  | 'duplicate'
+
 export interface UploadedCvFile {
+  id?: string
   name: string
   size: string
-  status: 'ready' | 'processing' | 'review' | 'unqualified' | 'duplicate'
+  status: CvDocumentStatus
   reason?: string
+  flags?: string[]
+  duplicate_of?: string
 }
 
