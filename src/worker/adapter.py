@@ -334,58 +334,233 @@ def find_provenance(full_text: str, quote: str, default_page: int = 1) -> dict[s
     return {"page": default_page, "char_start": 0, "char_end": 0, "text": clean_q, "verified": False}
 
 
+ROLE_KEYWORDS = [
+    "analyst",
+    "engineer",
+    "developer",
+    "manager",
+    "staff",
+    "intern",
+    "consultant",
+    "officer",
+    "lead",
+    "head",
+    "specialist",
+    "direktur",
+    "spv",
+    "project",
+    "asisten",
+    "asst",
+    "architect",
+    "programmer",
+    "administrator",
+    "designer",
+    "scientist",
+    "devops",
+    "sre",
+    "fullstack",
+    "full stack",
+    "backend",
+    "frontend",
+    "software",
+    "qa",
+    "tester",
+    "web",
+    "mobile",
+    "cloud",
+    "data",
+    "coordinator",
+    "koordinator",
+    "supervisor",
+]
+COMPANY_KEYWORDS = [
+    "pt",
+    "cv",
+    "inc",
+    "ltd",
+    "corp",
+    "tech",
+    "technologies",
+    "studios",
+    "solutions",
+    "group",
+    "co.",
+    "persero",
+    "tbk",
+    "llc",
+    "gmbh",
+    "yayasan",
+    "badan",
+    "dinas",
+    "kementerian",
+]
+ACTION_VERBS = {
+    "mengembangkan",
+    "membangun",
+    "membuat",
+    "mengelola",
+    "merancang",
+    "mengimplementasikan",
+    "memelihara",
+    "meningkatkan",
+    "menurunkan",
+    "melakukan",
+    "menyusun",
+    "mengerjakan",
+    "membantu",
+    "mengkoordinasikan",
+    "memimpin",
+    "bertanggung",
+    "bekerja",
+    "mengoptimalkan",
+    "menguji",
+    "menulis",
+    "developed",
+    "developing",
+    "built",
+    "building",
+    "implemented",
+    "implementing",
+    "designed",
+    "designing",
+    "managed",
+    "managing",
+    "led",
+    "leading",
+    "created",
+    "creating",
+    "maintained",
+    "maintaining",
+    "optimized",
+    "optimizing",
+    "worked",
+    "working",
+    "assisted",
+    "assisting",
+    "responsible",
+    "coordinated",
+    "collaborated",
+}
+ROLE_STARTERS_REGEX = re.compile(
+    r"\b((?:senior|junior|lead|principal|staff|head(?:\s+of)?|chief|full\s*stack|fullstack|backend|frontend|software|web|mobile|cloud|devops|sre|programmer|developer|engineer|architect|analyst|consultant|specialist|manager|officer|asisten|koordinator|spv|supervisor|pt\.?|cv\.?)\b.*)",
+    re.IGNORECASE,
+)
+
+
+def _extract_title_org(text: str) -> tuple[str, str]:
+    t = text.strip("()-–—|:,• \t")
+    if not t:
+        return "", ""
+
+    parts = [p.strip() for p in re.split(r"[—–|]|\s+-\s+|,\s+|\s+at\s+|\s+@\s+", t) if p.strip()]
+    if len(parts) >= 2:
+        p0, p1 = parts[0], parts[1].split(",")[0].strip()
+        if any(k in p1.lower() for k in ROLE_KEYWORDS) and not any(k in p0.lower() for k in ROLE_KEYWORDS):
+            title, org = p1, p0
+        elif any(c in p0.lower() for c in COMPANY_KEYWORDS) and not any(c in p1.lower() for c in COMPANY_KEYWORDS):
+            title, org = p1, p0
+        else:
+            title, org = p0, p1
+    else:
+        m_comp = re.search(r"\b(PT\.?|CV\.?|Inc\.?|Ltd\.?|LLC|Corp\.?)\s+(.+)", t, re.I)
+        if m_comp:
+            if m_comp.start() > 0:
+                title = t[: m_comp.start()].strip("—–|-, \t")
+                org = t[m_comp.start() :].strip("—–|-, \t")
+            else:
+                m_role = re.search(
+                    r"\b(senior|junior|lead|principal|staff|full\s*stack|fullstack|backend|frontend|software|web|mobile|cloud|devops|sre|programmer|developer|engineer|architect|analyst|consultant|specialist|manager|officer|asisten|koordinator)\b",
+                    t,
+                    re.I,
+                )
+                if m_role and m_role.start() > 0:
+                    org = t[: m_role.start()].strip("—–|-, \t")
+                    title = t[m_role.start() :].strip("—–|-, \t")
+                else:
+                    title, org = t, ""
+        else:
+            title, org = t, ""
+
+    if title:
+        title = re.sub(
+            r"^(?:interned\s+as\s+a|worked\s+as\s+an|worked\s+as\s+a|sebagai)\s+", "", title, flags=re.I
+        ).strip()
+        title = re.split(r"[—–|]|\s+-\s+", title)[0].strip()
+    if org:
+        org = org.split(",")[0].strip()
+
+    return title, org
+
+
+def _split_inline_boundary(raw_text: str) -> tuple[list[str], str]:
+    s = raw_text.strip().strip("(-|•— \t")
+    if not s:
+        return [], ""
+
+    segments = [seg.strip() for seg in re.split(r"(?:[•*▪▫~\n]|;\s*|\.\s+(?=[A-Z0-9]))", s) if seg.strip()]
+
+    def is_candidate_header(text: str) -> bool:
+        t = text.strip("()-–—|:,• \t")
+        if not t or len(t) > 120:
+            return False
+        first_word = t.lower().split()[0] if t.split() else ""
+        if first_word in ACTION_VERBS:
+            return False
+        return any(k in t.lower() for k in ROLE_KEYWORDS) or any(c in t.lower() for c in COMPANY_KEYWORDS)
+
+    if len(segments) >= 2:
+        last = segments[-1]
+        if is_candidate_header(last):
+            prev_seg = segments[-2]
+            if (
+                len(segments) >= 2
+                and len(prev_seg) <= 80
+                and (
+                    any(k in prev_seg.lower() for k in ROLE_KEYWORDS)
+                    or any(c in prev_seg.lower() for c in COMPANY_KEYWORDS)
+                )
+                and (prev_seg.lower().split()[0] if prev_seg.split() else "") not in ACTION_VERBS
+            ):
+                header = f"{prev_seg} - {last}"
+                bullets = segments[:-2]
+            else:
+                header = last
+                bullets = segments[:-1]
+            return bullets, header
+        else:
+            return segments, ""
+
+    if is_candidate_header(s):
+        return [], s
+
+    m = ROLE_STARTERS_REGEX.search(s)
+    if m and m.start() > 0:
+        cand_head = s[m.start() :].strip("()-–—|:,• \t")
+        cand_bullet = s[: m.start()].strip("()-–—|:,• \t")
+        if is_candidate_header(cand_head):
+            return [cand_bullet] if cand_bullet else [], cand_head
+
+    return [s], ""
+
+
 def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None = None) -> list[dict[str, Any]]:
-    lines = [l.strip() for l in section_text.splitlines() if l.strip()]
-    entries: list[dict[str, Any]] = []
+    valid_lines = []
+    for l in [line.strip() for line in section_text.splitlines() if line.strip()]:
+        l_clean = l.lstrip("#*-•~ \t").strip()
+        if len(l_clean) < 60 and SECTION_BOUNDARY_REGEX.match(l_clean):
+            break
+        valid_lines.append(l)
+    lines = valid_lines
+    if not lines:
+        return []
 
-    ROLE_KEYWORDS = [
-        "analyst",
-        "engineer",
-        "developer",
-        "manager",
-        "staff",
-        "intern",
-        "consultant",
-        "officer",
-        "lead",
-        "head",
-        "specialist",
-        "direktur",
-        "spv",
-        "project",
-        "asisten",
-        "asst",
-        "architect",
-        "programmer",
-        "administrator",
-        "designer",
-        "scientist",
-        "devops",
-        "sre",
-    ]
-    COMPANY_KEYWORDS = [
-        "pt",
-        "cv",
-        "inc",
-        "ltd",
-        "corp",
-        "tech",
-        "technologies",
-        "studios",
-        "solutions",
-        "group",
-        "co.",
-        "persero",
-        "tbk",
-        "llc",
-        "gmbh",
-    ]
-
-    date_lines = []
+    # 1. Collect all date ranges / markers across lines using finditer
+    date_lines: list[tuple[int, str, str, int, int]] = []
     for idx, l in enumerate(lines):
-        m = RANGE_REGEX.search(l)
-        if m:
-            date_lines.append((idx, m.group(1), m.group(2), m.start(), m.end()))
+        ranges = list(RANGE_REGEX.finditer(l))
+        if ranges:
+            for m in ranges:
+                date_lines.append((idx, m.group(1), m.group(2), m.start(), m.end()))
         else:
             m_single = re.search(r"\b(19\d{2}|20\d{2})\b\s*[|—–-]\s*(.+)", l)
             if m_single:
@@ -396,48 +571,63 @@ def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None =
                     y_match = m_yr.group(1)
                     date_lines.append((idx, y_match, y_match, 0, len(l)))
 
-    for i, (idx, raw_start, raw_end, m_start, m_end) in enumerate(date_lines):
-        ref_y = ""
-        m_y = re.search(r"\b(\d{4})\b", raw_start)
-        if m_y:
-            ref_y = m_y.group(1)
+    if not date_lines:
+        return []
+
+    n_dates = len(date_lines)
+
+    # 2. First Pass: Isolate boundaries, extract titles and organizations, and record used lines
+    parsed_meta: list[dict[str, Any]] = []
+    extra_prev_bullets: dict[int, list[str]] = {i: [] for i in range(n_dates)}
+
+    for i in range(n_dates):
+        idx, raw_start, raw_end, m_start, m_end = date_lines[i]
+
+        prev_end = date_lines[i - 1][4] if (i > 0 and date_lines[i - 1][0] == idx) else 0
+        slice_before = lines[idx][prev_end:m_start]
+
+        next_start = date_lines[i + 1][3] if (i + 1 < n_dates and date_lines[i + 1][0] == idx) else len(lines[idx])
+        slice_after = lines[idx][m_end:next_start]
+
+        curr_head = ""
+        if i > 0 and date_lines[i - 1][0] == idx:
+            b_list, h_str = _split_inline_boundary(slice_before)
+            extra_prev_bullets[i - 1].extend(b_list)
+            curr_head = h_str
         else:
-            m_y2 = re.search(r"\b(\d{4})\b", raw_end)
-            if m_y2:
-                ref_y = m_y2.group(1)
-
-        start_date = norm_single_date(raw_start, is_end=False, ref_year=ref_y, as_of=as_of)
-        end_date = norm_single_date(raw_end, is_end=True, ref_year=ref_y, as_of=as_of)
-
-        curr_line = lines[idx]
-        pre_text = curr_line[:m_start].strip().strip("(-|•— \t")
-        post_text = curr_line[m_end:].strip().strip(")-:|•— \t")
+            _, h_str = _split_inline_boundary(slice_before)
+            curr_head = h_str if h_str else slice_before.strip("(-|•— \t")
 
         title = ""
         org = ""
+        used_lines: set[int] = {idx}
+        post_bullets: list[str] = []
 
-        # Extract title and organization from pre_text or post_text or preceding lines
-        if pre_text:
-            parts = [p.strip() for p in re.split(r"[—–|]|\s+-\s+", pre_text) if p.strip()]
-            if len(parts) >= 2:
-                p0, p1 = parts[0], parts[1].split(",")[0].strip()
-                if any(k in p1.lower() for k in ROLE_KEYWORDS) and not any(k in p0.lower() for k in ROLE_KEYWORDS):
-                    title, org = p1, p0
-                else:
-                    title, org = p0, p1
+        # Strategy 1: Title from slice_before
+        if curr_head:
+            t, o = _extract_title_org(curr_head)
+            if t and (
+                any(k in t.lower() for k in ROLE_KEYWORDS)
+                or any(c in o.lower() for c in COMPANY_KEYWORDS)
+                or not slice_after.strip()
+            ):
+                title, org = t, o
+
+        # Strategy 2: Title from slice_after (e.g. date precedes title on same line)
+        if not title and slice_after.strip(")-:|•— \t"):
+            b_after, h_after = _split_inline_boundary(slice_after)
+            if h_after:
+                t, o = _extract_title_org(h_after)
+                if t:
+                    title, org = t, o
+                    post_bullets.extend(b_after)
             else:
-                title = pre_text.strip()
-        elif post_text:
-            parts = [p.strip() for p in re.split(r"[—–|,]|\s+-\s+", post_text) if p.strip()]
-            if len(parts) >= 2:
-                p0, p1 = parts[0], parts[1]
-                if any(k in p1.lower() for k in ROLE_KEYWORDS) and not any(k in p0.lower() for k in ROLE_KEYWORDS):
-                    title, org = p1, p0
-                else:
-                    title, org = p0, p1
-            else:
-                title = post_text.strip()
-        elif idx > 0:
+                t, o = _extract_title_org(slice_after)
+                if t:
+                    title, org = t, o
+
+        # Strategy 3: Title from preceding lines (when date is on its own line)
+        if not title and idx > 0 and (i == 0 or date_lines[i - 1][0] < idx):
             prev_line = lines[idx - 1].strip("(-|•— \t")
             parts = [p.strip() for p in re.split(r"[—–|]|\s+-\s+", prev_line) if p.strip()]
             if len(parts) >= 2:
@@ -446,6 +636,7 @@ def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None =
                     title, org = p1, p0
                 else:
                     title, org = p0, p1
+                used_lines.add(idx - 1)
             else:
                 cand_title = prev_line.strip()
                 cand_org = lines[idx - 2].strip().split(",")[0].strip() if idx > 1 else ""
@@ -454,12 +645,15 @@ def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None =
                     or any(c in cand_title.lower() for c in COMPANY_KEYWORDS)
                 ):
                     title, org = cand_org, cand_title
+                    used_lines.update({idx - 2, idx - 1})
                 else:
                     title, org = cand_title, cand_org
+                    used_lines.add(idx - 1)
                 title = re.sub(
                     r"^(?:interned\s+as\s+a|worked\s+as\s+an|worked\s+as\s+a|sebagai)\s+", "", title, flags=re.I
                 ).strip()
 
+        # Strategy 4: Fallback to next / previous candidate lines if still not resolved
         if not title:
             candidate_next = (
                 lines[idx + 1].strip("•-* \t")
@@ -486,6 +680,7 @@ def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None =
                     title = candidate_next
                     if candidate_prev:
                         org = candidate_prev
+                used_lines.add(idx + 1)
             elif candidate_prev:
                 parts = re.split(r"[,|—–-]", candidate_prev)
                 if len(parts) >= 2:
@@ -498,42 +693,93 @@ def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None =
                     title = candidate_prev
                     if candidate_next:
                         org = candidate_next
+                used_lines.add(idx - 1)
             elif candidate_next:
                 title = candidate_next
+                used_lines.add(idx + 1)
 
-        next_idx = date_lines[i + 1][0] if i + 1 < len(date_lines) else len(lines)
-        start_bullet = idx + 1
-        while start_bullet < next_idx and (
-            lines[start_bullet].strip("•-* \t") in (title, org)
-            or (post_text and lines[start_bullet].strip("•-* \t") in post_text)
-        ):
-            start_bullet += 1
-        raw_bullet_lines = lines[start_bullet:next_idx]
-        bullet_lines = []
-        for bl in raw_bullet_lines:
+        # Clean title
+        if title:
+            title = re.split(r"[—–|]|\s+-\s+", title)[0].strip()
+
+        # Normalized dates
+        ref_y = ""
+        m_y = re.search(r"\b(\d{4})\b", raw_start)
+        if m_y:
+            ref_y = m_y.group(1)
+        else:
+            m_y2 = re.search(r"\b(\d{4})\b", raw_end)
+            if m_y2:
+                ref_y = m_y2.group(1)
+
+        start_date = norm_single_date(raw_start, is_end=False, ref_year=ref_y, as_of=as_of)
+        end_date = norm_single_date(raw_end, is_end=True, ref_year=ref_y, as_of=as_of)
+
+        parsed_meta.append(
+            {
+                "idx": idx,
+                "title": title,
+                "org": org,
+                "start_date": start_date,
+                "end_date": end_date,
+                "used_lines": used_lines,
+                "slice_after": slice_after,
+                "post_bullets": post_bullets,
+            }
+        )
+
+    # 3. Second Pass: Assemble bullets without bleeding across boundaries
+    entries: list[dict[str, Any]] = []
+
+    for i in range(n_dates):
+        meta = parsed_meta[i]
+        title = meta["title"]
+        org = meta["org"]
+        idx = meta["idx"]
+        slice_after = meta["slice_after"]
+
+        if not title:
+            continue
+
+        raw_bullets: list[str] = []
+
+        # If slice_after is the terminal entry on this line and was not used for title, its text can be bullet content
+        is_same_line_as_next = (i + 1 < n_dates and date_lines[i + 1][0] == idx)
+        if not is_same_line_as_next:
+            if slice_after.strip(")-:|•— \t"):
+                slice_clean = slice_after.strip(")-:|•— \t")
+                if title and title in slice_clean:
+                    remainder = slice_clean.replace(title, "", 1).replace(org, "", 1).strip(")-:|•— \t")
+                    if remainder and len(remainder) > 5:
+                        b_list, _ = _split_inline_boundary(remainder)
+                        raw_bullets.extend(b_list if b_list else [remainder])
+                elif not (org and org in slice_clean):
+                    b_list, _ = _split_inline_boundary(slice_clean)
+                    raw_bullets.extend(b_list if b_list else [slice_clean])
+            elif meta["post_bullets"]:
+                raw_bullets.extend(meta["post_bullets"])
+
+        # Add any trailing bullets passed backward from entry i+1 on the same line
+        if extra_prev_bullets[i]:
+            raw_bullets.extend(extra_prev_bullets[i])
+
+        # Intermediate multiline bullets between idx and next date's line
+        next_idx = date_lines[i + 1][0] if i + 1 < n_dates else len(lines)
+        if next_idx > idx:
+            next_used = parsed_meta[i + 1]["used_lines"] if i + 1 < n_dates else set()
+            end_line = next_idx
+            while end_line > idx + 1 and (end_line - 1) in next_used:
+                end_line -= 1
+
+            for line_no in range(idx + 1, end_line):
+                raw_bullets.append(lines[line_no])
+
+        # Deduplicate & sanitize bullets
+        bullets = []
+        for bl in raw_bullets:
             bl_clean = bl.lstrip("#*-•~ \t").strip()
             if len(bl_clean) < 60 and SECTION_BOUNDARY_REGEX.match(bl_clean):
                 break
-            bullet_lines.append(bl)
-        block_text = " ".join([curr_line, title, org] + bullet_lines).lower()
-
-        # Context & employment type classification
-        emp_type = "full_time"
-        context_type = "experience"
-        if "intern" in block_text or "magang" in block_text:
-            emp_type = "internship"
-            context_type = "internship"
-        elif "freelance" in block_text or "lepas" in block_text:
-            emp_type = "freelance"
-            context_type = "freelance"
-        elif "kontrak" in block_text or "contract" in block_text:
-            emp_type = "contract"
-        elif "part-time" in block_text or "paruh waktu" in block_text:
-            emp_type = "part_time"
-
-        bullets = []
-        for bl in bullet_lines:
-            bl_clean = bl.lstrip("•-* \t").strip()
             if len(bl_clean) > 5 and not RANGE_REGEX.search(bl) and bl_clean != title and bl_clean != org:
                 bullets.append(
                     {
@@ -545,21 +791,34 @@ def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None =
                     }
                 )
 
-        if title:
-            title = re.split(r"[—–|]|\s+-\s+", title)[0].strip()
-            entries.append(
-                {
-                    "entry_id": f"exp_{len(entries) + 1}",
-                    "title": title,
-                    "organization": org,
-                    "start": start_date,
-                    "end": end_date,
-                    "context": context_type,
-                    "employment_type": emp_type,
-                    "bullets": bullets,
-                    "source": find_provenance(full_doc_text, title),
-                }
-            )
+        block_text = f"{title} {org} " + " ".join(b["text"] for b in bullets).lower()
+
+        emp_type = "full_time"
+        context_type = "experience"
+        if re.search(r"\b(?:intern(?:ship)?|magang)\b", block_text, re.IGNORECASE):
+            emp_type = "internship"
+            context_type = "internship"
+        elif re.search(r"\b(?:freelance|lepas)\b", block_text, re.IGNORECASE):
+            emp_type = "freelance"
+            context_type = "freelance"
+        elif re.search(r"\b(?:kontrak|contract)\b", block_text, re.IGNORECASE):
+            emp_type = "contract"
+        elif re.search(r"\b(?:part-time|paruh waktu)\b", block_text, re.IGNORECASE):
+            emp_type = "part_time"
+
+        entries.append(
+            {
+                "entry_id": f"exp_{len(entries) + 1}",
+                "title": title,
+                "organization": org,
+                "start": meta["start_date"],
+                "end": meta["end_date"],
+                "context": context_type,
+                "employment_type": emp_type,
+                "bullets": bullets,
+                "source": find_provenance(full_doc_text, title),
+            }
+        )
 
     return entries
 
