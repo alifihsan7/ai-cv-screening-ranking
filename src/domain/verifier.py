@@ -32,6 +32,7 @@ from typesafe_sdk import (
 )
 
 from src.domain.models import ContextSectionType, CriterionKind, EvaluationStatus
+from src.domain.retrieval import extract_granular_evidence_quote
 from src.infrastructure.config import settings
 from src.infrastructure.database import get_connection
 from src.infrastructure.gateway import gateway
@@ -453,11 +454,15 @@ def verify_grounding(quote: str, raw_cv_text: str, context_snippets: list[str]) 
         return False, "QUOTE_TOO_SHORT"
 
     clean_cv = normalize_text_nfkc(raw_cv_text)
-    if clean_quote.lower() not in clean_cv.lower():
+    quote_core = clean_quote.strip(".… ")
+    if len(quote_core) < 5:
+        quote_core = clean_quote
+
+    if clean_quote.lower() not in clean_cv.lower() and quote_core.lower() not in clean_cv.lower():
         return False, "GROUNDING_FAIL_NOT_IN_CV"
 
     all_snippets = normalize_text_nfkc(" ".join(context_snippets or []))
-    if clean_quote.lower() not in all_snippets.lower():
+    if clean_quote.lower() not in all_snippets.lower() and quote_core.lower() not in all_snippets.lower():
         return False, "GROUNDING_FAIL_NOT_IN_SNIPPET"
 
     return True, "VERIFIED"
@@ -541,10 +546,69 @@ class VerifierDecision(BaseModel):
     provider_name: str = "base"
 
 
+def extract_verbatim_quote(
+    criterion_description: str,
+    candidate_chunks: list[str],
+) -> tuple[str | None, float]:
+    """Deterministically extracts candidate verbatim quote and keyword density from candidate chunks.
+
+    Integrates extract_granular_evidence_quote as primary driver to isolate qualification
+    evidence quotes tightly (< 120 chars) around target keywords and strip foreign section bleed.
+    """
+    if not candidate_chunks:
+        return None, 0.0
+
+    desc_clean = normalize_text_nfkc(criterion_description).lower()
+    stopwords = {"with", "and", "the", "for", "years", "experience", "dalam", "yang", "pada", "untuk", "tahun"}
+    req_terms = [t for t in re.findall(r"[\w\+\#\.\-]+", desc_clean) if len(t) > 1 and t not in stopwords]
+    if not req_terms:
+        req_terms = [t for t in re.findall(r"\w+", desc_clean) if len(t) > 2 and t not in stopwords]
+    if not req_terms:
+        req_terms = re.findall(r"\w+", desc_clean)
+
+    best_score = 0.0
+    best_quote: str | None = None
+
+    for chunk in candidate_chunks:
+        clean_chunk = normalize_text_nfkc(chunk)
+        if not clean_chunk:
+            continue
+
+        chunk_lower = clean_chunk.lower()
+        matched = [term for term in req_terms if term in chunk_lower]
+        if not matched:
+            continue
+
+        density = len(matched) / max(len(req_terms), 1)
+
+        candidate_quote = extract_granular_evidence_quote(
+            text=clean_chunk,
+            target_terms=req_terms,
+            max_chars=119,
+        )
+
+        if candidate_quote and len(candidate_quote) >= 5 and (density > best_score or best_quote is None):
+            best_score = density
+            best_quote = candidate_quote
+
+    return best_quote, best_score
+
+
+_extract_verbatim_quote = extract_verbatim_quote
+
+
 class BaseVerifierProvider(ABC):
     """Abstract protocol for evidence verification providers."""
 
     provider_name: str = "base"
+
+    def _extract_verbatim_quote(
+        self,
+        criterion_description: str,
+        candidate_chunks: list[str],
+    ) -> tuple[str | None, float]:
+        """Deterministically extracts candidate verbatim quote and keyword density from candidate chunks."""
+        return extract_verbatim_quote(criterion_description, candidate_chunks)
 
     @abstractmethod
     async def verify(
@@ -615,34 +679,7 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
         candidate_chunks: list[str],
     ) -> tuple[str | None, float]:
         """Deterministically extracts candidate verbatim quote and keyword density from candidate chunks."""
-        if not candidate_chunks:
-            return None, 0.0
-
-        desc_clean = normalize_text_nfkc(criterion_description).lower()
-        stopwords = {"with", "and", "the", "for", "years", "experience", "dalam", "yang", "pada", "untuk", "tahun"}
-        req_terms = [t for t in re.findall(r"\w+", desc_clean) if len(t) > 2 and t not in stopwords]
-        if not req_terms:
-            req_terms = re.findall(r"\w+", desc_clean)
-
-        best_score = 0.0
-        best_quote: str | None = None
-
-        for chunk in candidate_chunks:
-            clean_chunk = normalize_text_nfkc(chunk)
-            lines_or_sentences = re.split(r"(?<=[.!?\n])\s+", clean_chunk)
-            for unit in lines_or_sentences:
-                clean_unit = unit.strip()
-                if len(clean_unit) < 5:
-                    continue
-                unit_lower = clean_unit.lower()
-                matched = [term for term in req_terms if term in unit_lower]
-                if matched:
-                    density = len(matched) / max(len(req_terms), 1)
-                    if density > best_score:
-                        best_score = density
-                        best_quote = clean_unit
-
-        return best_quote, best_score
+        return extract_verbatim_quote(criterion_description, candidate_chunks)
 
     def _calibrate_pointwise(
         self,
