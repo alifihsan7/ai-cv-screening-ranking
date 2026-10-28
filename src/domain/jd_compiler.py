@@ -7,11 +7,20 @@ import uuid
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
+from fastapi import HTTPException, status
 
 from src.domain.pii import sanitize_contact_pii
 from src.domain.policy_linter import lint_text
+from src.domain.verifier import TypeSafeUnconfiguredError, classify_role_family_jev
+from src.infrastructure.config import settings
 from src.infrastructure.gateway import gateway
 from src.infrastructure.logging import logger
+from typesafe_sdk import (
+    AsyncTypeSafeClient,
+    TypeSafeAPIConnectionError,
+    TypeSafeAPITimeoutError,
+    TypeSafeError,
+)
 
 VALID_IMPORTANCE = {"MUST_HAVE", "STRONG_PREFERENCE", "NICE_TO_HAVE"}
 VALID_CATEGORIES = {"EXPERIENCE", "HARD_SKILLS", "EDUCATION_CERT", "ACHIEVEMENT"}
@@ -303,7 +312,12 @@ def compile_jd_rule_based(jd_text: str) -> list[dict[str, Any]]:
     return requirements
 
 
-async def compile_job_requirements(jd_text: str, tenant_id: uuid.UUID | None = None) -> dict[str, Any]:
+async def compile_job_requirements(
+    jd_text: str,
+    tenant_id: uuid.UUID | None = None,
+    use_jev: bool | None = None,
+    client: AsyncTypeSafeClient | None = None,
+) -> dict[str, Any]:
     """Compiles Job Description into structured requirement set with demographic filtering."""
     # 1. Overall lint
     overall_lint = lint_text(jd_text)
@@ -314,7 +328,47 @@ async def compile_job_requirements(jd_text: str, tenant_id: uuid.UUID | None = N
     # 3. Sanitize recruiter contact details
     clean_jd_text = sanitize_contact_pii(clean_no_demographics)
 
-    # 4. Attempt LLM compilation via 9Router
+    # 4. Optional TypeSafe Jev System One Role Family Classification (Strict Honest Fail-Fast)
+    is_jev_active = (
+        use_jev is True
+        or (
+            use_jev is None
+            and getattr(settings, "SCORING_MODE", "rules") in ("hybrid", "jev_hybrid")
+        )
+    )
+
+    role_family_meta: dict[str, Any] | None = None
+    if is_jev_active:
+        try:
+            jev_res = await classify_role_family_jev(
+                clean_jd_text,
+                client=client,
+                criterion_id="JD_ROLE_FAMILY",
+            )
+        except (TypeSafeUnconfiguredError, TypeSafeAPIConnectionError, TypeSafeAPITimeoutError, TypeSafeError) as err:
+            logger.error(f"TypeSafe Jev role family classification failed: {err}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Gagal mengompilasi lowongan via TypeSafe Jev: TYPESAFE_API_KEY belum dikonfigurasi atau API tidak dapat dijangkau. Sediakan API key resmi dari https://console.typesafe.ai.",
+            ) from err
+        except Exception as err:
+            logger.error(f"Unexpected error classifying role family via TypeSafe Jev: {err}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Gagal mengompilasi lowongan via TypeSafe Jev: TYPESAFE_API_KEY belum dikonfigurasi atau API tidak dapat dijangkau. Sediakan API key resmi dari https://console.typesafe.ai.",
+            ) from err
+
+        rf_name = jev_res.role_family.lower()
+        rf_concept = f"role_family:{rf_name}"
+        role_family_meta = {
+            "role_family": rf_concept,
+            "role_family_raw": jev_res.raw_choice,
+            "confidence": jev_res.confidence,
+            "latency_ms": jev_res.latency_ms,
+            "source": "jev_system_one",
+        }
+
+    # 5. Attempt LLM compilation via 9Router
     prompt = (
         "Kamu adalah compiler Job Description menjadi kriteria screening terstruktur.\n"
         "Analisis teks lowongan ini dan hasilkan JSON array 'requirements' dengan field:\n"
@@ -406,6 +460,19 @@ async def compile_job_requirements(jd_text: str, tenant_id: uuid.UUID | None = N
         clean_reqs.append(r)
     requirements = clean_reqs
 
+    # Augment concepts using TypeSafe Jev role family classification
+    if is_jev_active and role_family_meta:
+        rf_concept = role_family_meta["role_family"]
+        augmented = False
+        for r in requirements:
+            if r.get("category") == "EXPERIENCE" or r.get("kind") == "EXPERIENCE_DURATION":
+                if rf_concept not in r.get("concepts", []):
+                    r["concepts"].append(rf_concept)
+                    augmented = True
+        if not augmented and requirements:
+            if rf_concept not in requirements[0].get("concepts", []):
+                requirements[0]["concepts"].append(rf_concept)
+
     # Compile warnings
     compile_warnings = []
     must_have_count = sum(1 for r in requirements if r["importance"] == "MUST_HAVE")
@@ -418,7 +485,7 @@ async def compile_job_requirements(jd_text: str, tenant_id: uuid.UUID | None = N
         all_prohibited.extend([f for f in r.get("lint_flags", []) if f.startswith("PROHIBITED_")])
     all_prohibited = sorted(list(set(all_prohibited)))
 
-    return {
+    result_dict: dict[str, Any] = {
         "status": "DRAFT",
         "category_weights": DEFAULT_CATEGORY_WEIGHTS,
         "requirements": requirements,
@@ -429,3 +496,7 @@ async def compile_job_requirements(jd_text: str, tenant_id: uuid.UUID | None = N
         "admin_flags": overall_lint.get("admin_flags", []),
         "compile_warnings": compile_warnings,
     }
+    if role_family_meta:
+        result_dict["metadata"] = role_family_meta
+        result_dict["role_family"] = role_family_meta["role_family"]
+    return result_dict

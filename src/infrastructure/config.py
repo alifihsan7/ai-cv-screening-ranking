@@ -64,6 +64,7 @@ class Settings(BaseSettings):
     SCORING_MODE: str = "rules"  # "rules" | "hybrid" | "jev_hybrid"
     SEMANTIC_THRESHOLD: float = 0.65
     USE_SCREENING_AGENT: bool = True
+    USE_JEV_EXTRACTION: bool = False
 
     # System Versions (FX-40)
     EXTRACTOR_VERSION: str = "1.0.0"

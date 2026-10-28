@@ -151,8 +151,15 @@ def build_role_family_state(title: str, bullets: list[Any] | str = "") -> dict[s
     else:
         formatted_bullets = ""
 
+    cleaned_title = title.strip() or "Untitled Role"
+    if "\n" in cleaned_title and not formatted_bullets:
+        lines = [line.strip() for line in cleaned_title.splitlines() if line.strip()]
+        if lines:
+            cleaned_title = lines[0]
+            formatted_bullets = "\n".join(lines[1:])
+
     return {
-        "job_title": title.strip() or "Untitled Role",
+        "job_title": cleaned_title,
         "responsibilities_and_achievements": formatted_bullets or "No details provided.",
     }
 

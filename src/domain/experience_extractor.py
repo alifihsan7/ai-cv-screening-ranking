@@ -54,6 +54,9 @@ class WorkExperienceEntity(BaseModel):
     organization: str = Field(default="", description="Alias for company")
     start: str = Field(default="", description="Start date in YYYY-MM or YYYY format")
     end: str = Field(default="", description="End date in YYYY-MM, YYYY, or 'present'/'now'/'sekarang'")
+    start_date: str = Field(default="", description="Start date alias (synced with start)")
+    end_date: str = Field(default="", description="End date alias (synced with end)")
+    duration_months: float = Field(default=0.0, description="Duration in calendar months")
     context: str = Field(default="experience", description="Context: experience, internship, freelance, contract")
     employment_type: str = Field(
         default="full_time",
@@ -68,6 +71,25 @@ class WorkExperienceEntity(BaseModel):
             self.organization = self.company
         elif not self.company and self.organization:
             self.company = self.organization
+
+        if not self.start_date and self.start:
+            self.start_date = self.start
+        elif not self.start and self.start_date:
+            self.start = self.start_date
+
+        if not self.end_date and self.end:
+            self.end_date = self.end
+        elif not self.end and self.end_date:
+            self.end = self.end_date
+
+        if self.duration_months == 0.0 and self.start:
+            try:
+                from src.domain.models import compute_calendar_duration_months
+                is_curr = any(p in (self.end or "").lower() for p in ("present", "now", "sekarang", "saat ini", "kini"))
+                end_val = None if is_curr else (self.end or None)
+                self.duration_months = float(compute_calendar_duration_months(self.start, end_val, is_current=is_curr))
+            except Exception:
+                pass
 
         if not self.responsibilities and self.bullets:
             self.responsibilities = [
@@ -85,6 +107,9 @@ class WorkExperienceEntity(BaseModel):
             "organization": self.organization,
             "start": self.start,
             "end": self.end,
+            "start_date": self.start_date or self.start,
+            "end_date": self.end_date or self.end,
+            "duration_months": self.duration_months,
             "context": self.context,
             "employment_type": self.employment_type,
             "bullets": self.bullets,
@@ -398,6 +423,8 @@ async def extract_work_experiences_jev(
                 organization=company,
                 start=s_val,
                 end=e_val,
+                start_date=s_val,
+                end_date=e_val,
                 context=item.get("context", "experience"),
                 employment_type=item.get("employment_type", "full_time"),
                 bullets=bullets,

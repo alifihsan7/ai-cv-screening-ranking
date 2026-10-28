@@ -1035,6 +1035,7 @@ def extract_candidate_profile(content: bytes, filename: str) -> dict[str, Any]:
         "organizations": organizations,
         "achievements": achievements,
         "portfolio_attachments": portfolio_attachments,
+        "cv_core_text": boundary.cv_core_text if boundary and getattr(boundary, "cv_core_text", None) else full_text,
         "quality": {
             "confidence": raw.get("meta", {}).get("confidence", 1.0),
             "warnings": raw.get("meta", {}).get("warnings", []),

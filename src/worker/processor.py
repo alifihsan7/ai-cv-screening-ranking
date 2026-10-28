@@ -5,11 +5,14 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import os
 import re
 import uuid
 from pathlib import Path
 from typing import Any
 
+from src.domain.experience_extractor import WorkExperienceEntity, extract_work_experiences_jev
+from src.domain.verifier import TypeSafeUnconfiguredError
 from src.infrastructure.config import settings
 from src.infrastructure.database import get_connection
 from src.infrastructure.logging import logger
@@ -17,6 +20,12 @@ from src.services.embedding import embed_texts
 from src.worker.adapter import extract_candidate_profile
 from src.worker.redaction import extract_identity_and_redact, redact_text
 from src.worker.sanitizer import sanitize_file
+from typesafe_sdk import (
+    AsyncTypeSafeClient,
+    TypeSafeAPIConnectionError,
+    TypeSafeAPITimeoutError,
+    TypeSafeError,
+)
 
 
 async def _set_queue_status(cur, doc_id: uuid.UUID, status: str, error: str | None = None) -> None:
@@ -60,7 +69,11 @@ async def _set_queue_status(cur, doc_id: uuid.UUID, status: str, error: str | No
             )
 
 
-async def process_document(doc_id: uuid.UUID) -> dict[str, Any]:
+async def process_document(
+    doc_id: uuid.UUID,
+    use_jev_extraction: bool | None = None,
+    client: AsyncTypeSafeClient | None = None,
+) -> dict[str, Any]:
     logger.info(f"Starting processing for document {doc_id}...")
     async with get_connection() as conn, conn.cursor() as cur:
         await cur.execute(
@@ -334,6 +347,94 @@ async def process_document(doc_id: uuid.UUID) -> dict[str, Any]:
             prior_cand_doc = await cur.fetchone()
             if prior_cand_doc and prior_cand_doc["candidate_code"]:
                 quality_flags.append(f"POSSIBLE_DUPLICATE_OF:{prior_cand_doc['candidate_code']}")
+
+            # Tahap 3: Work Experience Semantic Extraction via TypeSafe Jev System One (Strict Honest Fail-Fast)
+            if use_jev_extraction is None:
+                await cur.execute(
+                    "SELECT payload FROM jobs_queue WHERE type = 'ingest_cv' AND payload->>'document_id' = %s LIMIT 1",
+                    (str(doc_id),),
+                )
+                q_row = await cur.fetchone()
+                if q_row and isinstance(q_row.get("payload"), dict):
+                    q_payload = q_row["payload"]
+                    if "use_jev_extraction" in q_payload:
+                        use_jev_extraction = bool(q_payload["use_jev_extraction"])
+
+            is_jev_enabled = (
+                use_jev_extraction is True
+                or (
+                    use_jev_extraction is None
+                    and (
+                        getattr(settings, "SCORING_MODE", "rules") in ("hybrid", "jev_hybrid")
+                        or getattr(settings, "USE_JEV_EXTRACTION", False)
+                        or os.environ.get("USE_JEV_EXTRACTION", "").lower() in ("true", "1")
+                    )
+                )
+            )
+
+            if is_jev_enabled:
+                cv_core_text = raw_profile.get("cv_core_text") or san.extracted_text
+                try:
+                    jev_entities = await extract_work_experiences_jev(
+                        text=cv_core_text,
+                        client=client,
+                        candidate_id=str(candidate_id) if candidate_id else str(doc_id),
+                    )
+                except (TypeSafeUnconfiguredError, TypeSafeAPIConnectionError, TypeSafeAPITimeoutError, TypeSafeError, Exception) as err:
+                    logger.error(f"TypeSafe Jev work experience extraction failed for document {filename}: {err}")
+                    fail_reasons = [
+                        "Ekstraksi pengalaman kerja Jev gagal dieksekusi: "
+                        "TYPESAFE_API_KEY tidak dikonfigurasi atau API tidak dapat dijangkau. "
+                        "Menyediakan fallback regex tiruan dilarang oleh doktrin arsitektur."
+                    ]
+                    fail_flags = list(set(quality_flags + ["FAILED_JEV_EXTRACTION"]))
+                    await cur.execute(
+                        """
+                        UPDATE documents
+                        SET status = 'NEEDS_REVIEW',
+                            flags = %s,
+                            reasons = %s,
+                            updated_at = now()
+                        WHERE id = %s
+                        """,
+                        (fail_flags, fail_reasons, doc_id),
+                    )
+                    await _set_queue_status(cur, doc_id, "FAILED", error=fail_reasons[0])
+                    await conn.commit()
+                    return {
+                        "status": "NEEDS_REVIEW",
+                        "flags": ["FAILED_JEV_EXTRACTION"],
+                        "reasons": fail_reasons,
+                        "error": str(err),
+                    }
+
+                # Save extracted WorkExperienceEntity to matching_profile experiences
+                matching_profile["experiences"] = [
+                    ent.to_dict() if hasattr(ent, "to_dict") else dict(ent)
+                    for ent in jev_entities
+                ]
+                raw_profile["experiences"] = [
+                    ent.to_dict() if hasattr(ent, "to_dict") else dict(ent)
+                    for ent in jev_entities
+                ]
+
+                # Rebuild EXPERIENCE profile chunks
+                chunks = [c for c in chunks if c.get("kind") != "EXPERIENCE"]
+                for idx, exp in enumerate(matching_profile["experiences"], 1):
+                    bullets_text = "\n".join(
+                        b.get("text", "") if isinstance(b, dict) else str(b)
+                        for b in exp.get("bullets", [])
+                        if b
+                    )
+                    exp_blob = f"Role: {exp.get('title', '')} at {exp.get('organization', '')}\n{bullets_text}".strip()
+                    if exp_blob:
+                        chunks.append(
+                            {
+                                "kind": "EXPERIENCE",
+                                "entry_ref": f"exp_{idx}",
+                                "text_redacted": exp_blob,
+                            }
+                        )
 
             await cur.execute(
                 """

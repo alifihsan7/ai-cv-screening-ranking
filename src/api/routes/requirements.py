@@ -6,7 +6,7 @@ import json
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
 from src.api.dependencies import get_job_for_tenant, require_role
@@ -14,11 +14,21 @@ from src.api.middleware.rate_limiter import check_rate_limit
 from src.domain.jd_compiler import compile_job_requirements
 from src.domain.models import User, UserRole
 from src.domain.policy_linter import lint_text
+from src.domain.verifier import TypeSafeUnconfiguredError
 from src.infrastructure.config import settings
 from src.infrastructure.database import get_connection
 from src.infrastructure.logging import logger
+from typesafe_sdk import (
+    TypeSafeAPIConnectionError,
+    TypeSafeAPITimeoutError,
+    TypeSafeError,
+)
 
 router = APIRouter(prefix="/api/v1/jobs/{job_id}/requirements", tags=["Requirements"])
+
+
+class CompileRequirementsPayload(BaseModel):
+    use_jev: bool | None = None
 
 
 class ManualRequirementCreate(BaseModel):
@@ -43,13 +53,28 @@ class ImportApprovedRequest(BaseModel):
 @router.post("/compile", status_code=status.HTTP_201_CREATED)
 async def compile_requirements(
     job_id: uuid.UUID,
+    payload: CompileRequirementsPayload | None = Body(default=None),
+    use_jev: bool = Query(default=False),
     current_user: User = Depends(require_role([UserRole.ADMIN, UserRole.RECRUITER])),
 ) -> dict[str, Any]:
+    effective_use_jev = (payload.use_jev if payload and payload.use_jev is not None else False) or use_jev
+
     async with get_connection() as conn, conn.cursor() as cur:
         job = await get_job_for_tenant(cur, job_id, current_user.tenant_id)
 
-        # Compile JD requirements
-        compiled = await compile_job_requirements(job["jd_text"], tenant_id=current_user.tenant_id)
+        # Compile JD requirements with optional TypeSafe Jev System One
+        try:
+            compiled = await compile_job_requirements(
+                job["jd_text"],
+                tenant_id=current_user.tenant_id,
+                use_jev=effective_use_jev,
+            )
+        except (TypeSafeUnconfiguredError, TypeSafeAPIConnectionError, TypeSafeAPITimeoutError, TypeSafeError) as e:
+            logger.error(f"TypeSafe Jev compilation failed: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Gagal mengompilasi lowongan via TypeSafe Jev: TYPESAFE_API_KEY belum dikonfigurasi atau API tidak dapat dijangkau. Sediakan API key resmi dari https://console.typesafe.ai.",
+            ) from e
 
         # Get next version
         await cur.execute(
@@ -100,7 +125,7 @@ async def compile_requirements(
 
         await conn.commit()
 
-        return {
+        resp_data: dict[str, Any] = {
             "requirement_set_id": str(set_id),
             "version": next_ver,
             "status": "DRAFT",
@@ -110,6 +135,11 @@ async def compile_requirements(
             "prohibited_flags": compiled["prohibited_flags"],
             "risky_flags": compiled["risky_flags"],
         }
+        if "metadata" in compiled:
+            resp_data["metadata"] = compiled["metadata"]
+        if "role_family" in compiled:
+            resp_data["role_family"] = compiled["role_family"]
+        return resp_data
 
 
 @router.post("/import-approved", status_code=status.HTTP_201_CREATED)
@@ -468,6 +498,7 @@ async def approve_requirements(
 
 class CompilePreviewRequest(BaseModel):
     jd_text: str
+    use_jev: bool = False
 
 
 preview_router = APIRouter(prefix="/api/v1/requirements", tags=["Requirements"])
@@ -487,5 +518,16 @@ async def compile_preview_endpoint(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Teks Job Description minimal 10 karakter.",
         )
-    compiled = await compile_job_requirements(req.jd_text, tenant_id=current_user.tenant_id)
+    try:
+        compiled = await compile_job_requirements(
+            req.jd_text,
+            tenant_id=current_user.tenant_id,
+            use_jev=req.use_jev,
+        )
+    except (TypeSafeUnconfiguredError, TypeSafeAPIConnectionError, TypeSafeAPITimeoutError, TypeSafeError) as e:
+        logger.error(f"TypeSafe Jev preview compilation failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Gagal mengompilasi lowongan via TypeSafe Jev: TYPESAFE_API_KEY belum dikonfigurasi atau API tidak dapat dijangkau. Sediakan API key resmi dari https://console.typesafe.ai.",
+        ) from e
     return compiled
