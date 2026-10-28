@@ -566,7 +566,9 @@ export const UploadStep: React.FC<UploadStepProps> = ({
                           </td>
                           <td className="py-2.5 px-3 text-[#2D4439] text-[11px] font-mono">
                             <div className="flex items-center space-x-1.5">
-                              <span className="truncate max-w-xs sm:max-w-md">{noteText}</span>
+                              <span className="truncate max-w-xs sm:max-w-md" title={noteText}>
+                                {noteText}
+                              </span>
                               {file.flags && file.flags.length > 0 && (
                                 <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] bg-[#FEF6E8] text-[#7A3E02] border border-[#F8D8A7] shrink-0 font-sans">
                                   {file.flags.length} flag

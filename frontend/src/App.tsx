@@ -534,9 +534,17 @@ export default function App() {
         return true
       }
       try {
-        const res = await fetch(`/api/v1/jobs/${jId}/cvs/status`, {
+        let res = await fetch(`/api/v1/jobs/${jId}/cvs/status`, {
           headers: { ...getAuthHeaders() },
         })
+        if (res.status === 401) {
+          const freshToken = await loginRecruiter()
+          if (freshToken) {
+            res = await fetch(`/api/v1/jobs/${jId}/cvs/status`, {
+              headers: { Authorization: `Bearer ${freshToken}` },
+            })
+          }
+        }
         if (res.ok) {
           const data = await res.json()
           const rawDocs = data.documents || data.files || []
@@ -579,7 +587,7 @@ export default function App() {
       }
       return false
     },
-    [getAuthHeaders]
+    [getAuthHeaders, loginRecruiter]
   )
 
   const startPollingJobCvs = useCallback(
@@ -1416,18 +1424,41 @@ export default function App() {
     try {
       const jId = await ensureJobExists()
       if (!jId) {
-        showToast('Gagal menyiapkan wadah lowongan untuk CV. Silakan coba lagi.', 'error')
+        const errorReason = 'Gagal menyiapkan wadah lowongan untuk CV'
+        showToast(`${errorReason}. Silakan coba lagi.`, 'error')
+        setUploadedFiles((prev) =>
+          prev.map((item) =>
+            immediateItems.some((im) => im.name === item.name)
+              ? { ...item, status: 'REJECTED', reason: errorReason }
+              : item
+          )
+        )
         return
       }
       const formData = new FormData()
       for (let i = 0; i < files.length; i++) {
         formData.append('files', files[i])
       }
-      const res = await fetch(`/api/v1/jobs/${jId}/cvs`, {
+      let res = await fetch(`/api/v1/jobs/${jId}/cvs`, {
         method: 'POST',
         headers: { ...getAuthHeaders() },
         body: formData,
       })
+
+      // Token refresh & retry on 401 Unauthorized
+      if (res.status === 401) {
+        setUploadStatusMsg('Sesi autentikasi kadaluarsa, menyegarkan token...')
+        const freshToken = await loginRecruiter()
+        if (freshToken) {
+          res = await fetch(`/api/v1/jobs/${jId}/cvs`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${freshToken}`,
+            },
+            body: formData,
+          })
+        }
+      }
 
       if (res.status === 202 || res.ok) {
         const data = await res.json().catch(() => null)
@@ -1461,23 +1492,72 @@ export default function App() {
         startPollingJobCvs(jId)
         showToast('Berkas CV berhasil diterima di antrean ingestion.', 'success')
       } else {
-        const errJson = await res.json().catch(() => ({}))
-        const errorDetail = errJson.detail || res.statusText || 'Gagal mengunggah berkas'
-        showToast(`Gagal mengunggah berkas: ${errorDetail}`, 'error')
+        let errorDetail = ''
+        try {
+          const errJson = await res.json()
+          if (errJson) {
+            if (typeof errJson.detail === 'string') {
+              errorDetail = errJson.detail
+            } else if (Array.isArray(errJson.detail)) {
+              errorDetail = errJson.detail
+                .map((d: any) => (typeof d === 'string' ? d : d.msg || JSON.stringify(d)))
+                .join(', ')
+            } else if (typeof errJson.message === 'string') {
+              errorDetail = errJson.message
+            } else if (typeof errJson.error === 'string') {
+              errorDetail = errJson.error
+            }
+          }
+        } catch {
+          // Response body was not JSON
+        }
+
+        const getUploadErrorMessage = (status: number, detail: string, statusText?: string): string => {
+          const clean = detail.trim()
+          switch (status) {
+            case 401:
+              return `Sesi login kadaluarsa (401)${clean && clean !== 'Not authenticated' ? `: ${clean}` : ''}`
+            case 403:
+              return `Akses ditolak (403)${clean ? `: ${clean}` : ''}`
+            case 404:
+              return `Wadah lowongan tidak ditemukan (404)${clean ? `: ${clean}` : ''}`
+            case 413:
+              return `Ukuran payload melebihi batas (413)${clean ? `: ${clean}` : ''}`
+            case 415:
+              return `Format berkas tidak didukung (415)${clean ? `: ${clean}` : ''}`
+            case 422:
+              return `Format permintaan tidak valid (422)${clean ? `: ${clean}` : ''}`
+            case 500:
+              return `Kesalahan internal server (500)${clean ? `: ${clean}` : ''}`
+            case 502:
+              return `Gateway server tidak merespons (502)`
+            case 503:
+              return `Layanan server sedang tidak tersedia (503)`
+            case 504:
+              return `Batas waktu request server terlampaui (504)`
+            default:
+              if (clean) return `${clean} (${status})`
+              return `${statusText || 'Gagal mengunggah berkas'} (${status})`
+          }
+        }
+
+        const errorReason = getUploadErrorMessage(res.status, errorDetail, res.statusText)
+        showToast(`Gagal mengunggah berkas: ${errorReason}`, 'error')
         setUploadedFiles((prev) =>
           prev.map((item) =>
             immediateItems.some((im) => im.name === item.name)
-              ? { ...item, status: 'REJECTED', reason: errorDetail }
+              ? { ...item, status: 'REJECTED', reason: errorReason }
               : item
           )
         )
       }
     } catch (e: any) {
-      showToast(`Gagal mengunggah berkas: ${e.message}`, 'warning')
+      const errorMsg = e?.message ? `Kesalahan koneksi: ${e.message}` : 'Terjadi kegagalan jaringan saat mengunggah berkas'
+      showToast(`Gagal mengunggah berkas: ${errorMsg}`, 'warning')
       setUploadedFiles((prev) =>
         prev.map((item) =>
           immediateItems.some((im) => im.name === item.name)
-            ? { ...item, status: 'REJECTED', reason: e.message }
+            ? { ...item, status: 'REJECTED', reason: errorMsg }
             : item
         )
       )

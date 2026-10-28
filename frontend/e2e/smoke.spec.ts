@@ -246,4 +246,95 @@ test.describe('AI CV Screener E2E Smoke Test Suite', () => {
     await expect(startScreeningBtn).toBeEnabled();
     await expect(startScreeningBtn).toContainText('CV Siap');
   });
+
+  test('6. Ketahanan Upload CV: Auto-retry pada 401 Unauthorized dan Pelaporan Error Spesifik', async ({ page }) => {
+    await page.goto('/');
+
+    // Buka akses alur dengan Golden Dataset
+    const goldenBtn = page.getByRole('button', { name: /Golden Dataset/i });
+    await expect(goldenBtn).toBeVisible({ timeout: 15000 });
+    await goldenBtn.click();
+
+    // Navigasi ke Step 3 (Unggah Berkas CV)
+    const uploadStepBtn = page.getByRole('button', { name: /Unggah Berkas CV/i });
+    await expect(uploadStepBtn).toBeVisible();
+    await uploadStepBtn.click();
+
+    let uploadAttempts = 0;
+    let authHeaderOnRetry = '';
+
+    // Mock login endpoint untuk memastikan token baru dikembalikan saat 401
+    await page.route('**/api/v1/auth/login', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ access_token: 'fresh-refreshed-recruiter-token-2026' }),
+      });
+    });
+
+    // Mock upload endpoint: attempt 1 returns 401 Unauthorized, attempt 2 verifies token and returns 202
+    await page.route('**/api/v1/jobs/*/cvs', async (route) => {
+      uploadAttempts++;
+      if (uploadAttempts === 1) {
+        await route.fulfill({
+          status: 401,
+          contentType: 'application/json',
+          body: JSON.stringify({ detail: 'Token expired' }),
+        });
+      } else {
+        authHeaderOnRetry = route.request().headers()['authorization'] || '';
+        await route.fulfill({
+          status: 202,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            job_id: 'test-job-id',
+            files: [
+              { id: 'doc-retry', filename: 'cv_retry_test.pdf', status: 'RECEIVED' },
+            ],
+          }),
+        });
+      }
+    });
+
+    // Trigger upload
+    const fileChooserPromise = page.waitForEvent('filechooser');
+    await page.getByText(/Tarik & letakkan berkas CV ke sini/i).click();
+    const fileChooser = await fileChooserPromise;
+    await fileChooser.setFiles([
+      {
+        name: 'cv_retry_test.pdf',
+        mimeType: 'application/pdf',
+        buffer: (globalThis as any).Buffer.from('PDF retry test content'),
+      },
+    ]);
+
+    // Verifikasi bahwa retry terjadi dan berhasil diterima setelah refresh token
+    await expect(page.getByText(/Berkas CV berhasil diterima di antrean ingestion/i)).toBeVisible();
+    expect(uploadAttempts).toBe(2);
+    expect(authHeaderOnRetry).toBe('Bearer fresh-refreshed-recruiter-token-2026');
+
+    // Uji skenario error reporting: upload berkas lain yang menghasilkan 413 Payload Too Large
+    await page.route('**/api/v1/jobs/*/cvs', async (route) => {
+      await route.fulfill({
+        status: 413,
+        contentType: 'application/json',
+        body: JSON.stringify({ detail: 'File size exceeds 10MB limit' }),
+      });
+    });
+
+    const fileChooserPromise2 = page.waitForEvent('filechooser');
+    await page.getByText(/Tarik & letakkan berkas CV ke sini/i).click();
+    const fileChooser2 = await fileChooserPromise2;
+    await fileChooser2.setFiles([
+      {
+        name: 'cv_too_large.pdf',
+        mimeType: 'application/pdf',
+        buffer: (globalThis as any).Buffer.from('Large PDF content'),
+      },
+    ]);
+
+    // Verifikasi error spesifik 413 ditampilkan di antarmuka (tabel berkas & toast)
+    await expect(page.getByText('cv_too_large.pdf')).toBeVisible();
+    await expect(page.getByText(/Ukuran payload melebihi batas \(413\)/i).first()).toBeVisible();
+  });
 });
