@@ -482,7 +482,14 @@ def eval_skill(
         combined_text = f"{exp.get('title', '')} " + " ".join(b.get("text", "") for b in exp.get("bullets", []))
         for kw in target_keywords:
             if match_skill(combined_text, kw):
-                evidence.append({"quote": combined_text[:120], "context": "experience", "verified": True})
+                # Isolate matching bullet or title directly for granular precision
+                matched_quote = exp.get("title", "")
+                for b in exp.get("bullets", []):
+                    b_txt = b.get("text", "")
+                    if match_skill(b_txt, kw):
+                        matched_quote = b_txt
+                        break
+                evidence.append({"quote": matched_quote[:120], "context": "experience", "verified": True})
                 return "STRONG", 0.95, {}, evidence, []
 
     # Context 2: Projects, Organizations, or only in skills list (PARTIAL)

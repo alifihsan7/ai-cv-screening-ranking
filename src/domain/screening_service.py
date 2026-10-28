@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import re
 import uuid
 from datetime import date
 from typing import TYPE_CHECKING, Any
@@ -395,18 +396,24 @@ async def _execute_screening_run_internal(
                         and st == "NOT_DEMONSTRATED"
                         and cv.get("profile_id")
                     ):
-                        from src.domain.retrieval import retrieve_evidence, split_sentences
+                        from src.domain.retrieval import extract_granular_evidence_quote, retrieve_evidence, split_sentences
 
                         top_chunks, sim = await retrieve_evidence(
-                            profile_id=cv["profile_id"],
+                            profile_id=cand_id,
                             requirement=r,
                             tenant_id=tenant_id,
                         )
                         if sim >= settings.SEMANTIC_THRESHOLD and top_chunks:
                             st = "PARTIAL"
                             flgs = list(flgs) + ["SEMANTIC_MATCH"]
-                            sentences = split_sentences(top_chunks[0]["text"])
-                            sample_sentence = sentences[0] if sentences else top_chunks[0]["text"][:120]
+                            terms_to_match = list(r.get("concepts", []))
+                            if not terms_to_match and r.get("description"):
+                                terms_to_match = [w for w in re.findall(r"\w+", r["description"].lower()) if len(w) > 2]
+                            sample_sentence = extract_granular_evidence_quote(
+                                top_chunks[0]["text"],
+                                target_terms=terms_to_match,
+                                max_chars=120,
+                            )
                             evs = [{"quote": sample_sentence, "context": top_chunks[0]["kind"], "verified": True}]
 
                     cand_flags.extend(flgs)
