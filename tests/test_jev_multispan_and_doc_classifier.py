@@ -272,14 +272,14 @@ class TestHybridPortfolioAndDocumentClassifier:
     """Verifies that hybrid CV/portfolio files are classified as CV with boundaries isolated."""
 
     def test_cv_followed_by_portfolio_is_classified_as_cv(self):
-        # Simulates a document like 2416_Muhammad Farhanul Haqim_CV_Tajira.pdf
+        # Simulates a document with portfolio attachment
         pages = [
             {
                 "page_num": 1,
                 "text": (
                     "CURRICULUM VITAE\n"
-                    "Muhammad Farhanul Haqim\n"
-                    "Email: farhanul@example.com | Telp: +6281234567890\n\n"
+                    "Budi Santoso\n"
+                    "Email: budi@example.com | Telp: +6281234567890\n\n"
                     "PROFIL PROFESIONAL\n"
                     "Software engineer berpengalaman dalam pengembangan web dan mobile.\n\n"
                     "RIWAYAT PENDIDIKAN\n"

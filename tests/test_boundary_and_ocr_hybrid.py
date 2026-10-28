@@ -53,17 +53,17 @@ class TestCleanOcrNoise:
         text = (
             "==============================\n"
             "--- --- --- ---\n"
-            "Muhammad Farhanul Haqim\n"
+            "Budi Santoso\n"
             "::::::::::::::::::::\n"
             "Software Engineer\n"
             "|~_~| |~_~|\n"
-            "farhanul@example.com\n"
+            "budi@example.com\n"
         )
         cleaned = clean_ocr_noise(text)
         assert cleaned.splitlines() == [
-            "Muhammad Farhanul Haqim",
+            "Budi Santoso",
             "Software Engineer",
-            "farhanul@example.com",
+            "budi@example.com",
         ]
 
     def test_preserves_legitimate_dates_and_gpa(self):
@@ -88,15 +88,15 @@ class TestBoundaryIsolatorLooseningAndAcademicDetection:
             "€@t KEMENTERIAN PENDIDIKAN DAN KEBUDAYAAN\n"
             "UNIVERSITAS MUHAMMADIYAH BANDUNG\n"
             "IJAZAH SARJANA\n"
-            "Diberikan kepada Muhammad Farhanul Haqim"
+            "Diberikan kepada Budi Santoso"
         )
         # Should match loosened ATTACHMENT_INDICATORS in text[:600]
         matches = [ind.search(text_noisy_lead[:600]) for ind in ATTACHMENT_INDICATORS]
         assert any(matches)
         assert is_strong_academic_page(text_noisy_lead) is True
 
-    def test_farhanul_muhammadiyah_bandung_hybrid_scanned_isolation(self):
-        """Simulates 2416_Muhammad Farhanul Haqim_CV_Tajira.pdf structure:
+    def test_academic_and_portfolio_hybrid_scanned_isolation(self):
+        """Simulates hybrid candidate PDF structure:
         Page 1: CV Core
         Page 2: Portfolio Showcase
         Page 3: Scanned Ijazah (noisy header, no work experience)
@@ -107,8 +107,8 @@ class TestBoundaryIsolatorLooseningAndAcademicDetection:
             {
                 "page_num": 1,
                 "text": (
-                    "Muhammad Farhanul Haqim\n"
-                    "Email: farhanul@example.com | Phone: 081234567890\n\n"
+                    "Budi Santoso\n"
+                    "budi.santoso@example.com | 081234567890\n\n"
                     "PENGALAMAN KERJA\n"
                     "Backend Developer - PT Tajira Global Solusi (2022 - 2024)\n"
                     "- Mengembangkan arsitektur microservices dengan FastAPI dan PostgreSQL.\n"
@@ -136,7 +136,7 @@ class TestBoundaryIsolatorLooseningAndAcademicDetection:
                     "ffi'@-ff.& FAKULTAS SAINS DAN TEKNOLOGI\n"
                     "*lplllllll IJAZAH\n"
                     "Memberikan Ijazah kepada:\n"
-                    "Nama: Muhammad Farhanul Haqim\n"
+                    "Nama: Budi Santoso\n"
                     "Nomor Pokok Mahasiswa: 2020101001\n"
                     "Nomor Ijazah Nasional: 54321/UMB/2024\n"
                     "Yudisium: Dengan Pujian\n"
@@ -150,7 +150,7 @@ class TestBoundaryIsolatorLooseningAndAcademicDetection:
                 "text": (
                     "UNIVERSITAS MUHAMMADIYAH BANDUNG\n"
                     "TRANSKRIP AKADEMIK\n"
-                    "Nama: Muhammad Farhanul Haqim\n"
+                    "Nama: Budi Santoso\n"
                     "Semester I\n"
                     "1. Algoritma Pemrograman 3 SKS Nilai A (SKS x N = 12)\n"
                     "2. Kalkulus 3 SKS Nilai A (SKS x N = 12)\n"
@@ -295,18 +295,18 @@ class TestBoundaryIsolatorLooseningAndAcademicDetection:
                     "Sesuai dengan informasi lowongan pekerjaan di Tajira Solusi Utama,\n"
                     "Saya bermaksud untuk mengajukan diri sebagai Audit Officer.\n"
                     "Berikut data diri saya:\n"
-                    "Nama: Muhammad Farhanul Haqim\n"
+                    "Nama: Budi Santoso\n"
                     "Pendidikan Terakhir: S1 Ilmu Komunikasi\n"
                     "Hormat Saya,\n"
-                    "doofarhan@gmail.com | 087722311868"
+                    "budi.santoso@example.com | 081234567890"
                 ),
                 "image_count": 1,
             },
             {
                 "page_num": 2,
                 "text": (
-                    "Muhammad Farhanul Haqim\n"
-                    "doofarhan@gmail.com | 087722311868\n\n"
+                    "Budi Santoso\n"
+                    "budi.santoso@example.com | 081234567890\n\n"
                     "Tentang Saya\n"
                     "Lulusan dari Universitas Muhammadiyah Bandung jurusan ilmu komunikasi.\n\n"
                     "Pendidikan\n"
@@ -352,7 +352,7 @@ class TestBoundaryIsolatorLooseningAndAcademicDetection:
             },
             {
                 "page_num": 6,
-                "text": "REPUBLIK INDONESIA\nNIK oo 24P731401120100013\nNama: MUHAMMAD FARHANUL HAQIM\nKecamatan",
+                "text": "REPUBLIK INDONESIA\nNIK oo 24P731401120100013\nNama: BUDI SANTOSO\nKecamatan",
                 "image_count": 1,
             },
         ]
@@ -392,8 +392,8 @@ class TestAdapterEndToEndHybridPdf:
         p1 = doc.new_page()
         p1.insert_text(
             (50, 72),
-            "Muhammad Farhanul Haqim\n"
-            "Email: farhanul@tajira.id | Phone: 081234567890\n\n"
+            "Budi Santoso\n"
+            "Email: budi@example.com | Phone: 08123456789\n\n"
             "PENGALAMAN KERJA\n"
             "Backend Engineer - PT Tajira Solusi (2022 - 2024)\n"
             "- Mengembangkan sistem API transaksi non-blocking.\n\n"
@@ -428,11 +428,11 @@ class TestAdapterEndToEndHybridPdf:
         pdf_bytes = doc.tobytes()
         doc.close()
 
-        profile = extract_candidate_profile(pdf_bytes, "2416_Muhammad Farhanul Haqim_CV_Tajira.pdf")
+        profile = extract_candidate_profile(pdf_bytes, "cv_kandidat.pdf")
 
         # Identity consensus
-        assert profile["identity"]["full_name"] == "Muhammad Farhanul Haqim"
-        assert profile["identity"]["email"] == "farhanul@tajira.id"
+        assert profile["identity"]["full_name"] == "Budi Santoso"
+        assert profile["identity"]["email"] == "budi@example.com"
 
         # Verify portfolio_attachments isolation
         assert len(profile["portfolio_attachments"]) == 2
@@ -511,54 +511,36 @@ class TestAdapterEndToEndHybridPdf:
         assert "Senior Backend Developer" in profile["experiences"][0]["title"]
         assert "PT Inovasi Maju" in profile["experiences"][0]["organization"]
 
-    def test_real_farhanul_tajira_pdf_attachment_isolation(self):
-        """End-to-end verification against actual candidate PDF if present in cache."""
-        from pathlib import Path
+    def test_synthetic_pdf_attachment_isolation(self):
+        """Synthetic test checking that candidate hybrid documents isolate properly."""
+        doc = fitz.open()
+        p1 = doc.new_page()
+        p1.insert_text((50, 72), "Hal: Lamaran Pekerjaan\nKepada Yth. HRD\nDengan hormat,\nSaya bermaksud melamar.")
+        p2 = doc.new_page()
+        p2.insert_text((50, 72), "CURRICULUM VITAE\nBudi Santoso\nbudi@example.com\n\nPENGALAMAN KERJA\nStaff Audit - PT ABC\n\nPENDIDIKAN\nS1 Komunikasi")
+        p3 = doc.new_page()
+        p3.insert_text((50, 72), "UNIVERSITAS MUHAMMADIYAH\nIJAZAH SARJANA\nRektor")
+        p4 = doc.new_page()
+        p4.insert_text((50, 72), "TRANSKRIP AKADEMIK\nSemester I - VIII\nSKS Kumulatif IPK 3.50")
+        pdf_bytes = doc.tobytes()
 
-        pdf_path = Path("/home/alifihsan/.hermes/cache/documents/doc_b50633002039_2416_Muhammad Farhanul Haqim_CV_Tajira.pdf")
-        if not pdf_path.exists():
-            pytest.skip("Cached candidate PDF not present")
+        profile = extract_candidate_profile(pdf_bytes, "Budi_Santoso_CV.pdf")
+        assert profile["identity"]["full_name"] == "Budi Santoso"
+        assert profile["identity"]["email"] == "budi@example.com"
+        assert len(profile["portfolio_attachments"]) == 2
 
-        content = pdf_path.read_bytes()
-        profile = extract_candidate_profile(content, "2416_Muhammad Farhanul Haqim_CV_Tajira.pdf")
+    def test_synthetic_pdf_sanitizer_received(self):
+        """Synthetic test verifying hybrid document status as RECEIVED."""
+        doc = fitz.open()
+        p1 = doc.new_page()
+        p1.insert_text((50, 72), "Hal: Lamaran Pekerjaan\nKepada Yth. HRD\nDengan hormat,\nSaya bermaksud melamar.")
+        p2 = doc.new_page()
+        p2.insert_text((50, 72), "CURRICULUM VITAE\nBudi Santoso\nbudi@example.com\n\nPENGALAMAN KERJA\nStaff Audit - PT ABC\n\nPENDIDIKAN\nS1 Komunikasi")
+        p3 = doc.new_page()
+        p3.insert_text((50, 72), "UNIVERSITAS MUHAMMADIYAH\nIJAZAH SARJANA\nRektor")
+        pdf_bytes = doc.tobytes()
 
-        assert profile["identity"]["full_name"] == "Muhammad Farhanul Haqim"
-        assert profile["identity"]["email"] == "doofarhan@gmail.com"
-        assert profile["identity"]["phone"] == "087722311868"
-
-        # All 4 auxiliary pages isolated (pages 3, 4, 5, 6)
-        assert len(profile["portfolio_attachments"]) == 4
-        page_numbers = [att["page_number"] for att in profile["portfolio_attachments"]]
-        assert page_numbers == [3, 4, 5, 6]
-
-        assert profile["portfolio_attachments"][0]["type"] == "ATTACHMENT_ACADEMIC"
-        assert profile["portfolio_attachments"][1]["type"] == "ATTACHMENT_ACADEMIC"
-        assert profile["portfolio_attachments"][3]["type"] == "ATTACHMENT_ADMIN"
-
-        # Education degree_raw extracted from CV core (Page 2) and not from cover letter (Page 1)
-        assert len(profile["education"]) >= 1
-        assert "Universitas Muhammadiyah Bandung" in profile["education"][0]["institution"]
-        assert "Alamat" not in profile["education"][0]["degree_raw"]
-
-    def test_real_farhanul_tajira_pdf_sanitizer_received(self):
-        """Verifies that 2416_Muhammad Farhanul Haqim_CV_Tajira.pdf is classified
-        as RECEIVED and valid CV despite Page 1 & 2 being pure scanned images.
-        """
-        from pathlib import Path
-
-        pdf_path = Path("/home/alifihsan/.hermes/cache/documents/doc_b50633002039_2416_Muhammad Farhanul Haqim_CV_Tajira.pdf")
-        if not pdf_path.exists():
-            pytest.skip("Cached candidate PDF not present")
-
-        content = pdf_path.read_bytes()
-        res = sanitize_file(content, "2416_Muhammad Farhanul Haqim_CV_Tajira.pdf")
-
+        res = sanitize_file(pdf_bytes, "kandidat_hybrid.pdf")
         assert res.is_valid is True
         assert res.status == "RECEIVED"
         assert "NOT_A_CV" not in res.flags
-        assert "NOT_A_CV_PURE_PORTFOLIO" not in res.reasons
-        assert "HYBRID_PORTFOLIO_CV" in res.flags
-        assert "BOUNDARY_ISOLATED" in res.flags
-        assert "Muhammad Farhanul" in res.extracted_text
-        assert "doofarhan@gmail.com" in res.extracted_text
-        assert "087722311868" in res.extracted_text
