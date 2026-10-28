@@ -84,6 +84,16 @@ PRESENT_SET = {
 }
 MONTHS_REGEX_STR = r"(?:jan(?:uari|uary)?|feb(?:ruari|ruary)?|mar(?:et|ch)?|apr(?:il)?|mei|may|jun(?:i|e)?|jul(?:i|y)?|agu(?:stus)?|aug(?:ust)?|sep(?:t(?:ember)?)?|okt(?:ober)?|oct(?:ober)?|nov(?:ember)?|des(?:ember)?|dec(?:ember)?)"
 
+SECTION_BOUNDARY_REGEX = re.compile(
+    r"^(?:prestasi(?:\s+dan\s+penghargaan)?|penghargaan|awards?|achievements?|"
+    r"sertifikasi|sertifikat|certifications?|certificates?|licenses?|"
+    r"kemampuan(?:\s+teknikal)?|keahlian|skills?|technical\s+skills?|hard\s+skills?|kompetensi|"
+    r"pendidikan|education|riwayat\s+pendidikan|"
+    r"pengalaman\s+organisasi|organisasi|organizations?|pelatihan|training|"
+    r"proyek|projects?|publikasi|publications?|bahasa|languages?)\b",
+    re.IGNORECASE,
+)
+
 RANGE_REGEX = re.compile(
     rf"[(]?\s*({MONTHS_REGEX_STR}(?:\s+\d{{4}})?|\d{{1,2}}[./-]\d{{4}}|\b\d{{4}}\b)\s*[)]?\s*(?:[-–—―−‒=~]+|s/d|sd|to|sampai|hingga|until)\s*[(]?\s*({MONTHS_REGEX_STR}(?:\s+\d{{4}})?|\d{{1,2}}[./-]\d{{4}}|\b\d{{4}}\b|sekarang|present|saat ini|kini|current|currently|now|to date|ongoing)\s*[)]?",
     re.IGNORECASE,
@@ -152,12 +162,12 @@ class _FallbackExtractorService:
                 ),
             ),
             ("education", re.compile(r"^(?:pendidikan(?:\s+formal)?|riwayat\s+pendidikan|education|academic\s+background)\b", re.IGNORECASE)),
-            ("skills", re.compile(r"^(?:keahlian|kemampuan|skills?|technical\s+skills?|hard\s+skills?|kompetensi)\b", re.IGNORECASE)),
+            ("skills", re.compile(r"^(?:keahlian|kemampuan(?:\s+teknikal)?|skills?|technical\s+skills?|hard\s+skills?|kompetensi)\b", re.IGNORECASE)),
             ("certifications", re.compile(r"^(?:sertifikasi|sertifikat|certifications?|certificates?|licenses?)\b", re.IGNORECASE)),
             ("summary", re.compile(r"^(?:ringkasan(?:\s+profil)?|tentang\s+saya|profil(?:\s+singkat)?|summary|professional\s+summary|about\s+me)\b", re.IGNORECASE)),
             ("projects", re.compile(r"^(?:proyek|projects?)\b", re.IGNORECASE)),
             ("organizations", re.compile(r"^(?:organisasi|organizations?|pengalaman\s+organisasi|pelatihan|training)\b", re.IGNORECASE)),
-            ("awards", re.compile(r"^(?:penghargaan|awards?|achievements?|prestasi)\b", re.IGNORECASE)),
+            ("awards", re.compile(r"^(?:prestasi(?:\s+dan\s+penghargaan)?|penghargaan|awards?|achievements?|prestasi)\b", re.IGNORECASE)),
             ("personal", re.compile(r"^(?:data\s+pribadi|informasi\s+pribadi|personal\s+details?)\b", re.IGNORECASE)),
             ("languages", re.compile(r"^(?:bahasa|languages?)\b", re.IGNORECASE)),
         ]
@@ -457,7 +467,13 @@ def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None =
             or (post_text and lines[start_bullet].strip("•-* \t") in post_text)
         ):
             start_bullet += 1
-        bullet_lines = lines[start_bullet:next_idx]
+        raw_bullet_lines = lines[start_bullet:next_idx]
+        bullet_lines = []
+        for bl in raw_bullet_lines:
+            bl_clean = bl.lstrip("#*-•~ \t").strip()
+            if len(bl_clean) < 60 and SECTION_BOUNDARY_REGEX.match(bl_clean):
+                break
+            bullet_lines.append(bl)
         block_text = " ".join([curr_line, title, org] + bullet_lines).lower()
 
         # Context & employment type classification
