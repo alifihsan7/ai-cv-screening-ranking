@@ -72,6 +72,8 @@ class Settings(BaseSettings):
     # Embedding
     EMBEDDING_MODEL: str = "microsoft/harrier-oss-v1-270m"
     EMBEDDING_DIM: int = 640
+    EMBEDDING_BATCH_SIZE: int = 16
+    EMBEDDING_NUM_THREADS: int = 4
 
     # CORS
     CORS_ALLOWED_ORIGINS: list[str] = [
