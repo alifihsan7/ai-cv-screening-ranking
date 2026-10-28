@@ -30,6 +30,12 @@ CV_SECTIONS_PATTERNS = [
 EMAIL_PATTERN = re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+")
 PHONE_PATTERN = re.compile(r"(?:\+62|62|08)[0-9\s\-]{8,15}")
 
+PROFILE_PATTERNS = [
+    re.compile(r"\b(?:curriculum\s+vitae|resume|biodata|profil(?:\s+profesional)?|profile|tentang\s+saya|about\s+me)\b", re.IGNORECASE),
+    re.compile(r"\b(?:nama|name)\s*:\s*[A-Z][a-z]+", re.IGNORECASE),
+    re.compile(r"\b(?:nama\s+lengkap|full\s+name)\b", re.IGNORECASE),
+]
+
 
 @dataclass
 class ClassificationResult:
@@ -39,10 +45,17 @@ class ClassificationResult:
     reasons: list[str] = field(default_factory=list)
     flags: list[str] = field(default_factory=list)
     extracted_contact: dict[str, Any] = field(default_factory=dict)
+    cv_core_pages: list[int] = field(default_factory=list)
 
 
-def classify_document_is_cv(full_text: str, page_count: int = 1, total_images: int = 0) -> ClassificationResult:
+def classify_document_is_cv(
+    full_text: str,
+    page_count: int = 1,
+    total_images: int = 0,
+    pages: list[dict[str, Any]] | None = None,
+) -> ClassificationResult:
     """Evaluates whether the document content is a valid CV/Resume without hardcoded page count limits."""
+    from src.worker.boundary import CV_CORE_INDICATORS, isolate_document_boundaries
     clean_text = full_text.strip()
     words = clean_text.split()
     word_count = len(words)
@@ -68,9 +81,34 @@ def classify_document_is_cv(full_text: str, page_count: int = 1, total_images: i
     }
 
     # 3. Check for CV Sections presence
-    has_experience = bool(CV_SECTIONS_PATTERNS[0].search(clean_text))
-    has_education = bool(CV_SECTIONS_PATTERNS[1].search(clean_text))
-    has_skills = bool(CV_SECTIONS_PATTERNS[2].search(clean_text))
+    has_cv_core = any(ind.search(clean_text) for ind in CV_CORE_INDICATORS)
+    has_experience = bool(CV_SECTIONS_PATTERNS[0].search(clean_text)) or bool(CV_CORE_INDICATORS[0].search(clean_text))
+    has_education = bool(CV_SECTIONS_PATTERNS[1].search(clean_text)) or bool(CV_CORE_INDICATORS[1].search(clean_text))
+    has_skills = bool(CV_SECTIONS_PATTERNS[2].search(clean_text)) or bool(CV_CORE_INDICATORS[2].search(clean_text))
+    has_profile_signal = any(p.search(clean_text) for p in PROFILE_PATTERNS)
+
+    # Page-by-page structural analysis if pages are available
+    has_page_with_cv_structure = False
+    starts_with_cv = False
+    ends_with_cv = False
+    cv_core_pages_detected: list[int] = []
+
+    if pages:
+        for idx, p in enumerate(pages, 1):
+            p_text = p.get("text", "")
+            p_has_exp = bool(CV_SECTIONS_PATTERNS[0].search(p_text)) or bool(CV_CORE_INDICATORS[0].search(p_text))
+            p_has_edu = bool(CV_SECTIONS_PATTERNS[1].search(p_text)) or bool(CV_CORE_INDICATORS[1].search(p_text))
+            p_has_sk = bool(CV_SECTIONS_PATTERNS[2].search(p_text)) or bool(CV_CORE_INDICATORS[2].search(p_text))
+            p_has_core = any(ind.search(p_text) for ind in CV_CORE_INDICATORS)
+            p_has_contact = bool(EMAIL_PATTERN.search(p_text) or PHONE_PATTERN.search(p_text))
+
+            if p_has_exp or p_has_edu or p_has_sk or p_has_core or (p_has_contact and (p_has_exp or p_has_edu or p_has_sk or p_has_core)):
+                has_page_with_cv_structure = True
+                cv_core_pages_detected.append(idx)
+                if idx in (1, 2):
+                    starts_with_cv = True
+                if idx in (len(pages), len(pages) - 1):
+                    ends_with_cv = True
 
     # 4. Check for Non-CV indicators
     is_cover_letter = any(p.search(clean_text[:600]) for p in COVER_LETTER_PATTERNS)
@@ -123,9 +161,24 @@ def classify_document_is_cv(full_text: str, page_count: int = 1, total_images: i
             extracted_contact=contact_data,
         )
 
-    # Case D: Pure Portfolio / Presentation Slides without resume sections
-    # (Lots of words, but zero experience, zero education, zero contact)
-    if not has_contact and not has_experience and not has_education:
+    # Case D: Pure Portfolio / Presentation Slides evaluation
+    # Do NOT reject as PURE_PORTFOLIO if:
+    # 1. Any CV_CORE_INDICATORS are present
+    # 2. Or there is an Experience / Education / Skills section on any page or full text
+    # 3. Or there is contact info (email/phone) + profile signal/name
+    # 4. Or the document starts or ends with a CV page
+    has_cv_structure = (
+        has_experience
+        or has_education
+        or has_skills
+        or has_cv_core
+        or (has_contact and (has_profile_signal or has_skills or has_experience or has_education))
+        or has_page_with_cv_structure
+        or starts_with_cv
+        or ends_with_cv
+    )
+
+    if not has_cv_structure:
         return ClassificationResult(
             is_cv=False,
             doc_type="PURE_PORTFOLIO",
@@ -135,8 +188,15 @@ def classify_document_is_cv(full_text: str, page_count: int = 1, total_images: i
             extracted_contact=contact_data,
         )
 
-    # 5. Positive Consensus: Valid CV
-    # A valid CV must have contact info AND at least one core pillar (Experience OR Education)
+    # 5. Positive Consensus: Valid CV (including hybrid CV/Portfolio)
+    is_hybrid_portfolio = starts_with_cv or ends_with_cv or any(
+        kw in clean_text.lower() for kw in ("portfolio", "portofolio", "showcase", "kumpulan karya", "lampiran proyek")
+    )
+
+    flags: list[str] = []
+    if is_hybrid_portfolio:
+        flags.append("HYBRID_PORTFOLIO_CV")
+
     cv_score = 0.5
     if has_contact:
         cv_score += 0.2
@@ -146,12 +206,27 @@ def classify_document_is_cv(full_text: str, page_count: int = 1, total_images: i
         cv_score += 0.1
     if has_skills:
         cv_score += 0.1
+    if has_cv_core:
+        cv_score += 0.1
+
+    # Extract boundary if pages are provided
+    isolated_cv_pages: list[int] = cv_core_pages_detected
+    if pages and len(pages) > 1:
+        try:
+            b_res = isolate_document_boundaries(pages)
+            if b_res.cv_core_pages:
+                isolated_cv_pages = b_res.cv_core_pages
+                if b_res.attachment_pages:
+                    flags.append("BOUNDARY_ISOLATED")
+        except Exception:
+            pass
 
     return ClassificationResult(
         is_cv=True,
         doc_type="CV",
-        confidence=min(0.99, cv_score),
+        confidence=min(0.99, max(0.65, cv_score)),
         reasons=[],
-        flags=[],
+        flags=flags,
         extracted_contact=contact_data,
+        cv_core_pages=isolated_cv_pages,
     )

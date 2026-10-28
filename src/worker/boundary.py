@@ -17,9 +17,10 @@ ATTACHMENT_INDICATORS = [
 ]
 
 CV_CORE_INDICATORS = [
-    re.compile(r"\b(?:pengalaman(?:\s+kerja)?|work\s+experience|professional\s+experience|employment\s+history|riwayat\s+pekerjaan|pengalaman\s+organisasi)\b", re.IGNORECASE),
-    re.compile(r"\b(?:pendidikan|education|educational\s+background|riwayat\s+pendidikan|academic\s+history)\b", re.IGNORECASE),
-    re.compile(r"\b(?:keahlian|skills|technical\s+skills|kemampuan|kompetensi|ringkasan\s+profesional|professional\s+summary)\b", re.IGNORECASE),
+    re.compile(r"\b(?:pengalaman(?:\s+kerja)?|work\s+experience|professional\s+experience|employment\s+history|riwayat\s+pekerjaan|pengalaman\s+organisasi|career\s+history|project\s+experience)\b", re.IGNORECASE),
+    re.compile(r"\b(?:pendidikan|education|educational\s+background|riwayat\s+pendidikan|academic\s+history|latar\s+belakang\s+pendidikan)\b", re.IGNORECASE),
+    re.compile(r"\b(?:keahlian|skills|technical\s+skills|kemampuan|kompetensi|core\s+competencies|ringkasan\s+profesional|professional\s+summary|profil\s+profesional|tentang\s+saya|about\s+me)\b", re.IGNORECASE),
+    re.compile(r"\b(?:curriculum\s+vitae|daftar\s+riwayat\s+hidup|resume)\b", re.IGNORECASE),
 ]
 
 
@@ -60,13 +61,13 @@ def isolate_document_boundaries(pages: list[dict[str, Any]]) -> BoundaryResult:
 
         page_type = "CV_CORE"
 
-        if is_attachment_title:
+        if is_attachment_title and not (has_cv_core and word_count >= 80):
             has_entered_attachments = True
             page_type = "PORTFOLIO_PROJECT" if "proyek" in text.lower() or "portfolio" in text.lower() else "ATTACHMENT_ACADEMIC"
+        elif has_cv_core:
+            page_type = "CV_CORE"
         elif has_entered_attachments:
-            # If we already passed an attachment header and there are no strong CV Core headings, treat as attachment
-            if not has_cv_core or word_count < 100:
-                page_type = "PORTFOLIO_PROJECT"
+            page_type = "PORTFOLIO_PROJECT"
         elif not has_cv_core and word_count < 80 and img_count > 0:
             # Low text with images on later pages
             if idx > 2:

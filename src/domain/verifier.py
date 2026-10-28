@@ -31,7 +31,7 @@ from typesafe_sdk import (
     TypeSafeError,
 )
 
-from src.domain.models import ContextSectionType, CriterionKind, EvaluationStatus
+from src.domain.models import ContextSectionType, CriterionKind, EvaluationStatus, QuoteSpan, split_quote_spans
 from src.domain.retrieval import extract_granular_evidence_quote
 from src.infrastructure.config import settings
 from src.infrastructure.database import get_connection
@@ -432,38 +432,65 @@ def normalize_text_nfkc(text: str) -> str:
     return " ".join(nfkc.split())
 
 
-def verify_grounding(quote: str, raw_cv_text: str, context_snippets: list[str]) -> tuple[bool, str]:
+def verify_grounding(
+    quote: str | list[str],
+    raw_cv_text: str,
+    context_snippets: list[str] | None = None,
+) -> tuple[bool, str]:
     """Strict code-level invariant: Zero hallucination quote verification.
+
+    Supports single-span and multi-span / segmented verbatim quotes.
+    Segments may be passed as a list of strings or connected via canonical delimiters:
+    e.g., '\\n...\\n' or ' [...] '.
 
     Invariants enforced:
     1. Unicode canonical NFKC normalization & whitespace collapsing.
-    2. Minimum quote length: at least 5 non-whitespace characters.
-    3. Exact substring match in raw CV text (case-insensitive normalized).
-    4. Exact substring match in supplied context snippets (case-insensitive normalized).
+    2. Minimum quote length: at least 5 non-whitespace characters total;
+       each individual span must be substantive.
+    3. Exact substring match in raw CV text (case-insensitive NFKC normalized)
+       for EVERY constituent span independently.
+    4. Exact substring match in supplied context snippets (case-insensitive normalized)
+       for single-span claims. Multi-span qualifications whose evidence is distributed
+       across disparate sections or pages are verified against raw CV text.
 
     Returns:
         (is_grounded: bool, reason: str)
         where reason is 'VERIFIED', 'QUOTE_TOO_SHORT',
         'GROUNDING_FAIL_NOT_IN_CV', or 'GROUNDING_FAIL_NOT_IN_SNIPPET'.
     """
-    if not quote:
+    spans = split_quote_spans(quote)
+    if not spans:
         return False, "QUOTE_TOO_SHORT"
 
-    clean_quote = normalize_text_nfkc(quote)
-    if len(clean_quote) < 5:
+    total_clean_chars = sum(len(normalize_text_nfkc(s)) for s in spans)
+    if total_clean_chars < 5:
         return False, "QUOTE_TOO_SHORT"
 
-    clean_cv = normalize_text_nfkc(raw_cv_text)
-    quote_core = clean_quote.strip(".… ")
-    if len(quote_core) < 5:
-        quote_core = clean_quote
+    clean_cv = normalize_text_nfkc(raw_cv_text or "").lower()
 
-    if clean_quote.lower() not in clean_cv.lower() and quote_core.lower() not in clean_cv.lower():
-        return False, "GROUNDING_FAIL_NOT_IN_CV"
+    # Verify each span independently in raw_cv_text
+    for s in spans:
+        clean_span = normalize_text_nfkc(s)
+        if len(clean_span) < 3 or (len(spans) == 1 and len(clean_span) < 5):
+            return False, "QUOTE_TOO_SHORT"
 
-    all_snippets = normalize_text_nfkc(" ".join(context_snippets or []))
-    if clean_quote.lower() not in all_snippets.lower() and quote_core.lower() not in all_snippets.lower():
-        return False, "GROUNDING_FAIL_NOT_IN_SNIPPET"
+        span_core = clean_span.strip(".… ")
+        if len(span_core) < 3:
+            span_core = clean_span
+
+        if clean_span.lower() not in clean_cv and span_core.lower() not in clean_cv:
+            return False, "GROUNDING_FAIL_NOT_IN_CV"
+
+    # Context snippet check: all spans must appear in supplied context snippets
+    if context_snippets:
+        all_snippets = normalize_text_nfkc(" ".join(context_snippets)).lower()
+        for s in spans:
+            clean_span = normalize_text_nfkc(s)
+            span_core = clean_span.strip(".… ")
+            if len(span_core) < 3:
+                span_core = clean_span
+            if clean_span.lower() not in all_snippets and span_core.lower() not in all_snippets:
+                return False, "GROUNDING_FAIL_NOT_IN_SNIPPET"
 
     return True, "VERIFIED"
 
@@ -538,6 +565,7 @@ class VerifierDecision(BaseModel):
     state: EvaluationStatus
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
     quote: str | None = None
+    spans: list[str] = Field(default_factory=list)
     char_start: int | None = None
     char_end: int | None = None
     context_type: ContextSectionType = ContextSectionType.UNKNOWN
@@ -982,7 +1010,9 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
         run_id_val = kwargs.get("run_id")
         cand_id_val = kwargs.get("candidate_id")
 
+        quote_spans: list[str] = []
         if selected_quote:
+            quote_spans = split_quote_spans(selected_quote)
             is_grounded, g_reason = verify_grounding(selected_quote, cv_full_text, candidate_chunks)
             if not is_grounded:
                 # Telemetry record even if grounding fails, with grounding_valid=False
@@ -1004,6 +1034,7 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
                     state=rule_st,
                     confidence=0.5,
                     quote=None,
+                    spans=[],
                     char_start=None,
                     char_end=None,
                     context_type=ctx_t,
@@ -1027,16 +1058,29 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
                 candidate_id=cand_id_val,
             )
 
-            # Compute character offsets in cv_full_text
-            norm_quote = normalize_text_nfkc(selected_quote).lower()
+            # Compute character offsets across spans in cv_full_text
             norm_cv = normalize_text_nfkc(cv_full_text).lower()
-            idx = norm_cv.find(norm_quote)
-            if idx >= 0:
-                char_start = idx
-                char_end = idx + len(norm_quote)
+            found_starts: list[int] = []
+            found_ends: list[int] = []
+            for sp in quote_spans:
+                norm_sp = normalize_text_nfkc(sp).lower()
+                idx = norm_cv.find(norm_sp)
+                if idx >= 0:
+                    found_starts.append(idx)
+                    found_ends.append(idx + len(norm_sp))
+
+            if found_starts and found_ends and max(found_ends) > min(found_starts):
+                char_start = min(found_starts)
+                char_end = max(found_ends)
             else:
-                char_start = 0
-                char_end = max(5, len(selected_quote))
+                norm_quote = normalize_text_nfkc(selected_quote).lower()
+                idx = norm_cv.find(norm_quote)
+                if idx >= 0:
+                    char_start = idx
+                    char_end = idx + len(norm_quote)
+                else:
+                    char_start = 0
+                    char_end = max(5, len(selected_quote))
         else:
             # NOT_DEMONSTRATED has no quote claimed, record telemetry with grounding_valid=True
             await record_jev_call(
@@ -1067,6 +1111,7 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
             state=elev_state,
             confidence=confidence,
             quote=selected_quote,
+            spans=quote_spans if quote_spans else ([selected_quote] if selected_quote else []),
             char_start=char_start,
             char_end=char_end,
             context_type=ctx_t,
@@ -1306,16 +1351,31 @@ Instruksi PENTING:
             saved_data = {"state": final_state.value, "quote": quote_str, "flags": flags}
             await _save_db_cache(cache_key, saved_data)
 
-            norm_quote = normalize_text_nfkc(quote_str).lower()
+            quote_spans = split_quote_spans(quote_str)
             norm_cv = normalize_text_nfkc(cv_full_text).lower()
-            idx = norm_cv.find(norm_quote)
-            char_start = idx if idx >= 0 else 0
-            char_end = idx + len(norm_quote) if idx >= 0 else max(5, len(quote_str))
+            found_starts = []
+            found_ends = []
+            for sp in quote_spans:
+                norm_sp = normalize_text_nfkc(sp).lower()
+                idx = norm_cv.find(norm_sp)
+                if idx >= 0:
+                    found_starts.append(idx)
+                    found_ends.append(idx + len(norm_sp))
+
+            if found_starts and found_ends and max(found_ends) > min(found_starts):
+                char_start = min(found_starts)
+                char_end = max(found_ends)
+            else:
+                norm_quote = normalize_text_nfkc(quote_str).lower()
+                idx = norm_cv.find(norm_quote)
+                char_start = idx if idx >= 0 else 0
+                char_end = idx + len(norm_quote) if idx >= 0 else max(5, len(quote_str))
 
             return VerifierDecision(
                 state=final_state,
                 confidence=0.85,
                 quote=quote_str,
+                spans=quote_spans if quote_spans else ([quote_str] if quote_str else []),
                 char_start=char_start,
                 char_end=char_end,
                 context_type=ctx_t,

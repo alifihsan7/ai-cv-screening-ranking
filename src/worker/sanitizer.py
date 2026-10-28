@@ -119,11 +119,19 @@ def sanitize_file(content: bytes, filename: str) -> SanitizeResult:
         total_images = 0
         flags = []
 
+        pages_data: list[dict[str, Any]] = []
         for page_idx in range(len(doc)):
             page = doc[page_idx]
             page_text = page.get_text()
-            full_text_parts.append(page_text if isinstance(page_text, str) else str(page_text))
-            total_images += len(page.get_images())
+            text_str = page_text if isinstance(page_text, str) else str(page_text)
+            full_text_parts.append(text_str)
+            img_cnt = len(page.get_images())
+            total_images += img_cnt
+            pages_data.append({
+                "page_num": page_idx + 1,
+                "text": text_str,
+                "image_count": img_cnt,
+            })
 
             # Inspect text spans for tiny fonts or white text
             try:
@@ -169,9 +177,38 @@ def sanitize_file(content: bytes, filename: str) -> SanitizeResult:
                 break
 
         # Check Insufficient / Empty content or Non-CV document using CVClassifierGate
+        from src.worker.boundary import CV_CORE_INDICATORS, isolate_document_boundaries
         from src.worker.classifier import classify_document_is_cv
 
-        class_res = classify_document_is_cv(full_text, page_count=page_count, total_images=total_images)
+        class_res = classify_document_is_cv(
+            full_text,
+            page_count=page_count,
+            total_images=total_images,
+            pages=pages_data,
+        )
+
+        boundary_res = None
+        if len(pages_data) > 1:
+            try:
+                boundary_res = isolate_document_boundaries(pages_data)
+            except Exception:
+                boundary_res = None
+
+        # Guard: If classifier marked PURE_PORTFOLIO, but boundary segmenter isolated CV_CORE pages
+        if not class_res.is_cv and class_res.doc_type == "PURE_PORTFOLIO" and boundary_res and boundary_res.cv_core_pages:
+            has_core_content = any(
+                any(ind.search(pages_data[p - 1].get("text", "")) for ind in CV_CORE_INDICATORS)
+                or len(pages_data[p - 1].get("text", "").split()) >= 30
+                for p in boundary_res.cv_core_pages
+                if p <= len(pages_data)
+            )
+            if has_core_content:
+                class_res.is_cv = True
+                class_res.doc_type = "CV"
+                class_res.flags = [f for f in class_res.flags if f != "NOT_A_CV"]
+                class_res.flags.append("HYBRID_PORTFOLIO_CV")
+                flags.append("HYBRID_PORTFOLIO_CV")
+
         if not class_res.is_cv:
             if class_res.doc_type == "INSUFFICIENT_CONTENT":
                 reasons = ["INSUFFICIENT_CONTENT", "EMPTY_DOCUMENT"]
@@ -192,12 +229,16 @@ def sanitize_file(content: bytes, filename: str) -> SanitizeResult:
                 page_count=page_count,
             )
 
+        san_flags = flags + class_res.flags
+        if boundary_res and boundary_res.attachment_pages and "BOUNDARY_ISOLATED" not in san_flags:
+            san_flags.append("BOUNDARY_ISOLATED")
+
         return SanitizeResult(
             is_valid=True,
             status="RECEIVED",
             sha256=sha256,
             file_type="pdf",
-            flags=flags,
+            flags=san_flags,
             extracted_text=full_text,
             canonical_text=canonical_text,
             has_hidden_text=has_hidden_text,

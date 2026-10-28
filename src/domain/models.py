@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 from enum import Enum
-from typing import Annotated, Literal, Self
+import re
+from typing import Annotated, Any, Literal, Self
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
@@ -245,6 +246,56 @@ class DateInterval(BaseModel):
 # Verbatim Grounding & Evidence Citations
 # ---------------------------------------------------------------------------
 
+CANONICAL_SPAN_DELIMITERS = re.compile(
+    r"(?:\s*\r?\n\s*(?:\.{2,}|…)\s*\r?\n\s*|\s*\[\s*(?:\.{2,}|…)\s*\]\s*)"
+)
+
+
+def split_quote_spans(quote: str | list[str] | None) -> list[str]:
+    """Splits a verbatim quote into constituent spans if multi-span.
+
+    Supports:
+    1. Python lists/tuples of string segments: ['span 1', 'span 2']
+    2. Strings connected by canonical delimiters:
+       - '\\n...\\n' or '\\n ... \\n'
+       - ' [...] ' or '[...]'
+       - Unicode ellipsis variations ('…', '[…]')
+    """
+    if not quote:
+        return []
+
+    if isinstance(quote, (list, tuple)):
+        spans: list[str] = []
+        for s in quote:
+            if isinstance(s, str):
+                cleaned = s.strip()
+                if cleaned:
+                    sub_parts = CANONICAL_SPAN_DELIMITERS.split(cleaned)
+                    for sp in sub_parts:
+                        sp_clean = sp.strip()
+                        if sp_clean:
+                            spans.append(sp_clean)
+        return spans
+
+    if isinstance(quote, str):
+        raw = quote.strip()
+        if not raw:
+            return []
+        parts = CANONICAL_SPAN_DELIMITERS.split(raw)
+        return [p.strip() for p in parts if p.strip()]
+
+    return []
+
+
+class QuoteSpan(BaseModel):
+    """Strongly-typed individual verbatim quote segment within multi-span evidence."""
+
+    text: str = Field(min_length=1, description="Exact verbatim substring of this segment")
+    char_start: int | None = Field(default=None, ge=0, description="0-indexed start offset if localized")
+    char_end: int | None = Field(default=None, ge=0, description="0-indexed end offset if localized")
+    source_section: str | None = Field(default=None, description="Section where span was found")
+    page_number: int | None = Field(default=None, ge=1, description="Source page number if multi-page")
+
 
 class EvidenceCitation(BaseModel):
     """Verbatim quote citation grounded in raw text with explicit character bounds."""
@@ -257,6 +308,8 @@ class EvidenceCitation(BaseModel):
     context_type: ContextSectionType = Field(default=ContextSectionType.UNKNOWN)
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
     is_grounded: bool = True
+    spans: list[str] = Field(default_factory=list, description="Constituent verbatim quote segments for multi-span evidence")
+    detailed_spans: list[QuoteSpan] = Field(default_factory=list, description="Structured quote spans with bounds and page localization")
 
     @field_validator("char_end")
     @classmethod
@@ -267,11 +320,42 @@ class EvidenceCitation(BaseModel):
                 raise ValueError("char_end must be strictly greater than char_start")
         return v
 
+    @model_validator(mode="before")
+    @classmethod
+    def populate_multi_span_before(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            spans = data.get("spans")
+            v_quote = data.get("verbatim_quote")
+            if spans and not v_quote:
+                data["verbatim_quote"] = " [...] ".join(str(s) for s in spans if s)
+            if v_quote and not spans:
+                parsed_spans = split_quote_spans(v_quote)
+                if len(parsed_spans) > 1:
+                    data["spans"] = parsed_spans
+                else:
+                    data["spans"] = [v_quote]
+            elif spans and v_quote:
+                data["spans"] = [str(s) for s in spans if s]
+        return data
+
     @model_validator(mode="after")
     def validate_quote_substance(self) -> Self:
         clean = " ".join(self.verbatim_quote.split())
         if len(clean) < 5:
             raise ValueError("verbatim_quote must contain at least 5 non-whitespace characters")
+        if not self.spans:
+            parsed = split_quote_spans(self.verbatim_quote)
+            self.spans = parsed if parsed else [self.verbatim_quote]
+        if not self.detailed_spans:
+            self.detailed_spans = [
+                QuoteSpan(
+                    text=s,
+                    char_start=self.char_start if len(self.spans) == 1 else None,
+                    char_end=self.char_end if len(self.spans) == 1 else None,
+                    source_section=self.source_section,
+                )
+                for s in self.spans
+            ]
         return self
 
 

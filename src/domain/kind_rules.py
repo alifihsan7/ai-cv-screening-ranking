@@ -504,14 +504,14 @@ def eval_skill(
         sk_name = sk.get("name", "") if isinstance(sk, dict) else str(sk)
         for kw in target_keywords:
             if match_skill(sk_name, kw):
-                evidence.append({"quote": f"Skills: {sk_name}", "context": "skills_list", "verified": True})
+                evidence.append({"quote": sk_name, "context": "skills_list", "verified": True})
                 return "PARTIAL", 0.85, {}, evidence, []
 
     # Fallback context: In summary or headline
-    summary_text = f"{profile.get('summary', '')} {profile.get('headline', '')}"
+    summary_text = f"{profile.get('summary', '')} {profile.get('headline', '')}".strip()
     for kw in target_keywords:
         if match_skill(summary_text, kw):
-            evidence.append({"quote": f"Summary: {summary_text[:120]}", "context": "summary", "verified": True})
+            evidence.append({"quote": summary_text[:120].strip(), "context": "summary", "verified": True})
             return "PARTIAL", 0.80, {}, evidence, []
 
     return "NOT_DEMONSTRATED", 0.95, {}, [], []
@@ -636,13 +636,13 @@ def eval_responsibility(
         for sk in profile.get("skills", []):
             for kw in target_kws:
                 if re.search(rf"\b{re.escape(kw)}", sk.lower()):
-                    evidence.append({"quote": f"Skills: {sk}", "context": "skills_list", "verified": True})
+                    evidence.append({"quote": sk, "context": "skills_list", "verified": True})
                     return "PARTIAL", 0.85, {}, evidence, []
 
-        summary_comb = f"{profile.get('summary', '')} {profile.get('headline', '')}".lower()
+        summary_comb = f"{profile.get('summary', '')} {profile.get('headline', '')}".strip()
         for kw in target_kws:
-            if re.search(rf"\b{re.escape(kw)}", summary_comb):
-                evidence.append({"quote": f"Summary: {summary_comb[:120]}", "context": "summary", "verified": True})
+            if re.search(rf"\b{re.escape(kw)}", summary_comb.lower()):
+                evidence.append({"quote": summary_comb[:120].strip(), "context": "summary", "verified": True})
                 return "PARTIAL", 0.80, {}, evidence, []
 
     if has_building_job:
@@ -903,12 +903,13 @@ def eval_leadership(
         )
 
         if is_lead:
+            lead_quote = (bullets_text[:120].strip() or title).strip()
             if rf in ("backend", "fullstack", "devops"):
                 has_tech_lead = True
-                evidence.append({"quote": f"{title}: {bullets_text[:100]}", "context": "experience", "verified": True})
+                evidence.append({"quote": lead_quote, "context": "experience", "verified": True})
             elif rf in ("qa", "data"):
                 has_qa_or_org_lead = True
-                evidence.append({"quote": f"{title}: {bullets_text[:100]}", "context": "experience", "verified": True})
+                evidence.append({"quote": lead_quote, "context": "experience", "verified": True})
             elif "sales" in title.lower() or "marketing" in title.lower():
                 has_sales_lead = True
 

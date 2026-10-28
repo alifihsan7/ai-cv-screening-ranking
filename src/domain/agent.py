@@ -38,11 +38,13 @@ from src.domain.models import (
     EvidenceCitation,
     GeneralActionInput,
     ParserActionInput,
+    QuoteSpan,
     ReasoningStep,
     RetrievalActionInput,
     ScreeningAgentState,
     TaxonomyActionInput,
     VerifierActionInput,
+    split_quote_spans,
 )
 from src.domain.scorer import ScoreResult, score
 from src.domain.tools.base import ToolRegistry, default_registry
@@ -221,10 +223,26 @@ class ScreeningAgent:
         return step
 
     def _locate_quote_bounds(self, quote: str, context_type: ContextSectionType) -> tuple[int, int]:
-        """Calculates 0-indexed char bounds for verbatim quote within raw text or sections."""
-        clean_q = normalize_text_nfkc(quote).lower()
+        """Calculates 0-indexed char bounds for verbatim quote within raw text or sections.
+        Supports multi-span quotes by locating bounds across constituent spans.
+        """
+        spans = split_quote_spans(quote)
         clean_cv = normalize_text_nfkc(self.raw_cv_text).lower()
 
+        if spans:
+            found_starts: list[int] = []
+            found_ends: list[int] = []
+            for s in spans:
+                s_clean = normalize_text_nfkc(s).lower()
+                idx = clean_cv.find(s_clean)
+                if idx >= 0:
+                    found_starts.append(idx)
+                    found_ends.append(idx + len(s_clean))
+
+            if found_starts and found_ends and max(found_ends) > min(found_starts):
+                return min(found_starts), max(found_ends)
+
+        clean_q = normalize_text_nfkc(quote).lower()
         idx = clean_cv.find(clean_q)
         if idx >= 0:
             return idx, idx + len(clean_q)
@@ -237,6 +255,13 @@ class ScreeningAgent:
                 if s_idx >= 0:
                     start = s.char_start + s_idx
                     return start, start + len(clean_q)
+                # Also try first span in section
+                if spans:
+                    first_span_clean = normalize_text_nfkc(spans[0]).lower()
+                    fs_idx = sec_text.find(first_span_clean)
+                    if fs_idx >= 0:
+                        start = s.char_start + fs_idx
+                        return start, start + len(first_span_clean)
 
         return 0, max(5, len(clean_q))
 
@@ -633,6 +658,23 @@ class ScreeningAgent:
 
                 react_citations: list[EvidenceCitation] = []
                 if decision.quote and decision.char_start is not None and decision.char_end is not None:
+                    d_spans = decision.spans if decision.spans else split_quote_spans(decision.quote)
+                    detailed: list[QuoteSpan] = []
+                    clean_cv = normalize_text_nfkc(self.raw_cv_text).lower()
+                    for sp in d_spans:
+                        sp_clean = normalize_text_nfkc(sp).lower()
+                        sp_idx = clean_cv.find(sp_clean)
+                        s_st = sp_idx if sp_idx >= 0 else None
+                        s_en = (sp_idx + len(sp_clean)) if sp_idx >= 0 else None
+                        detailed.append(
+                            QuoteSpan(
+                                text=sp,
+                                char_start=s_st,
+                                char_end=s_en,
+                                source_section=decision.context_type.value,
+                            )
+                        )
+
                     react_citations.append(
                         EvidenceCitation(
                             criterion_id=req_id,
@@ -643,6 +685,8 @@ class ScreeningAgent:
                             context_type=decision.context_type,
                             confidence=decision.confidence,
                             is_grounded=True,
+                            spans=d_spans,
+                            detailed_spans=detailed,
                         )
                     )
 
