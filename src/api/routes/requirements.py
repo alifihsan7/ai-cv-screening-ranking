@@ -14,6 +14,7 @@ from src.api.middleware.rate_limiter import check_rate_limit
 from src.domain.jd_compiler import compile_job_requirements
 from src.domain.models import User, UserRole
 from src.domain.policy_linter import lint_text
+from src.infrastructure.config import settings
 from src.infrastructure.database import get_connection
 from src.infrastructure.logging import logger
 
@@ -442,11 +443,11 @@ async def approve_requirements(
 
         # Embed requirements for hybrid retrieval (FX-32)
         try:
-            from src.worker.embedding import embed_texts
+            from src.services.embedding import embed_texts
 
             req_descs = [r["description"] for r in req_rows]
             if req_descs:
-                embeddings = embed_texts(req_descs)
+                embeddings = embed_texts(req_descs, batch_size=settings.EMBEDDING_BATCH_SIZE)
                 for r_item, emb in zip(req_rows, embeddings):
                     await cur.execute(
                         "UPDATE requirements SET embedding = %s WHERE requirement_set_id = %s AND requirement_id = %s AND tenant_id = %s",

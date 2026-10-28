@@ -10,7 +10,7 @@ from uuid import UUID
 from src.domain.screening_service import execute_screening_run
 from src.infrastructure.database import close_db_pool, get_connection
 from src.infrastructure.logging import logger
-from src.worker.embedding import get_embedding_model
+from src.services.embedding import get_embedding_model
 from src.worker.processor import process_document
 
 _running = True

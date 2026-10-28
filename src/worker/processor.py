@@ -13,8 +13,8 @@ from typing import Any
 from src.infrastructure.config import settings
 from src.infrastructure.database import get_connection
 from src.infrastructure.logging import logger
+from src.services.embedding import embed_texts
 from src.worker.adapter import extract_candidate_profile
-from src.worker.embedding import embed_texts
 from src.worker.redaction import extract_identity_and_redact, redact_text
 from src.worker.sanitizer import sanitize_file
 
@@ -371,7 +371,21 @@ async def process_document(doc_id: uuid.UUID) -> dict[str, Any]:
 
             # 8. Generate & Insert Profile Chunks with Embeddings
             chunk_texts = [c["text_redacted"] for c in chunks]
-            embeddings = await asyncio.to_thread(embed_texts, chunk_texts)
+            if chunk_texts:
+                logger.info(
+                    f"Generating batched embeddings for {len(chunk_texts)} profile chunks (document: {filename}, profile_id: {profile_id})..."
+                )
+                t_emb_start = asyncio.get_running_loop().time()
+                embeddings = await asyncio.to_thread(
+                    embed_texts, chunk_texts, batch_size=settings.EMBEDDING_BATCH_SIZE
+                )
+                t_emb_dur = (asyncio.get_running_loop().time() - t_emb_start) * 1000
+                logger.info(
+                    f"Generated {len(embeddings)} profile chunk embeddings in {t_emb_dur:.2f}ms (document: {filename})"
+                )
+            else:
+                embeddings = []
+                logger.info(f"No profile chunks extracted for document {filename}; skipped embedding.")
 
             chunk_params = [
                 (

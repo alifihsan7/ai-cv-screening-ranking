@@ -10,7 +10,7 @@ from typing import Any
 from src.domain.taxonomy import get_taxonomy
 from src.infrastructure.database import get_connection
 from src.infrastructure.logging import logger
-from src.worker.embedding import embed_texts
+from src.services.embedding import embed_texts
 
 
 def split_sentences(text: str) -> list[str]:
