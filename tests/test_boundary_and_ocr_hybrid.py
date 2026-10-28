@@ -265,6 +265,121 @@ class TestBoundaryIsolatorLooseningAndAcademicDetection:
         assert res.attachment_pages == [2]
         assert res.attachments[0]["type"] == "ATTACHMENT_ACADEMIC"
 
+    def test_noisy_academic_ocr_typos_detected_as_strong_academic(self):
+        """Common OCR noise/typo variants in Indonesian academic transcripts and diplomas."""
+        assert is_strong_academic_page("IJAZ.AE IH'SCENNHCATE dlberlkan kepada Muhanmad") is True
+        assert is_strong_academic_page("l{omor ljazah Nasional: 04106it7020120241q)039") is True
+        assert is_strong_academic_page("TNANSrrruPATAIDEDIr, Nomon FSH.IK-2;1{)074") is True
+        assert is_strong_academic_page("YUOISIUM Sangat ltllmuaskan") is True
+        assert is_strong_academic_page("Angka K.cdtt (SXS x A) S€MESTER I Nilai SKS") is True
+        assert is_strong_academic_page("Indeks Prestasi Kumulatif: 3.46 Satuan Kredit Semester") is True
+
+    def test_multipage_hybrid_cover_letter_cv_core_academic_attachments_isolation(self):
+        """Simulates full 6-page candidate document:
+        Page 1: Cover letter (Hal: Lamaran Kerja, no work exp)
+        Page 2: CV Core (Tentang Saya, Pengalaman Kerja, Pendidikan, Organisasi, Kemampuan)
+        Page 3: Scanned Ijazah with OCR noise (IJAZ.AE, l{omor ljazah)
+        Page 4: Scanned Transkrip with OCR noise (TNANSrrruPATAIDEDIr,, YUOISIUM, S€MESTER I, SKS)
+        Page 5: Auxiliary certificate scan (low text, images)
+        Page 6: KTP scan (NIK oo 24P731401120100013)
+        """
+        pages = [
+            {
+                "page_num": 1,
+                "text": (
+                    "Bandung, 06 Januari 2025\n"
+                    "Hal : Lamaran Kerja\n"
+                    "Kepada Yth. Bapak/Ibu HRD PT. Talenta Insan Gemilang\n"
+                    "Dengan Hormat,\n"
+                    "Sesuai dengan informasi lowongan pekerjaan di Tajira Solusi Utama,\n"
+                    "Saya bermaksud untuk mengajukan diri sebagai Audit Officer.\n"
+                    "Berikut data diri saya:\n"
+                    "Nama: Muhammad Farhanul Haqim\n"
+                    "Pendidikan Terakhir: S1 Ilmu Komunikasi\n"
+                    "Hormat Saya,\n"
+                    "doofarhan@gmail.com | 087722311868"
+                ),
+                "image_count": 1,
+            },
+            {
+                "page_num": 2,
+                "text": (
+                    "Muhammad Farhanul Haqim\n"
+                    "doofarhan@gmail.com | 087722311868\n\n"
+                    "Tentang Saya\n"
+                    "Lulusan dari Universitas Muhammadiyah Bandung jurusan ilmu komunikasi.\n\n"
+                    "Pendidikan\n"
+                    "2020 - 2024 | Universitas Muhammadiyah Bandung | Jurusan Ilmu Komunikasi, 3.46/4.00\n\n"
+                    "Pengalaman Kerja\n"
+                    "Februari - Juni 2024 | Magang | PT. BPRS HIK PARAHYANGAN\n"
+                    "Audit Internal Funding Officer\n"
+                    "- Mereview dan menganalisis laporan keuangan\n\n"
+                    "Kemampuan\n"
+                    "Komunikatif, Analisis Data, Microsoft Office"
+                ),
+                "image_count": 1,
+            },
+            {
+                "page_num": 3,
+                "text": (
+                    "UNIVERSITAS MUHAMMADIYAH BANDUNG\n"
+                    "IJAZ.AE\n"
+                    "IH'SCENNHCATE\n"
+                    "dlberlkan kepada Muhanmad Farhanrrl Haqim\n"
+                    "l{omor ljazah Nasional: 04106it7020120241q)039\n"
+                    "Sarjana flmu tr(omunikasi Rektor"
+                ),
+                "image_count": 1,
+            },
+            {
+                "page_num": 4,
+                "text": (
+                    "UNIVERSITAS MUHAMMADIYAH BANDUNG\n"
+                    "TNANSrrruPATAIDEDIr,\n"
+                    "YUOISIUM\n"
+                    "Angka K.cdtt (SXS x A)\n"
+                    "S€MESTER I\n"
+                    "Nilai SKS 3.5\n"
+                    "S€MESTER III"
+                ),
+                "image_count": 1,
+            },
+            {
+                "page_num": 5,
+                "text": "Sertifikat Pelatihan Digital Entrepeneurship Kominfo",
+                "image_count": 1,
+            },
+            {
+                "page_num": 6,
+                "text": "REPUBLIK INDONESIA\nNIK oo 24P731401120100013\nNama: MUHAMMAD FARHANUL HAQIM\nKecamatan",
+                "image_count": 1,
+            },
+        ]
+
+        res = isolate_document_boundaries(pages)
+
+        # CV Core must ONLY contain Page 2
+        assert res.total_pages == 6
+        assert res.cv_core_pages == [2]
+        assert res.cover_letter_pages == [1]
+        assert res.attachment_pages == [3, 4, 5, 6]
+        assert len(res.attachments) == 4
+
+        # Verify page types
+        assert res.attachments[0]["page_number"] == 3
+        assert res.attachments[0]["type"] == "ATTACHMENT_ACADEMIC"
+        assert res.attachments[1]["page_number"] == 4
+        assert res.attachments[1]["type"] == "ATTACHMENT_ACADEMIC"
+        assert res.attachments[3]["page_number"] == 6
+        assert res.attachments[3]["type"] == "ATTACHMENT_ADMIN"
+
+        # Verify zero leakage into cv_core_text
+        assert "Hal : Lamaran Kerja" not in res.cv_core_text
+        assert "IJAZ.AE" not in res.cv_core_text
+        assert "TNANS" not in res.cv_core_text
+        assert "NIK" not in res.cv_core_text
+        assert "Pengalaman Kerja" in res.cv_core_text
+
 
 class TestAdapterEndToEndHybridPdf:
     """Verifies that extract_candidate_profile isolates attachments and executes OCR at 300 DPI."""
@@ -329,3 +444,97 @@ class TestAdapterEndToEndHybridPdf:
         assert len(profile["experiences"]) >= 1
         assert "Backend Engineer" in profile["experiences"][0]["title"]
         assert "PT Tajira Solusi" in profile["experiences"][0]["organization"]
+
+    def test_multipage_cover_letter_isolated_and_contact_fallback(self):
+        """Page 1: Cover letter with contact info, no work exp
+        Page 2: CV Core with experiences and education
+        Page 3: Scanned Ijazah with OCR noise
+        """
+        doc = fitz.open()
+
+        # Page 1: Cover Letter
+        p1 = doc.new_page()
+        p1.insert_text(
+            (50, 72),
+            "Bandung, 06 Januari 2025\n"
+            "Hal : Lamaran Kerja\n"
+            "Kepada Yth. Bapak/Ibu HRD\n"
+            "Dengan Hormat,\n"
+            "Sesuai informasi lowongan, saya mengajukan diri sebagai Software Engineer.\n"
+            "Nama: Farhan Haqim\n"
+            "Email: farhan.candidate@example.com\n"
+            "Telepon: 081299887766\n"
+            "Hormat Saya,\nFarhan",
+        )
+
+        # Page 2: CV Core
+        p2 = doc.new_page()
+        p2.insert_text(
+            (50, 72),
+            "Farhan Haqim\n\n"
+            "PENGALAMAN KERJA\n"
+            "Senior Backend Developer - PT Inovasi Maju (2022 - 2024)\n"
+            "- Membangun scalable microservices.\n\n"
+            "PENDIDIKAN\n"
+            "S1 Teknik Informatika - Institut Teknologi Bandung\n\n"
+            "KEAHLIAN\n"
+            "Python, Go, Docker",
+        )
+
+        # Page 3: Ijazah scan
+        p3 = doc.new_page()
+        p3.insert_text(
+            (50, 72),
+            "UNIVERSITAS MUHAMMADIYAH BANDUNG\n"
+            "IJAZ.AE\n"
+            "l{omor ljazah Nasional: 04106it7020120241q)039\n"
+            "Rektor: Prof. Dr. Fulan",
+        )
+
+        pdf_bytes = doc.tobytes()
+        doc.close()
+
+        profile = extract_candidate_profile(pdf_bytes, "Farhan_Haqim_CV.pdf")
+
+        # Identity resolved from CV or fallback from cover letter
+        assert profile["identity"]["email"] == "farhan.candidate@example.com"
+        assert profile["identity"]["phone"] == "081299887766"
+
+        # Attachment isolated: page 3
+        assert len(profile["portfolio_attachments"]) == 1
+        assert profile["portfolio_attachments"][0]["page_number"] == 3
+        assert profile["portfolio_attachments"][0]["type"] == "ATTACHMENT_ACADEMIC"
+
+        # Experience extracted from CV core
+        assert len(profile["experiences"]) >= 1
+        assert "Senior Backend Developer" in profile["experiences"][0]["title"]
+        assert "PT Inovasi Maju" in profile["experiences"][0]["organization"]
+
+    def test_real_farhanul_tajira_pdf_attachment_isolation(self):
+        """End-to-end verification against actual candidate PDF if present in cache."""
+        from pathlib import Path
+
+        pdf_path = Path("/home/alifihsan/.hermes/cache/documents/doc_b50633002039_2416_Muhammad Farhanul Haqim_CV_Tajira.pdf")
+        if not pdf_path.exists():
+            pytest.skip("Cached candidate PDF not present")
+
+        content = pdf_path.read_bytes()
+        profile = extract_candidate_profile(content, "2416_Muhammad Farhanul Haqim_CV_Tajira.pdf")
+
+        assert profile["identity"]["full_name"] == "Muhammad Farhanul Haqim"
+        assert profile["identity"]["email"] == "doofarhan@gmail.com"
+        assert profile["identity"]["phone"] == "087722311868"
+
+        # All 4 auxiliary pages isolated (pages 3, 4, 5, 6)
+        assert len(profile["portfolio_attachments"]) == 4
+        page_numbers = [att["page_number"] for att in profile["portfolio_attachments"]]
+        assert page_numbers == [3, 4, 5, 6]
+
+        assert profile["portfolio_attachments"][0]["type"] == "ATTACHMENT_ACADEMIC"
+        assert profile["portfolio_attachments"][1]["type"] == "ATTACHMENT_ACADEMIC"
+        assert profile["portfolio_attachments"][3]["type"] == "ATTACHMENT_ADMIN"
+
+        # Education degree_raw extracted from CV core (Page 2) and not from cover letter (Page 1)
+        assert len(profile["education"]) >= 1
+        assert "Universitas Muhammadiyah Bandung" in profile["education"][0]["institution"]
+        assert "Alamat" not in profile["education"][0]["degree_raw"]

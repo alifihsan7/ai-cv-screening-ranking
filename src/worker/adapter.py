@@ -28,6 +28,9 @@ from src.worker.anchor import resolve_candidate_name_consensus
 from src.worker.boundary import isolate_document_boundaries
 from src.worker.docling_parser import parse_with_docling
 
+EMAIL_PATTERN = re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+")
+PHONE_PATTERN = re.compile(r"(?:\+62|62|08)[0-9\s\-]{8,15}")
+
 MONTHS_MAP = {
     "jan": "01",
     "januari": "01",
@@ -751,6 +754,7 @@ def sanitize_extracted_name(name: str | None, full_text: str, filename: str) -> 
 
 def extract_candidate_profile(content: bytes, filename: str) -> dict[str, Any]:
     portfolio_attachments: list[dict[str, Any]] = []
+    boundary: Any = None
     if filename.lower().endswith(".pdf"):
         content = strip_hidden_pdf_spans(content)
         # Smart Document Boundary Isolator (Decision 2: Opsi A - isolate attachments)
@@ -935,6 +939,18 @@ def extract_candidate_profile(content: bytes, filename: str) -> dict[str, Any]:
     if contact.get("linkedin"):
         links.append(contact["linkedin"])
 
+    # Fallback to cover letter for contact details if not found in CV core
+    if boundary and getattr(boundary, "cover_letter_text", None):
+        cl_text = boundary.cover_letter_text
+        if not emails:
+            m_cl_emails = EMAIL_PATTERN.findall(cl_text)
+            if m_cl_emails:
+                emails.extend([e.strip() for e in m_cl_emails if e.strip()])
+        if not phones:
+            m_cl_phones = PHONE_PATTERN.findall(cl_text)
+            if m_cl_phones:
+                phones.extend([p.strip() for p in m_cl_phones if p.strip()])
+
     # Look for demographic lines in full text
     other_personal = {}
     m_gender = re.search(r"jenis\s+kelamin\s*:\s*([^\n]+)", full_text, re.IGNORECASE)
@@ -950,10 +966,14 @@ def extract_candidate_profile(content: bytes, filename: str) -> dict[str, Any]:
     if m_mar:
         other_personal["marital_status"] = m_mar.group(1).strip()
 
+    cand_name = resolve_candidate_name_consensus(
+        raw.get("name"), full_text, filename, email=emails[0] if emails else None
+    )
+    if not cand_name and boundary and getattr(boundary, "cover_letter_text", None):
+        cand_name = sanitize_extracted_name(None, boundary.cover_letter_text, filename)
+
     identity = {
-        "full_name": resolve_candidate_name_consensus(
-            raw.get("name"), full_text, filename, email=emails[0] if emails else None
-        ),
+        "full_name": cand_name,
         "email": emails[0] if emails else None,
         "phone": phones[0] if phones else None,
         "location_raw": contact.get("location"),
