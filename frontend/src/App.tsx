@@ -91,7 +91,6 @@ export default function App() {
     isJobLoadingRef.current = isJobLoading
   }, [isJobLoading])
   const loadedJobIdRef = useRef<string | null>(null)
-  const hasInitializedRef = useRef<boolean>(false)
 
   // Pure initial state helper — purges any legacy mock data from browser localStorage
   const getCleanCachedValue = (key: string, dummyValues: string[] = []): string => {
@@ -1684,27 +1683,31 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isInspectorOpen, isUploadModalOpen])
 
-  // Lifecycle init — non-blocking single execution on mount
+  // Lifecycle init — robust execution compatible with React 19 StrictMode
   useEffect(() => {
-    if (hasInitializedRef.current) return
-    hasInitializedRef.current = true
-
-    let isMounted = true
+    let isCancelled = false
     const init = async () => {
-      const existingToken = localStorage.getItem('cv_screening_token')
-      if (existingToken) {
-        // Gunakan token yang sudah ada secara langsung tanpa re-login paralel
-        await fetchJobsList(existingToken)
-      } else {
-        const freshToken = await loginRecruiter()
-        if (isMounted) {
-          await fetchJobsList(freshToken || undefined)
+      try {
+        const existingToken = localStorage.getItem('cv_screening_token')
+        if (existingToken) {
+          await fetchJobsList(existingToken)
+        } else {
+          const freshToken = await loginRecruiter()
+          if (!isCancelled) {
+            await fetchJobsList(freshToken || undefined)
+          }
+        }
+      } catch (err) {
+        console.warn('Init error:', err)
+      } finally {
+        if (!isCancelled) {
+          setIsJobLoading(false)
         }
       }
     }
     init()
     return () => {
-      isMounted = false
+      isCancelled = true
       stopPollingJobCvs()
     }
   }, [fetchJobsList, loginRecruiter, stopPollingJobCvs])

@@ -1,6 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 import process from 'node:process';
 
+const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000';
+
 export default defineConfig({
   testDir: './e2e',
   timeout: 30000,
@@ -10,7 +12,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'list',
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000',
+    baseURL,
     trace: 'on-first-retry',
     launchOptions: {
       args: ['--no-sandbox', '--disable-dev-shm-usage'],
@@ -24,7 +26,7 @@ export default defineConfig({
   ],
   webServer: {
     command: 'npm run dev',
-    url: 'http://127.0.0.1:3000',
+    url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 60000,
   },
