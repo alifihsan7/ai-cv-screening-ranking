@@ -99,6 +99,43 @@ RANGE_REGEX = re.compile(
     re.IGNORECASE,
 )
 
+
+def clean_ocr_noise(text: str) -> str:
+    """Sanitizes light OCR noise and Tesseract artifacts from scanned documents."""
+    if not text:
+        return ""
+
+    lines = text.splitlines()
+    cleaned_lines = []
+
+    for raw_line in lines:
+        line = raw_line.strip()
+        if not line:
+            continue
+
+        # Discard lines that only contain punctuation, symbols, or whitespace
+        if not any(c.isalnum() for c in line):
+            continue
+
+        # Strip garbage runs of 3+ consecutive punctuation/noise characters
+        line = re.sub(r"[\\/:\-~?_|=]{3,}", " ", line)
+
+        # Remove typical Tesseract stamp/border artifacts (e.g. €@t, ffi'@-ff.&, *lplllllll)
+        line = re.sub(r"(?:€@\S*|ffi['@\-]+ff\S*|\\?\*+lpl+\w*)", "", line, flags=re.IGNORECASE)
+
+        # Abnormal repetitions of narrow characters or pipe/digit glitches
+        line = re.sub(r"[lI|!1]{5,}", "", line)
+
+        # Normalize multiple spaces
+        line = re.sub(r"[ \t]+", " ", line).strip()
+
+        # Only retain lines with at least 2 alphanumeric characters
+        if sum(1 for c in line if c.isalnum()) >= 2:
+            cleaned_lines.append(line)
+
+    return "\n".join(cleaned_lines).strip()
+
+
 class _FallbackExtractorResult:
     def __init__(self, data: dict[str, Any]):
         self._data = data
@@ -124,12 +161,13 @@ class _FallbackExtractorService:
                     p_txt = page.get_text()
                     if len(p_txt.strip()) < 30 and len(page.get_images()) > 0:
                         try:
-                            tp = page.get_textpage_ocr(language="eng+ind", dpi=150)
-                            ocr_txt = page.get_text(textpage=tp)
+                            tp = page.get_textpage_ocr(language="eng+ind", dpi=300)
+                            ocr_txt = clean_ocr_noise(page.get_text(textpage=tp))
                             if len(ocr_txt.strip()) > len(p_txt.strip()):
                                 p_txt = ocr_txt
                         except Exception:
                             pass
+                    p_txt = clean_ocr_noise(p_txt) if p_txt else p_txt
                     pages_text.append(p_txt)
                 pdf_doc.close()
                 full_text = "\n".join(pages_text)
@@ -726,12 +764,13 @@ def extract_candidate_profile(content: bytes, filename: str) -> dict[str, Any]:
                 p_text = page.get_text()
                 if len(p_text.strip()) < 30 and len(page.get_images()) > 0:
                     try:
-                        tp = page.get_textpage_ocr(language="eng+ind", dpi=150)
-                        ocr_txt = page.get_text(textpage=tp)
+                        tp = page.get_textpage_ocr(language="eng+ind", dpi=300)
+                        ocr_txt = clean_ocr_noise(page.get_text(textpage=tp))
                         if len(ocr_txt.strip()) > len(p_text.strip()):
                             p_text = ocr_txt
                     except Exception:
                         pass
+                p_text = clean_ocr_noise(p_text) if p_text else p_text
                 pages_data.append({"text": p_text, "image_count": len(page.get_images())})
             boundary = isolate_document_boundaries(pages_data)
             portfolio_attachments = boundary.attachments
