@@ -245,3 +245,163 @@ async def test_upload_cv_enqueues_without_dual_dispatch(client: httpx.AsyncClien
         queue_row = await cur.fetchone()
         assert queue_row is not None
         assert queue_row["status"] == "PENDING"
+
+
+@pytest.mark.asyncio
+async def test_clear_job_cvs_cleans_pending_jobs_queue_and_handles_reupload(
+    client: httpx.AsyncClient, recruiter_token: str
+):
+    """Verify clear_job_cvs cleans up jobs_queue before deleting documents,
+
+    and handles re-upload without leaving orphaned tasks.
+    """
+    headers = {"Authorization": f"Bearer {recruiter_token}"}
+    j_res = await client.post(
+        "/api/v1/jobs",
+        json={"title": "Queue Cleanup Job", "jd_text": "Backend Engineer JD"},
+        headers=headers,
+    )
+    assert j_res.status_code == 201
+    job_id = j_res.json()["id"]
+
+    pdf_content = b"%PDF-1.4 minimal test PDF content for queue cleanup"
+    files = [("files", ("test_reupload_doc.pdf", pdf_content, "application/pdf"))]
+
+    # 1. Upload CV - it enters RECEIVED state and PENDING task in jobs_queue
+    up_res = await client.post(f"/api/v1/jobs/{job_id}/cvs", files=files, headers=headers)
+    assert up_res.status_code == 202
+    res_data = up_res.json()
+    doc_id = uuid.UUID(res_data["files"][0]["id"])
+
+    async with get_connection() as conn, conn.cursor() as cur:
+        # Verify document exists and queue task is PENDING
+        await cur.execute("SELECT status FROM documents WHERE id = %s", (doc_id,))
+        assert (await cur.fetchone())["status"] == "RECEIVED"
+
+        await cur.execute(
+            "SELECT id, status FROM jobs_queue WHERE type = 'ingest_cv' AND payload->>'document_id' = %s",
+            (str(doc_id),),
+        )
+        q_row = await cur.fetchone()
+        assert q_row is not None
+        assert q_row["status"] == "PENDING"
+
+    # 2. Clear job CVs while task is still pending in jobs_queue
+    del_res = await client.delete(f"/api/v1/jobs/{job_id}/cvs", headers=headers)
+    assert del_res.status_code == 200
+
+    async with get_connection() as conn, conn.cursor() as cur:
+        # Verify document is removed
+        await cur.execute("SELECT COUNT(*) as count FROM documents WHERE job_id = %s", (job_id,))
+        assert (await cur.fetchone())["count"] == 0
+
+        # Verify jobs_queue entry is completely removed (no orphaned tasks)
+        await cur.execute(
+            "SELECT COUNT(*) as count FROM jobs_queue WHERE payload->>'document_id' = %s",
+            (str(doc_id),),
+        )
+        assert (await cur.fetchone())["count"] == 0
+
+    # 3. Re-upload the exact same CV - must not be rejected or treated as duplicate of deleted doc
+    re_up_res = await client.post(f"/api/v1/jobs/{job_id}/cvs", files=files, headers=headers)
+    assert re_up_res.status_code == 202
+    re_data = re_up_res.json()
+    new_doc_id = uuid.UUID(re_data["files"][0]["id"])
+    assert new_doc_id != doc_id
+    assert re_data["files"][0]["status"] == "RECEIVED"
+
+    async with get_connection() as conn, conn.cursor() as cur:
+        # Only the new task must exist in jobs_queue
+        await cur.execute(
+            "SELECT id, status FROM jobs_queue WHERE type = 'ingest_cv' AND payload->>'document_id' = %s",
+            (str(new_doc_id),),
+        )
+        new_q_row = await cur.fetchone()
+        assert new_q_row is not None
+        assert new_q_row["status"] == "PENDING"
+
+        # Previous task must still be absent
+        await cur.execute(
+            "SELECT COUNT(*) as count FROM jobs_queue WHERE payload->>'document_id' = %s",
+            (str(doc_id),),
+        )
+        assert (await cur.fetchone())["count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_clear_job_cvs_cleans_queued_screening_runs(
+    client: httpx.AsyncClient, recruiter_token: str
+):
+    """Verify clear_job_cvs removes screening_run tasks from jobs_queue and handles self-referential runs."""
+    headers = {"Authorization": f"Bearer {recruiter_token}"}
+    j_res = await client.post(
+        "/api/v1/jobs",
+        json={"title": "Screening Queue Cleanup Job", "jd_text": "Backend Engineer JD"},
+        headers=headers,
+    )
+    assert j_res.status_code == 201
+    job_id = j_res.json()["id"]
+
+    run_id = uuid.uuid4()
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute("SELECT tenant_id FROM jobs WHERE id = %s", (job_id,))
+        tenant_id = (await cur.fetchone())["tenant_id"]
+
+        # Insert dummy requirement set
+        req_set_id = uuid.uuid4()
+        await cur.execute(
+            """
+            INSERT INTO requirement_sets (id, tenant_id, job_id, version, status, category_weights)
+            VALUES (%s, %s, %s, 1, 'APPROVED', '{}'::jsonb)
+            """,
+            (req_set_id, tenant_id, job_id),
+        )
+
+        # Insert dummy screening_run in QUEUED status
+        await cur.execute(
+            """
+            INSERT INTO screening_runs (
+                id, tenant_id, job_id, requirement_set_id, as_of, status, versions, params, progress
+            )
+            VALUES (%s, %s, %s, %s, '2026-10-01', 'QUEUED', '{"scoring": "1.0"}'::jsonb, '{}'::jsonb, '{"done": 0, "total": 0}'::jsonb)
+            """,
+            (run_id, tenant_id, job_id, req_set_id),
+        )
+
+        # Insert a child rerun referencing parent_run_id
+        child_run_id = uuid.uuid4()
+        await cur.execute(
+            """
+            INSERT INTO screening_runs (
+                id, tenant_id, job_id, requirement_set_id, as_of, status, versions, params, progress, parent_run_id
+            )
+            VALUES (%s, %s, %s, %s, '2026-10-01', 'QUEUED', '{"scoring": "1.0"}'::jsonb, '{}'::jsonb, '{"done": 0, "total": 0}'::jsonb, %s)
+            """,
+            (child_run_id, tenant_id, job_id, req_set_id, run_id),
+        )
+
+        # Enqueue tasks into jobs_queue
+        await cur.execute(
+            """
+            INSERT INTO jobs_queue (type, payload, status)
+            VALUES ('screening_run', %s, 'PENDING'), ('screening_run', %s, 'PENDING')
+            """,
+            (json.dumps({"run_id": str(run_id)}), json.dumps({"run_id": str(child_run_id)})),
+        )
+        await conn.commit()
+
+    # Clear job CVs
+    del_res = await client.delete(f"/api/v1/jobs/{job_id}/cvs", headers=headers)
+    assert del_res.status_code == 200
+
+    async with get_connection() as conn, conn.cursor() as cur:
+        # Verify screening run tasks are deleted from jobs_queue
+        await cur.execute(
+            "SELECT COUNT(*) as count FROM jobs_queue WHERE payload->>'run_id' IN (%s, %s)",
+            (str(run_id), str(child_run_id)),
+        )
+        assert (await cur.fetchone())["count"] == 0
+
+        # Verify screening run records are deleted without FK violation
+        await cur.execute("SELECT COUNT(*) as count FROM screening_runs WHERE job_id = %s", (job_id,))
+        assert (await cur.fetchone())["count"] == 0

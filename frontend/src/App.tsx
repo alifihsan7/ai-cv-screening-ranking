@@ -59,10 +59,14 @@ export default function App() {
     return 'setup'
   }
 
+  const [isScreening, setIsScreening] = useState<boolean>(false)
   const [currentStep, setCurrentStepState] = useState<WorkflowStep>(getInitialStep)
 
   const setCurrentStep = useCallback((step: WorkflowStep) => {
     setCurrentStepState(step)
+    if (step !== 'workbench') {
+      setIsScreening(false)
+    }
     try {
       localStorage.setItem('cv_screening_step', step)
       if (window.location.hash !== `#${step}`) {
@@ -76,11 +80,20 @@ export default function App() {
       const hash = window.location.hash.replace(/^#/, '') as WorkflowStep
       if (['setup', 'criteria', 'upload', 'workbench'].includes(hash)) {
         setCurrentStepState(hash)
+        if (hash !== 'workbench') {
+          setIsScreening(false)
+        }
       }
     }
     window.addEventListener('hashchange', handleHashChange)
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
+
+  useEffect(() => {
+    if (currentStep !== 'workbench') {
+      setIsScreening(false)
+    }
+  }, [currentStep])
 
   const [blindMode, setBlindMode] = useState<boolean>(true)
   const [isUploadModalOpen, setIsUploadModalOpen] = useState<boolean>(false)
@@ -329,10 +342,10 @@ export default function App() {
 
   // Upload & Screening execution state
   const [isUploading, setIsUploading] = useState<boolean>(false)
-  const [isScreening, setIsScreening] = useState<boolean>(false)
   const [uploadStatusMsg, setUploadStatusMsg] = useState<string>('')
   const pollTimerRef = useRef<any>(null)
   const isPollingRef = useRef<boolean>(false)
+  const pollSessionIdRef = useRef<number>(0)
 
   // Uploaded files list
   const [uploadedFiles, setUploadedFiles] = useState<UploadedCvFile[]>([])
@@ -520,6 +533,7 @@ export default function App() {
   }, [syncJobTitleToBackend])
 
   const stopPollingJobCvs = useCallback(() => {
+    pollSessionIdRef.current += 1
     if (pollTimerRef.current) {
       clearInterval(pollTimerRef.current)
       pollTimerRef.current = null
@@ -528,7 +542,7 @@ export default function App() {
   }, [])
 
   const fetchJobCvsStatus = useCallback(
-    async (jId: string): Promise<boolean> => {
+    async (jId: string, expectedSession?: number): Promise<boolean> => {
       if (!jId) {
         setUploadedFiles([])
         return true
@@ -545,8 +559,14 @@ export default function App() {
             })
           }
         }
+        if (expectedSession !== undefined && pollSessionIdRef.current !== expectedSession) {
+          return false
+        }
         if (res.ok) {
           const data = await res.json()
+          if (expectedSession !== undefined && pollSessionIdRef.current !== expectedSession) {
+            return false
+          }
           const rawDocs = data.documents || data.files || []
           if (Array.isArray(rawDocs) && rawDocs.length > 0) {
             const mapped: UploadedCvFile[] = rawDocs.map((f: any) => {
@@ -579,7 +599,7 @@ export default function App() {
               return st !== 'RECEIVED' && st !== 'PROCESSING'
             })
           } else {
-            return true
+            return false
           }
         }
       } catch (e) {
@@ -594,13 +614,20 @@ export default function App() {
     (jId: string) => {
       if (!jId) return
       stopPollingJobCvs()
+      const currentSession = ++pollSessionIdRef.current
       isPollingRef.current = true
       let attempts = 0
       const maxAttempts = 150
 
       const tick = async () => {
+        if (!isPollingRef.current || pollSessionIdRef.current !== currentSession) {
+          return
+        }
         attempts++
-        const allDone = await fetchJobCvsStatus(jId)
+        const allDone = await fetchJobCvsStatus(jId, currentSession)
+        if (!isPollingRef.current || pollSessionIdRef.current !== currentSession) {
+          return
+        }
         if (allDone || attempts >= maxAttempts) {
           stopPollingJobCvs()
         }
@@ -1388,23 +1415,35 @@ export default function App() {
     setCandidates(MOCK_CANDIDATES)
     setSelectedCandidate(MOCK_CANDIDATES[0])
     setUploadedFiles([
-      { name: 'S1_senior_backend_id.pdf', size: '142 KB', status: 'ready' },
-      { name: 'S2_backend_fintech_en.pdf', size: '128 KB', status: 'ready' },
-      { name: 'S3_backend_mixed_lang.pdf', size: '156 KB', status: 'ready' },
-      { name: 'S4_lead_backend_two_column.pdf', size: '185 KB', status: 'ready' },
-      { name: 'S5_backend_healthtech_id.docx', size: '112 KB', status: 'ready' },
-      { name: 'M1_nodejs_backend_two_column.pdf', size: '139 KB', status: 'ready' },
-      { name: 'M2_data_analyst_id.pdf', size: '145 KB', status: 'ready' },
-      { name: 'M3_fresh_graduate_scan_id.pdf', size: '210 KB', status: 'ready' },
-      { name: 'M4_qa_automation_en.docx', size: '98 KB', status: 'ready' },
-      { name: 'M5_php_fullstack_two_column_id.pdf', size: '140 KB', status: 'ready' },
-      { name: 'I1_hr_generalist_id.pdf', size: '115 KB', status: 'ready' },
+      { name: 'S1_senior_backend_id.pdf', size: '142 KB', status: 'READY' },
+      { name: 'S2_backend_fintech_en.pdf', size: '128 KB', status: 'READY' },
+      { name: 'S3_backend_mixed_lang.pdf', size: '156 KB', status: 'READY' },
+      { name: 'S4_lead_backend_two_column.pdf', size: '185 KB', status: 'READY' },
+      { name: 'S5_backend_healthtech_id.docx', size: '112 KB', status: 'READY' },
+      { name: 'M1_nodejs_backend_two_column.pdf', size: '139 KB', status: 'READY' },
+      { name: 'M2_data_analyst_id.pdf', size: '145 KB', status: 'READY' },
+      { name: 'M3_fresh_graduate_scan_id.pdf', size: '210 KB', status: 'READY' },
+      { name: 'M4_qa_automation_en.docx', size: '98 KB', status: 'READY' },
+      { name: 'M5_php_fullstack_two_column_id.pdf', size: '140 KB', status: 'READY' },
+      { name: 'I1_hr_generalist_id.pdf', size: '115 KB', status: 'READY' },
     ])
     showToast('15 Golden Dataset Kandidat & ReAct Trajectory berhasil dimuat!', 'success')
   }
 
   const handleUploadCvs = async (files: FileList | File[]) => {
     if (!files || files.length === 0) return
+
+    stopPollingJobCvs()
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current)
+      pollTimerRef.current = null
+    }
+    isPollingRef.current = false
+    setIsScreening(false)
+    setCurrentRunId(null)
+    setCandidates([])
+    setSelectedCandidate(null)
+
     setIsUploading(true)
     setUploadStatusMsg(`Mengunggah ${files.length} berkas CV...`)
 
@@ -1570,7 +1609,16 @@ export default function App() {
   const handleUploadFiles = handleUploadCvs
 
   const handleStartScreening = async () => {
+    stopPollingJobCvs()
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current)
+      pollTimerRef.current = null
+    }
+    isPollingRef.current = false
+    setIsUploading(false)
+    setUploadStatusMsg('')
     setIsScreening(true)
+    setCurrentRunId(null)
     try {
       const jId = await ensureJobExists()
       try {
@@ -1605,7 +1653,7 @@ export default function App() {
       if (res.ok) {
         const data = await res.json()
         const runId = data.screening_run_id || data.run_id
-        setCurrentRunId(runId)
+        setCurrentRunId(runId || null)
         await fetchLatestLeaderboard(jId, 6)
         showToast('Screening CV berhasil diselesaikan.', 'success')
         setCurrentStep('workbench')
@@ -1637,12 +1685,33 @@ export default function App() {
   const handleClearUploadedCvs = useCallback(async () => {
     if (uploadedFiles.length === 0) return
     if (!window.confirm('Kosongkan semua berkas CV yang telah diunggah untuk lowongan ini?')) return
+
+    stopPollingJobCvs()
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current)
+      pollTimerRef.current = null
+    }
+    isPollingRef.current = false
+    setIsUploading(false)
+    setUploadStatusMsg('')
+    setIsScreening(false)
+    setCurrentRunId(null)
+
     if (currentJobId) {
       try {
-        const res = await fetch(`/api/v1/jobs/${currentJobId}/cvs`, {
+        let res = await fetch(`/api/v1/jobs/${currentJobId}/cvs`, {
           method: 'DELETE',
           headers: { ...getAuthHeaders() },
         })
+        if (res.status === 401) {
+          const freshToken = await loginRecruiter()
+          if (freshToken) {
+            res = await fetch(`/api/v1/jobs/${currentJobId}/cvs`, {
+              method: 'DELETE',
+              headers: { Authorization: `Bearer ${freshToken}` },
+            })
+          }
+        }
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}))
           showToast(`Gagal mengosongkan berkas di server: ${errData.detail || res.statusText}`, 'error')
@@ -1658,8 +1727,9 @@ export default function App() {
     setCandidates([])
     setSelectedCandidate(null)
     setCurrentRunId(null)
+    setIsScreening(false)
     showToast('Daftar berkas CV dan hasil evaluasi berhasil dikosongkan.', 'info')
-  }, [currentJobId, getAuthHeaders, showToast, uploadedFiles.length])
+  }, [currentJobId, getAuthHeaders, loginRecruiter, showToast, stopPollingJobCvs, uploadedFiles.length])
 
   const handleCompileFromJd = async () => {
     if (debounceTitleTimerRef.current) {
@@ -1849,17 +1919,26 @@ export default function App() {
     }
   }, [fetchJobsList, loginRecruiter, stopPollingJobCvs])
 
+  const readyCvCount = useMemo(() => {
+    return uploadedFiles.filter((f) => f.status?.toUpperCase() === 'READY').length
+  }, [uploadedFiles])
+
   const mappedUploadFiles = useMemo(() => {
-    return uploadedFiles.map((f, idx) => ({
-      id: `${f.name}-${idx}`,
-      name: f.name,
-      size: f.size,
-      status: (f.status === 'processing'
-        ? 'processing'
-        : f.status === 'ready'
-        ? 'ready'
-        : 'error') as 'ready' | 'processing' | 'error',
-    }))
+    return uploadedFiles.map((f, idx) => {
+      const st = (f.status || '').toUpperCase()
+      const mappedStatus: 'ready' | 'processing' | 'error' =
+        st === 'READY'
+          ? 'ready'
+          : st === 'PROCESSING' || st === 'RECEIVED'
+          ? 'processing'
+          : 'error'
+      return {
+        id: f.id || `${f.name}-${idx}`,
+        name: f.name,
+        size: f.size,
+        status: mappedStatus,
+      }
+    })
   }, [uploadedFiles])
 
   return (
@@ -1878,7 +1957,7 @@ export default function App() {
         onRenameJob={handleRenameJob}
         onDeleteJob={handleDeleteJob}
         onCreateNewJob={handleCreateJob}
-        readyCvCount={uploadedFiles.filter((f) => f.status === 'ready').length}
+        readyCvCount={readyCvCount}
         isLoading={isJobLoading}
       />
 
@@ -1891,7 +1970,7 @@ export default function App() {
           criteriaCount={requirements.length}
           criteriaApproved={criteriaApproved}
           uploadedCount={uploadedFiles.length}
-          readyCvCount={uploadedFiles.filter((f) => f.status === 'ready').length}
+          readyCvCount={readyCvCount}
           candidatesCount={candidates.length}
           showToast={showToast}
         />

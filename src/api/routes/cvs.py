@@ -203,6 +203,49 @@ async def clear_job_cvs(
     async with get_connection() as conn, conn.cursor() as cur:
         await get_job_for_tenant(cur, job_id, current_user.tenant_id)
 
+        # 0. Delete pending/running/queued tasks in jobs_queue associated with this job's documents
+        # or screening runs before deleting entities to avoid orphaned tasks and FK constraints.
+        await cur.execute(
+            """
+            SELECT attname 
+            FROM pg_attribute 
+            WHERE attrelid = 'jobs_queue'::regclass 
+              AND attname IN ('job_id', 'document_id') 
+              AND NOT attisdropped
+            """
+        )
+        queue_cols = {row["attname"] for row in await cur.fetchall()}
+
+        if "job_id" in queue_cols:
+            await cur.execute(
+                "DELETE FROM jobs_queue WHERE job_id = %s",
+                (job_id,),
+            )
+        if "document_id" in queue_cols:
+            await cur.execute(
+                """
+                DELETE FROM jobs_queue 
+                WHERE document_id IN (
+                    SELECT id FROM documents WHERE job_id = %s AND tenant_id = %s
+                )
+                """,
+                (job_id, current_user.tenant_id),
+            )
+
+        await cur.execute(
+            """
+            DELETE FROM jobs_queue
+            WHERE payload->>'document_id' IN (
+                SELECT id::text FROM documents WHERE job_id = %s AND tenant_id = %s
+            )
+            OR payload->>'run_id' IN (
+                SELECT id::text FROM screening_runs WHERE job_id = %s AND tenant_id = %s
+            )
+            OR payload->>'job_id' = %s
+            """,
+            (job_id, current_user.tenant_id, job_id, current_user.tenant_id, str(job_id)),
+        )
+
         # 1. Delete reviews associated with screening runs for this job
         await cur.execute(
             """
@@ -246,7 +289,14 @@ async def clear_job_cvs(
             (job_id, current_user.tenant_id, job_id, current_user.tenant_id),
         )
 
-        # 4. Delete screening runs for this job
+        # 4. Break self-referential parent_run_id and delete screening runs for this job
+        await cur.execute(
+            """
+            UPDATE screening_runs SET parent_run_id = NULL
+            WHERE job_id = %s AND tenant_id = %s
+            """,
+            (job_id, current_user.tenant_id),
+        )
         await cur.execute(
             """
             DELETE FROM screening_runs
@@ -281,8 +331,9 @@ async def clear_job_cvs(
             """
             UPDATE documents SET duplicate_of = NULL
             WHERE job_id = %s AND tenant_id = %s
+               OR duplicate_of IN (SELECT id FROM documents WHERE job_id = %s AND tenant_id = %s)
             """,
-            (job_id, current_user.tenant_id),
+            (job_id, current_user.tenant_id, job_id, current_user.tenant_id),
         )
         await cur.execute(
             """
