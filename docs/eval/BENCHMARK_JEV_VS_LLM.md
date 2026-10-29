@@ -1,5 +1,13 @@
 # BENCHMARK EMPIRIS & ANALISIS EPISTEMOLOGIS: JEV TYPESAFE VERIFIER VS. LLM GATEWAY VERIFIER
 
+> **⚠ DOKUMEN HISTORIS (USANG) — jangan dipakai sebagai acuan performa Jev.**
+> Angka di dokumen ini dibuat pada 23 Oktober 2026, sebelum integrasi TypeSafe Jev yang sebenarnya ada, dan
+> mengukur sistem lama berbasis aturan deterministik. Latensi 0,82 ms, biaya $0, dan akurasi 100% di bawah ini
+> tidak tercapai oleh Jev asli (panggilan API ~330 ms dan berbayar) dan tidak muncul pada pengukuran ulang.
+> Hasil terukur dengan Jev asli ada di [BENCHMARK_RESULTS_2026-10-29.md](BENCHMARK_RESULTS_2026-10-29.md).
+> Bagian teori dan arsitektur tetap berguna sebagai latar belakang, tetapi tabel metrik di bagian 4 dan
+> klaim ketahanan di bagian 5 tidak boleh dikutip.
+
 **Proyek:** AI-Assisted Agentic CV Screening Platform  
 **Fase:** Fase 4 — Type Safety Hardening, Adversarial Defense, & Verifier Benchmark  
 **Peneliti / Author:** Alif Ihsan (`49711087+alifihsan7@users.noreply.github.com`)  
