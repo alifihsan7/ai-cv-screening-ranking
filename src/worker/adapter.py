@@ -547,14 +547,81 @@ def _split_inline_boundary(raw_text: str) -> tuple[list[str], str]:
     return [s], ""
 
 
+_BULLET_START = ("•", "-", "*", "▪", "▫", "~", "·", "○", "◦", "►", "➢", "–")
+# "April , 2024" (a comma after the month) and "9 bulan" / "2 years 3 months" duration notes next to a date range
+_MONTH_COMMA_YEAR = re.compile(rf"\b({MONTHS_REGEX_STR})\s*,\s*(\d{{4}})\b", re.IGNORECASE)
+_DURATION_NOTE = re.compile(
+    r"[(\[]?\s*\d+\s*(?:tahun|years?|yrs?)(?:\s+\d+\s*(?:bulan|months?|mos?))?\s*[)\]]?"
+    r"|[(\[]\s*\d+\s*(?:bulan|months?|mos?)\s*[)\]]",
+    re.IGNORECASE,
+)
+_CONTACT_LINE = re.compile(r"@|linkedin\.com|github\.com|\+\d{2}[\d\s-]{6,}|\b0\d{2,3}[\s-]?\d{3,4}[\s-]?\d{3,5}\b", re.IGNORECASE)
+_MODE_WORDS = {"remote", "onsite", "on-site", "hybrid", "wfh", "wfo", "full-time", "part-time", "fulltime", "parttime"}
+
+
+def _is_bullet_line(line: str) -> bool:
+    s = line.lstrip()
+    return bool(s) and (s.startswith(_BULLET_START) or "\uf000" <= s[0] <= "\uf8ff")
+
+
+def _is_header_like(line: str) -> bool:
+    """A short line that can be a job title, a company, or both: not a bullet, a sentence, or a wrapped line."""
+    s = line.strip()
+    if not s or _is_bullet_line(s) or RANGE_REGEX.search(s) or len(s) > 90:
+        return False
+    words = s.split()
+    if len(words) > 10 or s[0].islower():
+        return False
+    return not (s.endswith(".") and len(words) > 4)
+
+
+def _is_place_line(line: str) -> bool:
+    """'Bandung, West Java, Indonesia' or 'Remote': a location written under a job header, never a bullet."""
+    s = line.strip()
+    if not s or _is_bullet_line(s) or s.endswith(".") or len(s.split()) > 7:
+        return False
+    if s.lower() in _MODE_WORDS:
+        return True
+    parts = [p.strip() for p in s.split(",")]
+    return len(parts) >= 2 and all(p and p[0].isupper() and len(p.split()) <= 3 for p in parts)
+
+
+def _drop_repeated_page_header(lines: list[str], full_doc_text: str) -> list[str]:
+    """Removes a contact block (name, headline, contact line) that a paginated CV repeats on every page."""
+    head = {ln.strip() for ln in full_doc_text.splitlines() if ln.strip()}
+    first = [ln.strip() for ln in full_doc_text.splitlines() if ln.strip()][:8]
+    head = set(first)
+    drop: set[int] = set()
+    for j, line in enumerate(lines):
+        if line.strip() in head and _CONTACT_LINE.search(line):
+            drop.add(j)
+            for k in (j - 1, j - 2):
+                if k >= 0 and lines[k].strip() in head and not RANGE_REGEX.search(lines[k]):
+                    drop.add(k)
+    return [line for j, line in enumerate(lines) if j not in drop]
+
+
 def _plain_line(lines: list[str], i: int) -> str:
     """Line `i` if it is a header candidate (not a bullet, not a date line), else empty."""
     if i >= len(lines):
         return ""
     line = lines[i].strip()
-    if not line or line.startswith(("•", "-", "*", "▪", "~")) or RANGE_REGEX.search(line):
+    if not line or _is_bullet_line(line) or RANGE_REGEX.search(line):
         return ""
     return line
+
+
+def has_job_like_date_ranges(text: str) -> bool:
+    """True when the text holds at least two date ranges that look like jobs, not like school years.
+
+    A job range names a month or ends in "present"; a school range is usually two years ("2019 - 2023").
+    """
+    job_like = 0
+    for m in RANGE_REGEX.finditer(text.replace("\xa0", " ")):
+        start, end = m.group(1), m.group(2)
+        if end.strip().lower() in PRESENT_SET or not (start.strip().isdigit() and end.strip().isdigit()):
+            job_like += 1
+    return job_like >= 2
 
 
 def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None = None) -> list[dict[str, Any]]:
@@ -564,7 +631,8 @@ def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None =
         if len(l_clean) < 60 and SECTION_BOUNDARY_REGEX.match(l_clean):
             break
         valid_lines.append(l)
-    lines = valid_lines
+    lines = [_DURATION_NOTE.sub("", _MONTH_COMMA_YEAR.sub(r"\1 \2", l.replace("\xa0", " "))).rstrip(" |") for l in valid_lines]
+    lines = _drop_repeated_page_header([l for l in lines if l.strip()], full_doc_text)
     if not lines:
         return []
 
@@ -617,8 +685,23 @@ def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None =
         used_lines: set[int] = {idx}
         post_bullets: list[str] = []
 
+        # Strategy 0: "Title, Company" (or "Title | Company", or just "Title") on the line before; the date line only
+        # carries a place or mode ("| Jakarta", "Jakarta | Onsite |") or the company ("PT. X - City | |").
+        same_line = (curr_head or slice_after).strip(")-:|•— \t")
+        prev_header = lines[idx - 1].strip() if idx > 0 and (i == 0 or date_lines[i - 1][0] < idx) else ""
+        if same_line and prev_header and _is_header_like(prev_header) and any(k in prev_header.lower() for k in ROLE_KEYWORDS):
+            same_has_role = any(k in same_line.lower() for k in ROLE_KEYWORDS)
+            same_has_company = any(re.search(rf"\b{re.escape(c)}\b", same_line.lower()) for c in COMPANY_KEYWORDS)
+            if not same_has_role and (same_has_company or len(same_line.replace("|", " ").split()) <= 4):
+                t0, o0 = _extract_title_org(prev_header)
+                if t0:
+                    title, org = t0, o0
+                    if not org and same_has_company:
+                        org = re.split(r"\s+[-–—]\s+|\s*\|\s*|,\s+", same_line)[0].strip()
+                    used_lines.add(idx - 1)
+
         # Strategy 1: Title from slice_before
-        if curr_head:
+        if not title and curr_head:
             t, o = _extract_title_org(curr_head)
             if t and (
                 any(k in t.lower() for k in ROLE_KEYWORDS)
@@ -643,9 +726,9 @@ def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None =
         # Strategy 2b: "date first" layout. The date sits alone on its line and the header follows it;
         # the line before is the previous entry's bullet (or nothing), so it cannot be this entry's header.
         if not title and not curr_head.strip() and not slice_after.strip(")-:|•— \t"):
-            prev_is_bullet = idx == 0 or lines[idx - 1].lstrip().startswith(("•", "-", "*", "▪", "~"))
+            prev_is_content = idx == 0 or not _is_header_like(lines[idx - 1])
             nxt = _plain_line(lines, idx + 1)
-            if prev_is_bullet and nxt:
+            if prev_is_content and nxt:
                 title = nxt
                 used_lines.add(idx + 1)
                 org_line = _plain_line(lines, idx + 2)
@@ -666,7 +749,8 @@ def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None =
                 used_lines.add(idx - 1)
             else:
                 cand_title = prev_line.strip()
-                cand_org = lines[idx - 2].strip().split(",")[0].strip() if idx > 1 else ""
+                org_line = lines[idx - 2].strip() if idx > 1 else ""
+                cand_org = org_line.split(",")[0].strip() if _is_header_like(org_line) else ""
                 if cand_org and any(k in cand_org.lower() for k in ROLE_KEYWORDS) and (
                     not any(k in cand_title.lower() for k in ROLE_KEYWORDS)
                     or any(c in cand_title.lower() for c in COMPANY_KEYWORDS)
@@ -676,6 +760,8 @@ def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None =
                 else:
                     title, org = cand_title, cand_org
                     used_lines.add(idx - 1)
+                    if cand_org:
+                        used_lines.add(idx - 2)
                 title = re.sub(
                     r"^(?:interned\s+as\s+a|worked\s+as\s+an|worked\s+as\s+a|sebagai)\s+", "", title, flags=re.I
                 ).strip()
@@ -800,6 +886,8 @@ def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None =
 
             for line_no in range(idx + 1, end_line):
                 if line_no in meta["used_lines"]:
+                    continue
+                if line_no == idx + 1 and not slice_after.strip(")-:|•— \t") and _is_place_line(lines[line_no]):
                     continue
                 raw_bullets.append(lines[line_no])
 
@@ -1216,8 +1304,9 @@ def extract_candidate_profile(content: bytes, filename: str) -> dict[str, Any]:
     # Parse sections
     experiences = parse_experiences(exp_text, full_text)
     quality_warnings = list(raw.get("meta", {}).get("warnings", []))
-    if not experiences and exp_text.strip():
-        # An experience section exists but yielded no entries: surface it instead of silently scoring 0 months
+    if not experiences and (exp_text.strip() or has_job_like_date_ranges(full_text)):
+        # Nothing was parsed although the CV has an experience section, or dates that look like jobs (a scrambled
+        # two-column read order, one word per line): surface it instead of silently scoring 0 months
         quality_warnings.append("EXPERIENCE_NOT_PARSED")
     education = parse_education(ed_text, full_text)
     certifications = parse_certifications(ce_text, ed_text)
