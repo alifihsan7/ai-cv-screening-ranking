@@ -8,6 +8,7 @@ import {
   FileText,
   ShieldCheck,
   HelpCircle,
+  Loader2,
 } from 'lucide-react'
 import type { CandidateDetail, Requirement } from '../types'
 import { CustomSelect, type SelectOption } from './CustomSelect'
@@ -56,6 +57,7 @@ export interface CandidateRosterProps {
   ) => void
   onRevealCandidate: (cv_id: string) => void
   onOpenInspector: (candidate?: CandidateDetail) => void
+  isRefreshing?: boolean
 }
 
 export const CandidateRoster: React.FC<CandidateRosterProps> = ({
@@ -68,6 +70,7 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
   onDecision,
   onRevealCandidate,
   onOpenInspector,
+  isRefreshing = false,
 }) => {
   const [searchQuery, setSearchQuery] = useState('')
   const [bandFilter, setBandFilter] = useState<'ALL' | 'A' | 'B' | 'C'>('ALL')
@@ -253,13 +256,32 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
             <span className="inline-flex items-center gap-1 text-[#124B2E] font-bold font-mono text-[10px] bg-[#EBF6EF] px-1.5 py-0.5 rounded border border-[#BBE5CD] shadow-tactile-sm">
               JEV_HYBRID
             </span>
+            {isRefreshing && candidates.length > 0 && (
+              <>
+                <span className="text-[#D5DFD9]">·</span>
+                <span className="inline-flex items-center gap-1.5 text-xs text-[#2D4439] font-medium animate-pulse">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[#1B4938]" />
+                  <span>Memperbarui data...</span>
+                </span>
+              </>
+            )}
           </div>
         </div>
       </header>
 
       {/* 2. Full-Width Table / Roster */}
       <div className="flex-1 overflow-y-auto overflow-x-auto min-h-0 pb-20">
-        {filteredCandidates.length === 0 ? (
+        {isRefreshing && candidates.length === 0 ? (
+          <div className="py-16 px-4 text-center space-y-3 text-[#2D4439]">
+            <Loader2 className="w-8 h-8 mx-auto animate-spin text-[#1B4938]" />
+            <h4 className="text-sm font-bold text-[#13221C]">
+              Memuat peringkat kandidat...
+            </h4>
+            <p className="text-xs text-[#2D4439] max-w-sm mx-auto leading-relaxed">
+              Mengambil hasil evaluasi dan peringkat terbaru dari server.
+            </p>
+          </div>
+        ) : filteredCandidates.length === 0 ? (
           <div className="py-16 px-4 text-center space-y-3 text-[#2D4439]">
             <HelpCircle className="w-10 h-10 mx-auto text-[#2D4439]/40" />
             <h4 className="text-sm font-bold text-[#13221C]">

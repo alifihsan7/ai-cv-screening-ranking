@@ -31,7 +31,7 @@ export interface UploadStepProps {
   onRefreshFile?: (file: UploadedCvFile) => void
   onRemoveFile?: (fileName: string) => void
   isRefreshing?: boolean
-  onStartScreening: () => void
+  onStartScreening?: () => void | Promise<void>
   onBack: () => void
   onNext: () => void
 }
@@ -150,10 +150,16 @@ export const UploadStep: React.FC<UploadStepProps> = ({
   }
 
   const handleLaunchScreening = async () => {
+    if (isScreening) return
     if (onStartScreening) {
-      await onStartScreening()
+      try {
+        await onStartScreening()
+      } catch (err) {
+        console.error('Screening failed to launch:', err)
+      }
+    } else {
+      onNext()
     }
-    onNext()
   }
 
   return (

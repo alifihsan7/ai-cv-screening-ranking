@@ -938,16 +938,20 @@ export default function App() {
                 })
               )
               setCandidates(mappedCandidates)
-              if (mappedCandidates.length > 0) {
-                setSelectedCandidate(mappedCandidates[0])
-              }
+              setSelectedCandidate((prev) => {
+                if (!prev) return mappedCandidates[0] || null
+                const existing = mappedCandidates.find(
+                  (c) => c.cv_id === prev.cv_id || c.file_name === prev.file_name
+                )
+                return existing || mappedCandidates[0] || null
+              })
               return
-            } else {
+            } else if (attempt === maxAttempts) {
               setCurrentRunId(null)
               setCandidates([])
               setSelectedCandidate(null)
             }
-          } else {
+          } else if (attempt === maxAttempts) {
             setCurrentRunId(null)
             setCandidates([])
             setSelectedCandidate(null)
@@ -1929,6 +1933,24 @@ export default function App() {
     }
   }, [fetchJobsList, loginRecruiter, stopPollingJobCvs])
 
+  // Reactive auto-sync for Workbench step:
+  // When entering the workbench (tab click, step transition, or URL hash) with an active job,
+  // automatically populate the latest rankings if not actively screening.
+  useEffect(() => {
+    let isCancelled = false
+    if (currentStep === 'workbench' && currentJobId && !isScreening) {
+      setIsRefreshing(true)
+      fetchLatestLeaderboard(currentJobId, 3).finally(() => {
+        if (!isCancelled) {
+          setIsRefreshing(false)
+        }
+      })
+    }
+    return () => {
+      isCancelled = true
+    }
+  }, [currentStep, currentJobId, isScreening, fetchLatestLeaderboard])
+
   const readyCvCount = useMemo(() => {
     return uploadedFiles.filter((f) => f.status?.toUpperCase() === 'READY').length
   }, [uploadedFiles])
@@ -1968,7 +1990,7 @@ export default function App() {
         onDeleteJob={handleDeleteJob}
         onCreateNewJob={handleCreateJob}
         readyCvCount={readyCvCount}
-        isLoading={isJobLoading}
+        isLoading={isJobLoading || isRefreshing}
       />
 
       {/* 2. Dedicated Workflow Sub-Header */}
@@ -2089,6 +2111,7 @@ export default function App() {
                 onDecision={handleDecision}
                 onRevealCandidate={handleRevealCandidate}
                 onOpenInspector={handleOpenInspector}
+                isRefreshing={isRefreshing}
               />
             </div>
 
