@@ -75,7 +75,19 @@ Kesimpulan di atas mengarah ke pencarian bukti, jadi jumlah potongan yang dikiri
 
 Tidak ada regresi pada golden. Perbaikan golden adalah M3.R10 (NOT_DEMONSTRATED menjadi PARTIAL, benar), kesalahan yang selama ini tidak terjangkau karena bukti kepemimpinan magang tidak masuk 3 teratas. Pada set parafrase, LEADERSHIP pulih penuh (15/15) dan ACHIEVEMENT naik ke 11/15. Jumlah panggilan hampir sama, jadi waktu tidak berubah; yang naik hanya token per panggilan.
 
-Tujuh kesalahan tersisa pada set parafrase: M2.R2 (Jev terlalu tinggi pada "API internal sederhana"), M2.R7 dan S4.R7 (EDUCATION, keputusan aturan), M3.R9 (aturan terlalu tinggi), serta M4.R9, S1.R9, S5.R9 (ACHIEVEMENT yang tetap dinilai NOT_DEMONSTRATED). Dugaan untuk yang terakhir: primitive Score untuk ACHIEVEMENT menilai "kedalaman keahlian", bukan "pencapaian terukur", sehingga tidak cocok; belum diuji. Nilai 8 hanyalah satu titik; optimum antara 5 dan 12 belum diukur.
+Tujuh kesalahan tersisa pada set parafrase: M2.R2 (Jev terlalu tinggi pada "API internal sederhana"), M2.R7 dan S4.R7 (EDUCATION, keputusan aturan), M3.R9 (aturan terlalu tinggi), serta M4.R9, S1.R9, S5.R9 (ACHIEVEMENT yang tetap dinilai NOT_DEMONSTRATED). Dugaan bahwa primitive Score yang salah untuk ACHIEVEMENT sudah diuji dan ditolak (bagian berikut). Nilai 8 hanyalah satu titik; optimum antara 5 dan 12 belum diukur.
+
+### Primitive untuk ACHIEVEMENT: dua varian ditolak
+
+Tiga kriteria ACHIEVEMENT tetap salah pada set parafrase. Dua varian pertanyaan diuji, masing-masing satu kali, dengan syarat penerimaan yang ditetapkan sebelum melihat hasil: selisih bersih minimal +2 pada 30 kriteria ACHIEVEMENT di kedua set, tidak negatif di salah satu set, dan akurasi total tidak turun. Pembandingnya adalah Score pada 8 potongan.
+
+| Varian | Golden | Set parafrase | ACHIEVEMENT bersih |
+|---|---|---|---|
+| Score (produksi) | 144/150 | 143/150 | pembanding |
+| Choice generik (STRONG/PARTIAL/NOT_DEMONSTRATED) | 144/150 | 142/150 | **−1** (1 diperbaiki, 2 lebih buruk) |
+| Pertanyaan sesuai definisi ACHIEVEMENT di spec (STRONG: angka hasil di pekerjaan dan domain sesuai; PARTIAL: di proyek/organisasi atau domain sebagian; NOT_DEMONSTRATED: tanpa angka atau domain berbeda) | 144/150 | 142/150 | **−1** (1 diperbaiki, 2 lebih buruk) |
+
+Kedua varian ditolak dan produksi tidak diubah. Telemetri menjelaskan sisa kesalahan: M4.R9 dan S5.R9 dijawab Jev dengan skor 0,01 dan confidence 1,00 ("tidak ada pencapaian di bidang backend"), padahal ada angka hasil di luar backend yang menurut label seharusnya PARTIAL; Jev membaca kriteria secara harfiah. S1.R9 mendapat skor 1,67 dengan confidence 0,58 sampai 0,59, tepat di bawah ambang 0,60. Kasus yang berbeda antar varian semuanya berada di confidence 0,61 sampai 0,64, di dekat ambang, sehingga selisih ±1 ini tidak dapat dibedakan dari variasi Jev. Opsi `--achievement-primitive choice` di `scripts/eval_agent_path.py` menyimpan percobaan pertama agar dapat diulang.
 
 ### Keterbatasan pembaruan ini
 

@@ -50,6 +50,20 @@ JEV_INPUT_USD_PER_TOKEN = 0.042 / 1_000_000.0
 RANK = {"NOT_DEMONSTRATED": 0, "UNKNOWN": 0, "PARTIAL": 1, "STRONG": 2}
 
 
+def override_achievement_primitive(primitive: str) -> None:
+    """Experiment switch: ask ACHIEVEMENT criteria with `primitive` instead of the production one."""
+    import src.domain.agent as flow
+
+    original = flow.resolve_jev_primitive_params
+
+    def patched(kind: Any, importance: str | None = None, concepts: list[str] | None = None) -> dict[str, Any]:
+        if str(getattr(kind, "value", kind)).upper() == "ACHIEVEMENT":
+            return {"primitive": primitive, "use_noul": False, "use_score": False}
+        return original(kind, importance, concepts)
+
+    flow.resolve_jev_primitive_params = patched  # type: ignore[assignment]
+
+
 def mock_jev_client() -> AsyncMock:
     """Stand-in client for plumbing checks only: STRONG / score 2.4 / BACKEND / valid work experience."""
 
@@ -198,7 +212,15 @@ async def main_async() -> int:
     ap.add_argument("--output-json", type=Path, required=True)
     ap.add_argument("--mock-jev", action="store_true", help="plumbing check with a stub client; NOT a measurement")
     ap.add_argument("--skip-ingest-validation", action="store_true", help="skip the ingest-time Jev experience validation")
+    ap.add_argument(
+        "--achievement-primitive",
+        choices=("production", "choice"),
+        default="production",
+        help="experiment: ask ACHIEVEMENT criteria with the generic choice instead of the production primitive",
+    )
     args = ap.parse_args()
+    if args.achievement_primitive == "choice":
+        override_achievement_primitive("choice")
 
     client = mock_jev_client() if args.mock_jev else None
     if client is None and not load_typesafe_config().is_configured:
@@ -288,6 +310,7 @@ async def main_async() -> int:
 
     report = {
         "measurement": not args.mock_jev,
+        "achievement_primitive": args.achievement_primitive,
         "as_of": args.as_of,
         "candidates": len(corpus),
         "rules_baseline": {"accuracy": accuracy(rule_states, expected, kinds), "ranking": ranking_metrics(rule_states, req_set, grades, ref)},
