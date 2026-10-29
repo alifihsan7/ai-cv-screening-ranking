@@ -22,7 +22,6 @@ import httpx
 import pytest
 from typesafe_sdk import (
     AsyncTypeSafeClient,
-    Choice,
     ChoiceAnswer,
     SystemOneResponse,
     TypeSafeAPIConnectionError,
@@ -46,8 +45,8 @@ from src.domain.verifier import (
     TypeSafeUnconfiguredError,
     build_role_family_state,
     classify_role_family_jev,
-    evaluate_choice,
     normalize_role_family_choice,
+    resolve_jev_primitive_params,
 )
 from src.infrastructure.database import get_connection
 
@@ -89,6 +88,31 @@ def test_normalize_role_family_choice_standard_labels():
     assert normalize_role_family_choice("IOS_DEVELOPER") == "MOBILE"
     assert normalize_role_family_choice("HR_MANAGER") == "NON_TECHNICAL"
     assert normalize_role_family_choice("UNKNOWN_ROLE") == "NON_TECHNICAL"
+
+
+def test_normalize_role_family_choice_matches_whole_tokens_only():
+    """Substring look-alikes must not be read as a technical family (e.g. 'AI' inside 'RETAIL')."""
+    for label in ("RETAIL", "MAINTAINER", "AIRFLOW_ADMIN", "DATABASE_CLERK", "SALESFORCE"):
+        assert normalize_role_family_choice(label) == "NON_TECHNICAL", label
+
+    assert normalize_role_family_choice("FULL_STACK") == "FULLSTACK"
+    assert normalize_role_family_choice("full-stack developer") == "FULLSTACK"
+    assert normalize_role_family_choice("AI_ENGINEER") == "DATA_AI"
+    assert normalize_role_family_choice("BACKEND_ENGINEER") == "BACKEND"
+
+
+def test_resolve_jev_primitive_params_binary_tools_match_whole_words():
+    def prim(*concepts: str) -> str:
+        return resolve_jev_primitive_params("SKILL", importance="MUST_HAVE", concepts=list(concepts))["primitive"]
+
+    assert prim("git") == "noul"
+    assert prim("docker-compose") == "noul"
+    assert prim("github actions") == "noul"
+    assert prim("cert:aws") == "noul"
+    # look-alikes are proficiency skills, not binary tools
+    assert prim("digital marketing") == "score"
+    assert prim("legit") == "score"
+    assert prim("python") == "score"
 
 
 # -----------------------------------------------------------------------------
@@ -148,25 +172,6 @@ async def test_classify_role_family_jev_backend_success():
         assert row["input_tokens"] == 55
         assert row["output_tokens"] == 2
         assert row["grounding_valid"] is True
-
-
-@pytest.mark.asyncio
-async def test_evaluate_choice_method_dispatch_native_method():
-    mock_client = AsyncMock(spec=AsyncTypeSafeClient)
-    expected_choice = ChoiceAnswer(
-        type="choice",
-        choice="DEVOPS_SRE",
-        confidence=0.94,
-        probabilities={"DEVOPS_SRE": 0.94, "BACKEND": 0.06},
-    )
-    mock_client.evaluate_choice.return_value = expected_choice
-
-    q = Choice(instructions="Test choice", criteria={"A": "desc A"})
-    state = {"text": "Kubernetes cluster administrator"}
-
-    ans = await evaluate_choice(mock_client, state=state, question=q)
-    assert ans.choice == "DEVOPS_SRE"
-    assert ans.confidence == 0.94
 
 
 # -----------------------------------------------------------------------------

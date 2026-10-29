@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-import os
 import re
 import time
 import unicodedata
@@ -31,12 +30,13 @@ from typesafe_sdk import (
     TypeSafeError,
 )
 
-from src.domain.models import ContextSectionType, CriterionKind, EvaluationStatus, QuoteSpan, split_quote_spans
+from src.domain.models import ContextSectionType, CriterionKind, EvaluationStatus, split_quote_spans
 from src.domain.retrieval import extract_granular_evidence_quote
 from src.infrastructure.config import settings
 from src.infrastructure.database import get_connection
 from src.infrastructure.gateway import gateway
 from src.infrastructure.logging import logger
+from src.infrastructure.typesafe import load_typesafe_config
 
 VALID_STATES = {"STRONG", "PARTIAL", "NOT_DEMONSTRATED"}
 VERIFIER_PROMPT_VERSION = "v1"
@@ -164,98 +164,32 @@ def build_role_family_state(title: str, bullets: list[Any] | str = "") -> dict[s
     }
 
 
+_ROLE_FAMILY_TOKENS: tuple[tuple[str, frozenset[str]], ...] = (
+    ("BACKEND", frozenset({"BACKEND"})),
+    ("FRONTEND", frozenset({"FRONTEND"})),
+    ("FULLSTACK", frozenset({"FULLSTACK"})),
+    ("DEVOPS_SRE", frozenset({"DEVOPS", "SRE", "INFRA", "INFRASTRUCTURE"})),
+    ("DATA_AI", frozenset({"DATA", "AI", "ML", "ANALYTICS", "LEARNING", "MACHINE"})),
+    ("MOBILE", frozenset({"MOBILE", "IOS", "ANDROID", "FLUTTER"})),
+)
+
+
 def normalize_role_family_choice(raw_choice: str) -> str:
-    """Normalizes raw Jev CHOICE output to one of STANDARD_ROLE_FAMILIES."""
+    """Normalizes raw Jev CHOICE output to one of STANDARD_ROLE_FAMILIES by whole tokens.
+
+    Whole-token matching keeps e.g. "RETAIL" or "MAINTAINER" from being read as "AI".
+    """
     cleaned = raw_choice.strip().upper()
     if cleaned in STANDARD_ROLE_FAMILIES:
         return cleaned
 
-    if "BACKEND" in cleaned:
-        return "BACKEND"
-    if "FRONTEND" in cleaned:
-        return "FRONTEND"
-    if "FULLSTACK" in cleaned or "FULL_STACK" in cleaned:
+    tokens = {t for t in re.split(r"[^A-Z0-9]+", cleaned) if t}
+    if {"FULL", "STACK"} <= tokens:
         return "FULLSTACK"
-    if any(k in cleaned for k in ("DEVOPS", "SRE", "INFRA")):
-        return "DEVOPS_SRE"
-    if any(k in cleaned for k in ("DATA", "AI", "ML", "ANALYTICS", "LEARNING", "MACHINE")):
-        return "DATA_AI"
-    if any(k in cleaned for k in ("MOBILE", "IOS", "ANDROID", "FLUTTER")):
-        return "MOBILE"
+    for family, family_tokens in _ROLE_FAMILY_TOKENS:
+        if tokens & family_tokens:
+            return family
     return "NON_TECHNICAL"
-
-
-async def evaluate_choice(
-    client: AsyncTypeSafeClient,
-    state: Any = None,
-    question: Choice | None = None,
-    *,
-    model: str | None = None,
-    timeout: float | None = None,
-    **kwargs: Any,
-) -> ChoiceAnswer:
-    """Evaluates a Choice question using TypeSafe System One API."""
-    from unittest.mock import AsyncMock
-
-    if isinstance(client, AsyncMock) and hasattr(client, "evaluate_choice"):
-        mock_eval: Any = client.evaluate_choice
-        if (
-            mock_eval._mock_return_value is not type(mock_eval)._mock_return_value
-            or mock_eval.side_effect is not None
-        ):
-            mock_res = await mock_eval(state=state, question=question, model=model, timeout=timeout, **kwargs)
-            if isinstance(mock_res, ChoiceAnswer):
-                return mock_res
-
-    actual_state: Any = state
-    actual_question: Choice | None = question
-    if isinstance(state, Choice) and question is None:
-        actual_question = state
-        actual_state = kwargs.get("state")
-    elif question is None and "question" in kwargs:
-        actual_question = kwargs["question"]
-
-    if actual_question is None:
-        raise ValueError("A Choice question must be provided to evaluate_choice.")
-
-    response = await client.system_one(
-        state=actual_state,
-        questions={"role_family": actual_question},
-        model=model,
-        timeout=timeout,
-    )
-    ans = response.choices.get("role_family") or response.answers.get("role_family")
-    if ans is None and response.choices:
-        ans = next(iter(response.choices.values()), None)
-    if ans is None and response.answers:
-        ans = next(iter(response.answers.values()), None)
-    if ans is None:
-        raise ValueError("Missing role_family choice answer from TypeSafe System One")
-    if not isinstance(ans, ChoiceAnswer):
-        raise TypeError(f"Expected ChoiceAnswer, got {type(ans).__name__}")
-    return ans
-
-
-if not hasattr(AsyncTypeSafeClient, "evaluate_choice"):
-    async def _client_evaluate_choice(
-        self: AsyncTypeSafeClient,
-        state: Any = None,
-        question: Choice | None = None,
-        *,
-        model: str | None = None,
-        timeout: float | None = None,
-        **kwargs: Any,
-    ) -> ChoiceAnswer:
-        return await evaluate_choice(
-            self,
-            state=state,
-            question=question,
-            model=model,
-            timeout=timeout,
-            **kwargs,
-        )
-
-    AsyncTypeSafeClient.evaluate_choice = _client_evaluate_choice  # type: ignore[attr-defined]
 
 
 async def classify_role_family_jev(
@@ -277,32 +211,13 @@ async def classify_role_family_jev(
     3. Contextual Grounding: Incorporates job title and responsibilities/achievements bullets.
     4. Full Telemetry Audit: Persists call metrics to `jev_calls`.
     """
-    resolved_key: str | None = None
-    if client is not None:
-        pass
-    else:
-        env_key = os.environ.get("TYPESAFE_API_KEY")
-        raw_key = env_key if env_key is not None else getattr(settings, "TYPESAFE_API_KEY", "") or ""
-        resolved_key = str(raw_key).strip() or None
-        if not resolved_key:
-            raise TypeSafeUnconfiguredError(
-                "TypeSafe Jev System One credentials (TYPESAFE_API_KEY) are not configured. "
-                "Local emulation is disabled by sovereign architecture doctrine. "
-                "Provide a valid API key from https://console.typesafe.ai to execute role family classification."
-            )
-
-    model_to_use = (
-        model
-        or os.environ.get("TYPESAFE_MODEL")
-        or getattr(settings, "TYPESAFE_MODEL", "jev-latest")
-        or "jev-latest"
-    )
-    timeout_to_use = timeout if timeout is not None else getattr(settings, "TYPESAFE_TIMEOUT", 10.0)
-    base_url = (
-        os.environ.get("TYPESAFE_BASE_URL")
-        or getattr(settings, "TYPESAFE_BASE_URL", None)
-        or None
-    )
+    cfg = load_typesafe_config(model=model, timeout=timeout)
+    if client is None and not cfg.is_configured:
+        raise TypeSafeUnconfiguredError(
+            "TypeSafe Jev System One credentials (TYPESAFE_API_KEY) are not configured. "
+            "Local emulation is disabled by sovereign architecture doctrine. "
+            "Provide a valid API key from https://console.typesafe.ai to execute role family classification."
+        )
 
     state = build_role_family_state(title, bullets)
     choice_q = Choice(
@@ -311,84 +226,27 @@ async def classify_role_family_jev(
     )
 
     start_t = time.perf_counter()
-    input_tokens = 0
-    output_tokens = 0
-    model_used = model_to_use
-
     try:
         if client is not None:
-            use_eval_choice = False
-            eval_fn: Any = getattr(client, "evaluate_choice", None)
-            if callable(eval_fn):
-                from unittest.mock import AsyncMock
-
-                if isinstance(client, AsyncMock):
-                    eval_mock_val = getattr(eval_fn, "_mock_return_value", None)
-                    eval_type_val = getattr(type(eval_fn), "_mock_return_value", None)
-                    if (
-                        eval_mock_val is not eval_type_val
-                        or getattr(eval_fn, "side_effect", None) is not None
-                    ):
-                        use_eval_choice = True
-                else:
-                    use_eval_choice = True
-
-            if use_eval_choice and callable(eval_fn):
-                res = await eval_fn(
-                    state=state,
-                    question=choice_q,
-                    model=model_to_use,
-                    timeout=timeout_to_use,
-                )
-            else:
-                res = await client.system_one(
-                    state=state,
-                    questions={"role_family": choice_q},
-                    model=model_to_use,
-                    timeout=timeout_to_use,
-                )
+            res = await client.system_one(
+                state=state,
+                questions={"role_family": choice_q},
+                model=cfg.model,
+                timeout=cfg.timeout,
+            )
         else:
             async with AsyncTypeSafeClient(
-                api_key=resolved_key,
-                base_url=base_url,
-                model=model_to_use,
-                timeout=timeout_to_use,
+                api_key=cfg.api_key,
+                base_url=cfg.base_url,
+                model=cfg.model,
+                timeout=cfg.timeout,
             ) as session_client:
-                session_eval_fn: Any = getattr(session_client, "evaluate_choice", None)
-                if callable(session_eval_fn):
-                    res = await session_eval_fn(
-                        state=state,
-                        question=choice_q,
-                        model=model_to_use,
-                        timeout=timeout_to_use,
-                    )
-                else:
-                    res = await session_client.system_one(
-                        state=state,
-                        questions={"role_family": choice_q},
-                        model=model_to_use,
-                        timeout=timeout_to_use,
-                    )
-
-        if isinstance(res, ChoiceAnswer):
-            choice_ans = res
-        elif isinstance(res, SystemOneResponse):
-            model_used = res.model or model_to_use
-            if res.usage:
-                input_tokens = int(res.usage.input_tokens or 0)
-                output_tokens = int(res.usage.output_tokens or 0)
-            choice_ans = res.choices.get("role_family") or res.answers.get("role_family")
-            if choice_ans is None and res.choices:
-                choice_ans = next(iter(res.choices.values()), None)
-            if choice_ans is None and res.answers:
-                choice_ans = next(iter(res.answers.values()), None)
-            if choice_ans is None:
-                raise ValueError("Missing role_family choice answer from System One response")
-        elif hasattr(res, "choice"):
-            choice_ans = res
-        else:
-            raise TypeError(f"Unexpected response type from Jev CHOICE: {type(res).__name__}")
-
+                res = await session_client.system_one(
+                    state=state,
+                    questions={"role_family": choice_q},
+                    model=cfg.model,
+                    timeout=cfg.timeout,
+                )
     except (TypeSafeAPIConnectionError, TypeSafeAPITimeoutError):
         raise
     except (httpx.ConnectError, httpx.TimeoutException, TimeoutError) as net_err:
@@ -403,9 +261,19 @@ async def classify_role_family_jev(
 
     latency_ms = (time.perf_counter() - start_t) * 1000.0
 
-    raw_choice = str(getattr(choice_ans, "choice", "NON_TECHNICAL")).upper().strip()
-    confidence = float(getattr(choice_ans, "confidence", 1.0))
+    choice_ans = res.choices.get("role_family")
+    if choice_ans is None:
+        raise ValueError("Missing role_family choice answer from System One response")
+
+    raw_choice = choice_ans.choice.upper().strip()
+    confidence = float(choice_ans.confidence)
     normalized_choice = normalize_role_family_choice(raw_choice)
+    if raw_choice not in STANDARD_ROLE_FAMILIES:
+        logger.warning(f"Jev returned non-standard role family '{raw_choice}', normalized to {normalized_choice}")
+
+    input_tokens = int(res.usage.input_tokens or 0) if res.usage else 0
+    output_tokens = int(res.usage.output_tokens or 0) if res.usage else 0
+    model_used = res.model or cfg.model
 
     await record_jev_call(
         criterion_id=criterion_id,
@@ -533,6 +401,9 @@ def apply_context_elevation_guard(
     return current_status, []
 
 
+_BINARY_SKILL_WORDS = frozenset({"docker", "git", "github", "gitlab", "linux", "jira", "degree"})
+
+
 def resolve_jev_primitive_params(
     kind: str | CriterionKind,
     importance: str | None = None,
@@ -554,10 +425,9 @@ def resolve_jev_primitive_params(
     elif kind_str == "ACHIEVEMENT":
         return {"primitive": "score", "use_noul": False, "use_score": True}
     elif kind_str == "SKILL":
-        concept_list = [str(c).lower() for c in (concepts or [])]
         is_binary = any(
-            any(k in c for k in ("docker", "git", "linux", "jira", "cert:", "degree"))
-            for c in concept_list
+            c.startswith("cert:") or bool(set(re.findall(r"[a-z0-9+#]+", c)) & _BINARY_SKILL_WORDS)
+            for c in (str(c).lower() for c in (concepts or []))
         )
         if is_binary or (importance and str(importance).upper() == "NICE_TO_HAVE"):
             return {"primitive": "noul", "use_noul": True, "use_score": False}
@@ -682,25 +552,11 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
         timeout: float | None = None,
         client: AsyncTypeSafeClient | None = None,
     ) -> None:
-        self.endpoint_url = (
-            endpoint_url or os.environ.get("TYPESAFE_BASE_URL") or getattr(settings, "TYPESAFE_BASE_URL", None) or None
-        )
-
-        resolved_key: str | None = None
-        if api_key is not None:
-            resolved_key = api_key.strip() or None
-        else:
-            raw_key = os.environ.get("TYPESAFE_API_KEY") or getattr(settings, "TYPESAFE_API_KEY", "") or ""
-            resolved_key = str(raw_key).strip() or None
-
-        self.api_key = resolved_key
-        self.model = (
-            model
-            or os.environ.get("TYPESAFE_MODEL")
-            or getattr(settings, "TYPESAFE_MODEL", "jev-latest")
-            or "jev-latest"
-        )
-        self.timeout = timeout if timeout is not None else getattr(settings, "TYPESAFE_TIMEOUT", 10.0)
+        cfg = load_typesafe_config(api_key=api_key, base_url=endpoint_url, model=model, timeout=timeout)
+        self.endpoint_url = cfg.base_url
+        self.api_key = cfg.api_key
+        self.model = cfg.model
+        self.timeout = cfg.timeout
         self._client = client
 
     @property
@@ -715,39 +571,6 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
     ) -> tuple[str | None, float]:
         """Deterministically extracts candidate verbatim quote and keyword density from candidate chunks."""
         return extract_verbatim_quote(criterion_description, candidate_chunks)
-
-    def _calibrate_pointwise(
-        self,
-        criterion_description: str,
-        candidate_chunks: list[str],
-        kind: CriterionKind | str = CriterionKind.SKILL,
-        context_type: ContextSectionType = ContextSectionType.UNKNOWN,
-        use_noul: bool = False,
-    ) -> tuple[EvaluationStatus, float, str | None]:
-        """Calculates closed discrete probability distribution and selects verbatim quote (Local Emulation)."""
-        best_quote, best_score = self._extract_verbatim_quote(criterion_description, candidate_chunks)
-
-        if not candidate_chunks or best_quote is None:
-            return EvaluationStatus.NOT_DEMONSTRATED, 0.92, None
-
-        if use_noul:
-            if best_score >= 0.50:
-                return EvaluationStatus.STRONG, 0.90, best_quote
-            elif best_score > 0.0:
-                return EvaluationStatus.PARTIAL, 0.65, best_quote
-            else:
-                return EvaluationStatus.NOT_DEMONSTRATED, 0.95, None
-
-        # Closed discrete multi-choice calibration:
-        # P = [p_STRONG, p_PARTIAL, p_NOT_DEMONSTRATED]
-        if best_score >= 0.70:
-            return EvaluationStatus.STRONG, 0.88, best_quote
-        elif best_score >= 0.30:
-            return EvaluationStatus.PARTIAL, 0.80, best_quote
-        elif best_score > 0.0:
-            return EvaluationStatus.PARTIAL, 0.60, best_quote
-        else:
-            return EvaluationStatus.NOT_DEMONSTRATED, 0.92, None
 
     @staticmethod
     def _build_question(criterion_description: str, chunk_key: str, primitive: str) -> Question:

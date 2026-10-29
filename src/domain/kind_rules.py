@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
 import re
 import uuid
 from datetime import date
@@ -21,6 +20,7 @@ from src.domain.verifier import (
     record_jev_call,
 )
 from src.infrastructure.config import settings
+from src.infrastructure.typesafe import load_typesafe_config
 
 
 def get_concept_aliases() -> dict[str, list[str]]:
@@ -222,15 +222,13 @@ async def eval_experience_duration_async(
                 conf = res.confidence
             return exp_item, rf, conf
 
-        env_key = os.environ.get("TYPESAFE_API_KEY")
-        raw_key = env_key if env_key is not None else (getattr(settings, "TYPESAFE_API_KEY", "") or "")
-        resolved_key = str(raw_key).strip()
-        if client is None and resolved_key:
+        cfg = load_typesafe_config()
+        if client is None and cfg.is_configured:
             async with AsyncTypeSafeClient(
-                api_key=resolved_key,
-                base_url=os.environ.get("TYPESAFE_BASE_URL") or getattr(settings, "TYPESAFE_BASE_URL", None) or None,
-                model=os.environ.get("TYPESAFE_MODEL") or getattr(settings, "TYPESAFE_MODEL", "jev-latest"),
-                timeout=getattr(settings, "TYPESAFE_TIMEOUT", 10.0),
+                api_key=cfg.api_key,
+                base_url=cfg.base_url,
+                model=cfg.model,
+                timeout=cfg.timeout,
             ) as session_client:
                 classified_experiences = await asyncio.gather(
                     *[_classify(e, session_client) for e in experiences]
@@ -446,7 +444,7 @@ def eval_experience_duration(
     """
     effective_use_jev = (
         True
-        if (use_jev is True or (use_jev is None and (client is not None or bool(os.environ.get("TYPESAFE_API_KEY") or getattr(settings, "TYPESAFE_API_KEY", "")))))
+        if (use_jev is True or (use_jev is None and (client is not None or load_typesafe_config().is_configured)))
         else (False if use_jev is False else True)
     )
 

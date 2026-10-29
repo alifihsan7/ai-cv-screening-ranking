@@ -29,7 +29,6 @@ Architecture Invariants:
 
 from __future__ import annotations
 
-import os
 import re
 import time
 import uuid
@@ -50,6 +49,7 @@ from typesafe_sdk import (
 
 from src.domain.verifier import TypeSafeUnconfiguredError, record_jev_call
 from src.infrastructure.config import settings
+from src.infrastructure.typesafe import load_typesafe_config
 
 JEV_NOT_WORK_EXPERIENCE = "JEV_NOT_WORK_EXPERIENCE"
 
@@ -264,17 +264,14 @@ def _resolve_client(
     """Returns None when the caller supplied a client; otherwise builds one or fails fast."""
     if client is not None:
         return None
-    env_key = os.environ.get("TYPESAFE_API_KEY")
-    raw_key = env_key if env_key is not None else (getattr(settings, "TYPESAFE_API_KEY", "") or "")
-    resolved_key = str(raw_key).strip() or None
-    if not resolved_key:
+    cfg = load_typesafe_config(model=model, timeout=timeout)
+    if not cfg.is_configured:
         raise TypeSafeUnconfiguredError(
             "TypeSafe Jev System One credentials (TYPESAFE_API_KEY) are not configured. "
             "Local emulation is disabled by sovereign architecture doctrine. "
             "Provide a valid API key from https://console.typesafe.ai to execute work experience validation."
         )
-    base_url = os.environ.get("TYPESAFE_BASE_URL") or getattr(settings, "TYPESAFE_BASE_URL", None) or None
-    return AsyncTypeSafeClient(api_key=resolved_key, base_url=base_url, model=model, timeout=timeout)
+    return AsyncTypeSafeClient(api_key=cfg.api_key, base_url=cfg.base_url, model=cfg.model, timeout=cfg.timeout)
 
 
 def _date_value(raw: Any) -> str:
@@ -308,8 +305,8 @@ async def validate_work_experiences_jev(
     (1 - validity >= VERIFIER_MIN_CONFIDENCE) gains the `JEV_NOT_WORK_EXPERIENCE` flag; uncertain
     answers leave the entry untouched. Entries are never dropped.
     """
-    model_to_use = str(model or settings.TYPESAFE_MODEL)
-    timeout_to_use = float(timeout or settings.TYPESAFE_TIMEOUT)
+    cfg = load_typesafe_config(model=model, timeout=timeout)
+    model_to_use, timeout_to_use = cfg.model, cfg.timeout
     owned_client = _resolve_client(client, model_to_use, timeout_to_use)
 
     if not experiences:

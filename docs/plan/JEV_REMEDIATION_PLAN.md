@@ -9,7 +9,7 @@ Dokumen ini berisi langkah perbaikan integrasi Jev di pipeline CV screening, ber
 | 3 | Hubungkan kutipan dengan keputusan Jev | Sedang | Selesai |
 | 4 | Cache hasil Jev | Kecil | Belum (dikerjakan terakhir) |
 | 5 | Ambang batas confidence | Kecil | Selesai |
-| 6 | Bersih-bersih kode | Kecil | Belum |
+| 6 | Bersih-bersih kode | Kecil | Selesai |
 | 7 | Pengukuran (Jev vs LLM) | Sedang | Belum |
 
 Urutan pengerjaan: 1 → 5 → 2 → 3 → 6 → 7 → 4. Cache dikerjakan paling akhir supaya yang dibekukan adalah jawaban dari pipeline yang sudah diperbaiki dan diukur.
@@ -151,13 +151,16 @@ Akibatnya, kutipan yang ditampilkan ke recruiter belum tentu menjadi dasar keput
 
 ## Tahap 6 — Bersih-bersih kode
 
-- Hapus pengecekan `unittest.mock.AsyncMock` dari kode produksi ([verifier.py:198](../../src/domain/verifier.py#L198), [verifier.py:323](../../src/domain/verifier.py#L323)). Test cukup me-mock `system_one`.
-- Hapus monkeypatch `AsyncTypeSafeClient.evaluate_choice` ([verifier.py:239-258](../../src/domain/verifier.py#L239-L258)).
-- Hapus `_calibrate_pointwise` yang tidak terpakai ([verifier.py:719](../../src/domain/verifier.py#L719)).
-- Perbaiki pencocokan substring:
-  - `normalize_role_family_choice`: `"AI"` cocok dengan "RETAIL". Ganti dengan pencocokan per token. Jika label tidak dikenal, beri flag, jangan langsung jadi `NON_TECHNICAL`.
-  - `resolve_jev_primitive_params`: `"git"` cocok dengan "digital". Ganti dengan pencocokan kata utuh.
-- Satukan pembacaan `TYPESAFE_API_KEY` / `BASE_URL` / `MODEL`, yang sekarang diduplikasi di 5 tempat, ke satu helper.
+**Yang dikerjakan** (hampir semuanya di [verifier.py](../../src/domain/verifier.py), yang menyusut dari 1450 ke 1273 baris):
+- Pengecekan `unittest.mock.AsyncMock` dihapus dari kode produksi. Kode produksi tidak lagi mengenal mock sama sekali.
+- `evaluate_choice` dan monkeypatch `AsyncTypeSafeClient.evaluate_choice` pada class SDK dihapus. `classify_role_family_jev` sekarang memanggil `client.system_one(...)` langsung dan membaca `res.choices["role_family"]`. Test `test_evaluate_choice_method_dispatch_native_method` dihapus karena menguji fitur yang sudah tidak ada.
+- `_calibrate_pointwise` (kode mati berlabel "Local Emulation") dihapus.
+- Pencocokan label dan konsep sekarang per kata utuh:
+  - `normalize_role_family_choice`: "RETAIL", "MAINTAINER", dan "AIRFLOW_ADMIN" tidak lagi terbaca sebagai `DATA_AI`. Label yang tidak dikenal tetap menjadi `NON_TECHNICAL`, tetapi sekarang dicatat sebagai peringatan di log. **Berbeda dari rencana awal:** tidak ada flag di hasil, karena Jev dibatasi pada 7 label standar lewat `criteria` sehingga jalur ini praktis tidak tercapai.
+  - `resolve_jev_primitive_params`: "digital" tidak lagi terbaca sebagai `git`. "github" dan "gitlab" ditambahkan secara eksplisit ke daftar alat biner supaya tetap diperlakukan sebagai alat.
+- Pembacaan `TYPESAFE_API_KEY` / `BASE_URL` / `MODEL` / `TIMEOUT` yang tadinya diduplikasi di 5 tempat dipusatkan di [typesafe.py](../../src/infrastructure/typesafe.py) (`load_typesafe_config`). Urutan prioritasnya satu: argumen > variabel lingkungan > `settings`. Kunci kosong di lingkungan dianggap sengaja "tidak dikonfigurasi", yang dipakai pengaman test di Tahap 3.
+
+**Test.** Test baru untuk kecocokan per kata (label dan konsep) dan untuk helper konfigurasi ([test_typesafe_config.py](../../tests/test_typesafe_config.py)). Seluruh suite: 307 passed, 3 skipped.
 
 ---
 
