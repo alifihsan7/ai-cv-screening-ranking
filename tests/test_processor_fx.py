@@ -151,3 +151,71 @@ async def test_processor_deduplicates_candidate_by_email():
         cand_ids = [r["candidate_id"] for r in await cur.fetchall()]
         assert len(cand_ids) == 2
         assert cand_ids[0] == cand_ids[1]
+
+
+@pytest.mark.asyncio
+async def test_processor_keeps_identity_and_cv_text_out_of_plain_json_columns():
+    test_tenant = uuid.uuid4()
+    job_id = uuid.uuid4()
+    doc_id = uuid.uuid4()
+
+    vault_dir = Path(settings.STORAGE_VAULT_PATH) / str(test_tenant)
+    vault_dir.mkdir(parents=True, exist_ok=True)
+    key = f"test_pii_{doc_id}.pdf"
+    (vault_dir / key).write_bytes(b"%PDF-1.4 content")
+
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            "INSERT INTO jobs (id, tenant_id, title, jd_text) VALUES (%s, %s, 'Job PII', 'JD')",
+            (job_id, test_tenant),
+        )
+        await cur.execute(
+            """
+            INSERT INTO documents (id, tenant_id, job_id, original_filename, size_bytes, sha256, storage_key, status)
+            VALUES (%s, %s, %s, 'pii.pdf', 10, 'sha_pii', %s, 'RECEIVED')
+            """,
+            (doc_id, test_tenant, job_id, key),
+        )
+        await conn.commit()
+
+    mock_profile = {
+        "identity": {
+            "full_name": "Brenda Hartono",
+            "email": "brenda.hartono@piitest.com",
+            "phone": "+628123450000",
+            "other_personal": {},
+        },
+        "headline": "Python Dev",
+        "summary": "Engineer",
+        "cv_core_text": "Brenda Hartono brenda.hartono@piitest.com +628123450000",
+        "experiences": [],
+        "education": [],
+        "skills": ["python"],
+    }
+    san = SanitizeResult(
+        is_valid=True,
+        status="READY",
+        extracted_text="Brenda Hartono Python engineer",
+        sha256="abc",
+        file_type="pdf",
+        hidden_text_findings=[
+            {"finding_type": "LOW_CONTRAST_WHITE", "page_number": 1, "bbox": None, "sample_text": "brenda.hartono@piitest.com"}
+        ],
+    )
+    with (
+        patch("src.worker.processor.sanitize_file", return_value=san),
+        patch("src.worker.processor.extract_candidate_profile", return_value=mock_profile),
+        patch("src.worker.processor.embed_texts", return_value=[[0.1] * 640]),
+    ):
+        assert (await process_document(doc_id))["status"] == "READY"
+
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            "SELECT profile::text AS p, matching_profile::text AS m, quality::text AS q "
+            "FROM candidate_profiles WHERE document_id = %s",
+            (doc_id,),
+        )
+        row = await cur.fetchone()
+    for column in (row["p"], row["m"], row["q"]):
+        for secret in ("Brenda", "Hartono", "piitest.com", "628123450000"):
+            assert secret not in column
