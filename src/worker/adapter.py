@@ -188,7 +188,10 @@ class _FallbackExtractorService:
             full_text = content.decode("utf-8", errors="ignore")
 
         # Contact extraction
-        emails = re.findall(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", full_text)
+        emails = [
+            re.sub(r"\s+", "", e)
+            for e in re.findall(r"\b[A-Za-z0-9._%+-]+@[ \t]*[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", full_text)
+        ]
         phones = re.findall(r"(?:\+?62|08)[0-9\s-]{8,15}", full_text)
         urls = re.findall(r"(?:https?://[^\s]+|linkedin\.com/in/[a-zA-Z0-9_-]+)", full_text)
 

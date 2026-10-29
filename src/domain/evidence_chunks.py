@@ -31,6 +31,20 @@ def _key(text: str) -> str:
     return normalize_text_nfkc(text).lower()
 
 
+_CONTACT_MARKER = re.compile(r"\[(?:EMAIL|TELEPON|TAUTAN)\]")
+MIN_CHUNK_CHARS_AFTER_HEADER = 20
+
+
+def without_contact_header(sentence: str) -> str:
+    """Drops everything up to the last redacted contact marker of a block.
+
+    A raw sentence that holds a redaction marker is the CV header (name, headline, contact line). It carries no
+    evidence, and whatever identity detection missed would travel with it to the external verifier.
+    """
+    markers = list(_CONTACT_MARKER.finditer(sentence))
+    return sentence[markers[-1].end():].lstrip(" \t\r\n·|,;:-–—") if markers else sentence
+
+
 def _skill_names(profile: dict[str, Any]) -> set[str]:
     names = (s.get("name", "") if isinstance(s, dict) else str(s) for s in profile.get("skills", []))
     return {n.strip().lower() for n in names if n and n.strip()}
@@ -89,6 +103,9 @@ def build_candidate_chunks(
 
     skills = _skill_names(profile)
     for sentence in split_sentences(raw_cv_text or ""):
+        sentence = without_contact_header(sentence)
+        if len(sentence.strip()) < MIN_CHUNK_CHARS_AFTER_HEADER and _CONTACT_MARKER.search(sentence):
+            continue
         if _is_skill_line(sentence, skills):
             add(sentence, ContextSectionType.SKILL_LIST, "SKILLS")
         else:

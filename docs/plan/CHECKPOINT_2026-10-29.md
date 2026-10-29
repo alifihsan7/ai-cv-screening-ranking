@@ -2,6 +2,17 @@
 
 Ringkasan keadaan pekerjaan di branch `fix/jev-remediation` supaya bisa dilanjutkan dari titik ini tanpa riwayat percakapan. Rencana awalnya ada di [JEV_REMEDIATION_PLAN.md](JEV_REMEDIATION_PLAN.md), dan angka lengkapnya di [BENCHMARK_RESULTS_2026-10-29.md](../eval/BENCHMARK_RESULTS_2026-10-29.md).
 
+## 0. Pembaruan sesudah versi pertama dokumen ini
+
+Bagian di bawah ini ditulis sebelum langkah-langkah berikut; bila ada yang bertentangan, bagian 0 ini yang berlaku.
+
+- **Hold-out kedua** dibangun dan diukur sebagai baseline (`ccb101d`): aturan murni 109/120, alur lengkap dengan Jev **116/120**. Lihat dokumen hasil. Pengaman "harus ada angka" untuk Jev (masalah terbuka nomor 1 di bawah) **dinilai berdampak kecil**: dari enam positif palsu ACHIEVEMENT dan LEADERSHIP di dua hold-out, ia hanya menangkap dua; penyebab dominan adalah domain yang salah (data, gudang, pemasaran, penjualan).
+- **Nama dari nama file** diperbaiki (`e8ed52f`): nama file hanya boleh melengkapi nama dokumen bila ada kata yang sama.
+- **Kebocoran nama kandidat** ditemukan dan diperbaiki dua lapis (belum di-commit saat catatan ini ditulis): sebelumnya 15 dari 54 CV membawa nama asli di teks "tersensor" dan 62 dari 63 verifikasi untuk CV itu akan mengirimnya ke Jev. Kini 0 dari 54 dan 0 dari 378. Akurasi netral. Penyebabnya: kotak "FOTO" di PDF dua kolom terbaca sebagai nama, serta email dan URL yang terpecah OCR pada PDF scan. Pengaman: sensor token email di seluruh teks, nama dicari lewat jangkar email, dan header dipotong dari bukti.
+- **Koreksi atas klaim lama:** jaminan Tahap 1 ("hanya teks tersensor sampai ke Jev") tidak berlaku untuk dua kolom dan scan sampai perbaikan di atas; test sensor lama hanya memeriksa email dan telepon.
+- **Nama file deskriptif** (`K09_platform_head_…`) pada set uji ternyata ikut memengaruhi deteksi nama; set uji kini diberi catatan itu.
+- **Daftar pilihan berikutnya yang diperbarui:** (1) fitur spec yang belum ada: mahasiswa aktif maksimal PARTIAL (K08.R7) dan kedaluwarsa sertifikat (H10.R8); (2) ekstraksi: header sebaris "Judul di Perusahaan, Kota (tanggal)" (K10) menghasilkan judul = kota, dan tata letak "tanggal dulu" dengan dua pekerjaan atau lebih (H02); (3) kesadaran domain untuk Jev pada ACHIEVEMENT dan LEADERSHIP (empat positif palsu lintas set), idealnya dengan hold-out ketiga yang memuat jebakan domain; (4) Tahap 4, cache hasil Jev.
+
 ## 1. Status
 
 - **Branch:** `fix/jev-remediation`, 21 commit di atas `main` (`639df75`). **Belum di-push dan belum menjadi PR.**

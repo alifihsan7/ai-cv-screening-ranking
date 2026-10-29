@@ -6,6 +6,7 @@ import re
 from typing import Any
 
 from src.domain.pii import DEMOGRAPHIC_LINE_REGEX, EMAIL_REGEX, PHONE_REGEX
+from src.worker.anchor import extract_email_name_tokens
 
 DEMOGRAPHIC_PATTERNS = [
     re.compile(r"jenis\s+kelamin\s*:\s*[^\n]+", re.IGNORECASE),
@@ -49,6 +50,24 @@ NON_NAME_WORDS = {
 }
 
 
+# Words that show up in email local parts without being a person's name
+GENERIC_EMAIL_WORDS = {
+    "info", "admin", "contact", "kontak", "career", "careers", "karir", "hello", "hallo", "mail", "email", "support",
+    "sales", "office", "recruit", "recruiter", "recruitment", "hrd", "work", "kerja", "cv", "resume", "lamaran",
+}
+
+
+def email_name_tokens(emails: list[str] | None) -> list[str]:
+    """Name-like tokens from email local parts ("kevin.halim@x" -> kevin, halim)."""
+    tokens: list[str] = []
+    for email in emails or []:
+        for tok in extract_email_name_tokens(email):
+            low = tok.lower()
+            if low.isalpha() and low not in NON_NAME_WORDS and low not in GENERIC_EMAIL_WORDS and low not in tokens:
+                tokens.append(low)
+    return tokens
+
+
 def redact_text(
     text: str,
     name: str = "",
@@ -84,11 +103,13 @@ def redact_text(
                 result = re.sub(re.escape(clean_ph), "[TELEPON]", result)
     result = PHONE_REGEX.sub("[TELEPON]", result)
 
-    # Redact specific name tokens if provided (filtering out common role words)
-    if name:
-        tokens = [t.strip() for t in name.split() if len(t.strip()) > 2 and t.lower() not in NON_NAME_WORDS]
-        for t in sorted(tokens, key=len, reverse=True):
-            result = re.sub(rf"\b{re.escape(t)}\b", "[NAMA]", result, flags=re.IGNORECASE)
+    # Redact specific name tokens if provided (filtering out common role words). Tokens spelled in the candidate's
+    # own email count as name tokens too: they keep working when the detected name is wrong (a "FOTO" box, a job title).
+    tokens = [t.strip() for t in (name or "").split() if len(t.strip()) > 2 and t.lower() not in NON_NAME_WORDS]
+    known = {t.lower() for t in tokens}
+    tokens += [t for t in email_name_tokens(emails) if t not in known]
+    for t in sorted(tokens, key=len, reverse=True):
+        result = re.sub(rf"\b{re.escape(t)}\b", "[NAMA]", result, flags=re.IGNORECASE)
 
     # Clean redundant whitespace
     result = re.sub(r"\n\s*\n\s*\n+", "\n\n", result).strip()
