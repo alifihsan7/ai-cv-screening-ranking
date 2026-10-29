@@ -18,7 +18,7 @@ RULE_EVIDENCE_BOOST = 1.0
 RAW_SENTENCE_PENALTY = -0.05
 MIN_SKILLS_ON_A_SKILL_LINE = 3
 
-_RULE_CONTEXT_SECTIONS: dict[str, ContextSectionType] = {
+RULE_CONTEXT_SECTIONS: dict[str, ContextSectionType] = {
     "experience": ContextSectionType.WORK_EXPERIENCE,
     "project": ContextSectionType.PROJECT,
     "organization": ContextSectionType.PROJECT,
@@ -71,7 +71,7 @@ def build_candidate_chunks(
         chunks.append({"text": text, "kind": kind, "context_type": section.value, "boost": boost})
 
     for ev in rule_evidence or []:
-        section = _RULE_CONTEXT_SECTIONS.get(str(ev.get("context", "")).lower(), ContextSectionType.UNKNOWN)
+        section = RULE_CONTEXT_SECTIONS.get(str(ev.get("context", "")).lower(), ContextSectionType.UNKNOWN)
         add(str(ev.get("quote", "")), section, "RULE_EVIDENCE", RULE_EVIDENCE_BOOST)
 
     for exp in profile.get("experiences", []):
