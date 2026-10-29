@@ -449,6 +449,8 @@ class VerifierDecision(BaseModel):
     flags: list[str] = Field(default_factory=list)
     reason: str = ""
     provider_name: str = "base"
+    input_tokens: int = 0
+    output_tokens: int = 0
 
 
 def extract_verbatim_quote(
@@ -881,6 +883,8 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
                     flags=["GROUNDING_FAIL", g_reason],
                     reason=f"Grounding invariant violation: {g_reason}",
                     provider_name=self.provider_name,
+                    input_tokens=telemetry["input_tokens"],
+                    output_tokens=telemetry["output_tokens"],
                 )
 
             # Record successful telemetry with grounding_valid=True
@@ -958,6 +962,8 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
             flags=flags,
             reason=reason,
             provider_name=self.provider_name,
+            input_tokens=telemetry["input_tokens"],
+            output_tokens=telemetry["output_tokens"],
         )
 
 

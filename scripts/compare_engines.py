@@ -9,7 +9,7 @@ Evaluates 4 evaluation architectures across JD-01 and 15 core CVs:
 
 Measures and outputs:
   - Latency: total, avg/CV, p50, p95.
-  - Token consumption: Input/Output tokens and estimated cost ($).
+  - Token consumption: Input/Output tokens and cost ($); measured for Jev, estimated for the LLM gateway.
   - Ranking correlation: Spearman rho vs ground truth, NDCG@5, NDCG@10, Top-5 overlap.
   - Grounding pass rate (% valid verbatim quotes).
 """
@@ -387,6 +387,7 @@ async def run_mode_2_llm_gateway(
         "mode_id": 2,
         "name": "Mode 2: Upstream + LLM Verifier",
         "run_id": str(run_id),
+        "tokens_estimated": True,  # the gateway returns no usage; counts are length-based estimates
         "total_time_s": total_time_s,
         "cv_latencies_ms": cv_latencies_ms,
         "latency_mean_ms": sum(cv_latencies_ms) / max(len(cv_latencies_ms), 1),
@@ -490,9 +491,8 @@ async def run_mode_3_jev_hybrid(
                     )
                     st = dec.state.value
 
-                    # Query recent telemetry token counts from DB or estimate
-                    total_in_tokens += 315
-                    total_out_tokens += 12
+                    total_in_tokens += dec.input_tokens
+                    total_out_tokens += dec.output_tokens
 
                     if dec.quote:
                         total_quotes_checked += 1
@@ -619,8 +619,8 @@ async def run_mode_4_full_jev(
                 )
                 st = dec.state.value
 
-                total_in_tokens += 320
-                total_out_tokens += 15
+                total_in_tokens += dec.input_tokens
+                total_out_tokens += dec.output_tokens
 
                 if dec.quote:
                     total_quotes_checked += 1
@@ -719,11 +719,13 @@ def print_comparison_tables(
         t_mean = f"{r['latency_mean_ms']:.1f}ms"
         t_p50 = f"{r['latency_p50_ms']:.1f}ms"
         t_p95 = f"{r['latency_p95_ms']:.1f}ms"
-        in_tok = f"{r['input_tokens']:,}"
-        tot_tok = f"{r['total_tokens']:,}"
-        cost = f"${r['cost_usd']:.5f}"
+        est = "~" if r.get("tokens_estimated") else ""
+        in_tok = f"{est}{r['input_tokens']:,}"
+        tot_tok = f"{est}{r['total_tokens']:,}"
+        cost = f"{est}${r['cost_usd']:.5f}"
         print(f"{name:<32} | {t_tot:<9} | {t_mean:<9} | {t_p50:<8} | {t_p95:<8} | {in_tok:<9} | {tot_tok:<9} | {cost:<9}")
     print("-" * 106)
+    print("  Jev tokens are measured from the API usage; '~' marks estimates (the LLM gateway reports no usage).")
 
     # TABLE 2: Ranking Quality, Accuracy & Grounding
     print("\n--- TABLE 2: RANKING QUALITY, NDCG & GROUNDING VERIFICATION ---")

@@ -6,7 +6,7 @@ Pengukuran ini memakai TypeSafe Jev asli (`jev-latest`) dan gateway LLM lokal, p
 - **Data:** 15 CV core × 10 kriteria JD-01 = 150 status, pembanding label `expected_JD-01.json` (label dibuat sebelum Jev ada)
 - **Kode:** commit `d283da1` (semua mode); Mode 3 juga dijalankan pada `21d756d` (sebelum Tahap 3)
 - **Cara menjalankan:** `python scripts/compare_engines.py --modes 1,2,3,4` (database tes lewat `DATABASE_URL`)
-- **Batasan penting:** satu run per konfigurasi. Keterulangan Jev antar run belum diuji.
+- **Batasan penting:** satu run per konfigurasi, kecuali Mode 3 yang dijalankan dua kali pada kode terbaru (lihat bagian 4).
 
 ## 1. Akurasi status per kriteria
 
@@ -42,19 +42,21 @@ NDCG@5 = 0,925 dan NDCG@10 = 0,983 di keempat mode, dan top-5 beririsan 4/5 (80%
 
 \* Tarif input $0,042 per 1 juta token, token keluar gratis, sesuai konstanta di `compare_engines.py`.
 
+Token Jev kini diambil dari `Usage` yang dikembalikan API dan dibawa di `VerifierDecision`, sehingga keluaran `compare_engines.py` cocok dengan `jev_calls` (diverifikasi pada Mode 3: 17.535 masuk, 2.023 keluar, $0,00074). Token Mode 2 tetap perkiraan karena gateway LLM tidak melaporkan pemakaian, dan ditandai `~` di keluaran skrip.
+
 Per CV (mencakup beberapa panggilan berurutan), Mode 3 p50 736 ms dan p95 1.415 ms.
 
 ## 4. Tahap 3: Jev menerima potongan bukti, bukan seluruh CV
 
-Dari 150 kriteria, 149 hasilnya identik sebelum dan sesudah Tahap 3. Satu yang berbeda adalah M3.R5: aturan dan Jev lama menjawab PARTIAL (benar), Jev baru menjawab NOT_DEMONSTRATED (salah). Token masuk turun 14%. Karena satu run per versi, satu selisih ini belum dapat dibedakan dari variasi acak Jev.
+Dari 150 kriteria, 149 hasilnya identik sebelum dan sesudah Tahap 3. Satu yang berbeda adalah M3.R5: aturan dan Jev lama menjawab PARTIAL (benar), Jev baru menjawab NOT_DEMONSTRATED (salah). Token masuk turun 14%. Mode 3 dijalankan dua kali pada kode terbaru dan keduanya menghasilkan 150 status yang identik, termasuk M3.R5 = NOT_DEMONSTRATED di kedua run. Jadi selisih ini konsisten, bukan variasi acak antar run, dan kemungkinan besar akibat Tahap 3. Versi sebelum Tahap 3 hanya dijalankan sekali.
 
 ## 5. Urutan kandidat seri
 
-S1 dan S4 seri sempurna (skor 100, status identik), tetapi urutannya terbalik antar run karena pembeda terakhir memakai hash `run_id`. Pembeda diganti menjadi hash `candidate_id` saja, sehingga urutan kandidat seri tetap sama saat screening diulang. Dicakup oleh `test_tied_candidates_keep_the_same_order_across_runs`.
+S1 dan S4 seri sempurna (skor 100, status identik), tetapi urutannya terbalik antar run karena pembeda terakhir memakai hash `run_id`. Pembeda diganti menjadi hash `candidate_id` saja, sehingga urutan kandidat seri tetap sama saat screening diulang (S1 lalu S4 pada run Mode 3 kedua). Dicakup oleh `test_tied_candidates_keep_the_same_order_across_runs`.
 
 ## 6. Keterbatasan dan hal yang belum diverifikasi
 
-- **Tabel token dan biaya di keluaran `compare_engines.py` tidak akurat.** Skrip memakai konstanta per panggilan (Mode 3: 315/12, Mode 4: 320/15) dan perkiraan panjang teks untuk LLM, bukan hasil ukur. Gunakan angka dari `jev_calls` seperti di tabel di atas. Skripnya sendiri belum diperbaiki.
+- **Token Mode 2 (LLM) hanya perkiraan** berdasarkan panjang teks. Angka Jev sudah terukur. Run bagian 1 dan 3 dibuat sebelum skrip diperbaiki, sehingga tabel token di keluaran lamanya (Mode 3: 9.450, Mode 4: 48.000) tidak dipakai; angka di dokumen ini berasal dari `jev_calls`.
 - **Hasil LLM kurang bisa dipercaya.** Latensinya melewati timeout 12 detik per panggilan, sehingga sebagian panggilan mungkin gagal dan diam-diam kembali ke status aturan. Belum diperiksa.
-- **Keterulangan Jev belum diuji.** Uji ulang dihentikan atas keputusan pengguna.
+- **Keterulangan Jev hanya teruji pada Mode 3** (dua run, 150/150 status identik). Mode 2 dan Mode 4 tidak diulang.
 - **Penyebab Mode 4 (73,3%) belum diketahui.** Mode 4 adalah pembanding, tidak dipakai di produksi.

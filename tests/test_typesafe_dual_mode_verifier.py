@@ -124,6 +124,8 @@ class TestLiveSystemOneMode:
         assert decision.provider_name == "JEV_TYPESAFE"
         assert "TYPESAFE_LIVE" in decision.flags
         assert decision.quote == "6 years experience in FastAPI and PostgreSQL microservices"
+        # Token usage reported by the API travels with the decision
+        assert (decision.input_tokens, decision.output_tokens) == (25, 1)
         assert decision.char_start is not None
         assert decision.char_end is not None
 
@@ -302,7 +304,7 @@ class TestLiveSystemOneMode:
         )
         mock_response = SystemOneResponse(
             model="jev-latest",
-            usage=Usage(),
+            usage=Usage(input_tokens=33, output_tokens=2),
             answers={"chunk_0": choice_ans},
         )
         mock_client.system_one.return_value = mock_response
@@ -325,6 +327,8 @@ class TestLiveSystemOneMode:
         assert decision.state == EvaluationStatus.PARTIAL
         assert "GROUNDING_FAIL" in decision.flags
         assert decision.quote is None
+        # The call was paid for even though the answer was annulled
+        assert (decision.input_tokens, decision.output_tokens) == (33, 2)
 
     @pytest.mark.asyncio
     async def test_live_mode_network_exception_propagates_honestly(self, mock_client: AsyncMock):
