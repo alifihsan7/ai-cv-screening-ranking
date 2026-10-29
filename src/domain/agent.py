@@ -16,6 +16,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any, Literal
 
+from src.domain.evidence_chunks import build_candidate_chunks
 from src.domain.kind_rules import (
     eval_achievement,
     eval_certification,
@@ -482,6 +483,9 @@ class ScreeningAgent:
             )
             return
 
+        # Evidence pool: what the rules already found first, then profile entries tagged with their CV section
+        evidence_pool = build_candidate_chunks(self._profile_dict, self.raw_cv_text, rule_evs)
+
         # Adaptive ReAct Loop with Max Reflection Budget K = 3
         current_query = desc
         min_conf = settings.VERIFIER_MIN_CONFIDENCE
@@ -514,6 +518,7 @@ class ScreeningAgent:
             # 2. ACT
             # -------------------------------------------------------------
             candidate_snippets: list[str] = []
+            snippet_sections: list[ContextSectionType] = []
             selected_context_type = ContextSectionType.UNKNOWN
 
             if k == 1:
@@ -526,9 +531,10 @@ class ScreeningAgent:
                 )
                 retrieved_chunks: list[RetrievedEvidenceChunk] = await self.tools.execute(
                     act_input,
-                    context={"raw_cv_text": self.raw_cv_text, "concepts": concepts},
+                    context={"raw_cv_text": self.raw_cv_text, "concepts": concepts, "chunks": evidence_pool},
                 )
                 candidate_snippets = [c.text for c in retrieved_chunks if c.text]
+                snippet_sections = [c.context_type for c in retrieved_chunks if c.text]
                 if retrieved_chunks:
                     selected_context_type = retrieved_chunks[0].context_type
 
@@ -553,9 +559,10 @@ class ScreeningAgent:
                 )
                 retrieved_chunks = await self.tools.execute(
                     sub_retrieval,
-                    context={"raw_cv_text": self.raw_cv_text, "concepts": concepts},
+                    context={"raw_cv_text": self.raw_cv_text, "concepts": concepts, "chunks": evidence_pool},
                 )
                 candidate_snippets = [c.text for c in retrieved_chunks if c.text]
+                snippet_sections = [c.context_type for c in retrieved_chunks if c.text]
                 if retrieved_chunks:
                     selected_context_type = retrieved_chunks[0].context_type
 
@@ -567,6 +574,7 @@ class ScreeningAgent:
                 for sec in work_sections:
                     lines = [ln.strip() for ln in sec.text.splitlines() if len(ln.strip()) > 5]
                     candidate_snippets.extend(lines[:3])
+                    snippet_sections.extend([ContextSectionType.WORK_EXPERIENCE] * len(lines[:3]))
                 selected_context_type = ContextSectionType.WORK_EXPERIENCE
                 act_input = GeneralActionInput(
                     action_type="GENERAL",
@@ -601,6 +609,7 @@ class ScreeningAgent:
                         "rule_state": rule_st,
                         "kind": kind,
                         "context_type": selected_context_type,
+                        "chunk_contexts": snippet_sections,
                         "verifier_provider": self.verifier,
                         "run_id": self.run_id,
                         "candidate_id": self.candidate_id,

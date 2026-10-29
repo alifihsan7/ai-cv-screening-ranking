@@ -196,7 +196,7 @@ class TestVerifierProviders:
         )
 
         sent_state = mock_client.system_one.call_args.kwargs["state"]
-        assert sent_state["evidence_section"] == "WORK_EXPERIENCE"
+        assert sent_state["evidence_sections"] == {"chunk_0": "WORK_EXPERIENCE"}
         assert sent_state["evidence_chunks"] == {"chunk_0": _PY_SNIPPETS[0]}
         assert "Professional Experience" not in str(sent_state)  # full CV text never sent
 
@@ -242,6 +242,81 @@ class TestVerifierProviders:
         assert decision.quote is not None
         assert decision.quote in strong
         assert "webinar" not in decision.quote
+
+    @pytest.mark.asyncio
+    async def test_decision_context_and_guard_follow_the_decisive_chunk(self):
+        """Each chunk is sent with its own section, and the guard uses the section of the chunk decided on."""
+        project = "Tugas akhir sistem perpustakaan dibangun dengan FastAPI, PostgreSQL, dan Docker."
+        skills = "Keahlian: Python, FastAPI, PostgreSQL, Docker, Git"
+        mock_client = _mock_jev_client("STRONG", 0.92)
+        provider = JevTypeSafeVerifierProvider(client=mock_client)
+
+        decision = await provider.verify(
+            criterion_id="R5",
+            criterion_description="Docker",
+            candidate_chunks=[project, skills],
+            cv_full_text=f"{project}\n{skills}",
+            kind=CriterionKind.SKILL,
+            context_type=ContextSectionType.UNKNOWN,
+            chunk_contexts=[ContextSectionType.PROJECT, ContextSectionType.SKILL_LIST],
+        )
+
+        sent = mock_client.system_one.call_args.kwargs["state"]
+        assert sent["evidence_sections"] == {"chunk_0": "PROJECT", "chunk_1": "SKILL_LIST"}
+        # Project-only evidence cannot be STRONG for a skill
+        assert decision.state == EvaluationStatus.PARTIAL
+        assert "CONTEXT_ELEVATION_DOWNGRADE" in decision.flags
+        assert decision.context_type == ContextSectionType.PROJECT
+
+    @pytest.mark.asyncio
+    async def test_job_evidence_for_a_skill_stays_strong(self):
+        bullet = "Mengemas seluruh layanan backend memakai Docker pada lingkungan produksi."
+        provider = JevTypeSafeVerifierProvider(client=_mock_jev_client("STRONG", 0.92))
+
+        decision = await provider.verify(
+            criterion_id="R5",
+            criterion_description="Docker",
+            candidate_chunks=[bullet],
+            cv_full_text=bullet,
+            kind=CriterionKind.SKILL,
+            chunk_contexts=[ContextSectionType.WORK_EXPERIENCE],
+        )
+
+        assert decision.state == EvaluationStatus.STRONG
+        assert decision.context_type == ContextSectionType.WORK_EXPERIENCE
+        assert "CONTEXT_ELEVATION_DOWNGRADE" not in decision.flags
+
+    @pytest.mark.asyncio
+    async def test_capped_chunk_cannot_outrank_an_equally_strong_job_chunk(self):
+        """A skills line judged STRONG with higher confidence must lose to a STRONG job bullet."""
+        skills_line = "Keahlian: Python, Django, Flask, PostgreSQL, Docker, AWS"
+        job_bullet = "Mengintegrasikan layanan backend dengan AWS (S3 dan SQS) pada produksi."
+        verdicts = {"chunk_0": 0.97, "chunk_1": 0.90}  # both STRONG; the skills line is the more confident
+
+        async def _system_one(state, questions, **kwargs):
+            answers = {
+                k: ChoiceAnswer(type="choice", choice="STRONG", confidence=c, probabilities={"STRONG": c})
+                for k, c in verdicts.items()
+            }
+            return SystemOneResponse(model="jev-latest", usage=Usage(), answers=answers)
+
+        mock_client = AsyncMock()
+        mock_client.system_one.side_effect = _system_one
+        provider = JevTypeSafeVerifierProvider(client=mock_client)
+
+        decision = await provider.verify(
+            criterion_id="R6",
+            criterion_description="AWS",
+            candidate_chunks=[skills_line, job_bullet],
+            cv_full_text=f"{skills_line}\n{job_bullet}",
+            kind=CriterionKind.SKILL,
+            chunk_contexts=[ContextSectionType.SKILL_LIST, ContextSectionType.WORK_EXPERIENCE],
+        )
+
+        assert decision.state == EvaluationStatus.STRONG
+        assert decision.context_type == ContextSectionType.WORK_EXPERIENCE
+        assert decision.quote is not None and "S3" in decision.quote
+        assert "CONTEXT_ELEVATION_DOWNGRADE" not in decision.flags
 
     @pytest.mark.asyncio
     @pytest.mark.skipif(not RUN_LIVE_JEV, reason="Live TypeSafe API test; set RUN_LIVE_JEV=1 to run")

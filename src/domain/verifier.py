@@ -378,7 +378,8 @@ def apply_context_elevation_guard(
     """Context-Elevation Invariant:
     Evidence originating exclusively from a skills block (SKILL_LIST) or biodata/projects
     cannot be established as STRONG for responsibility or duration criteria;
-    automatically downgraded to PARTIAL.
+    automatically downgraded to PARTIAL. For skills, only evidence from a dated job can be STRONG,
+    so a skills list or a project (e.g. a thesis) is capped at PARTIAL, matching `eval_skill`.
     """
     st_val = state.value if isinstance(state, EvaluationStatus) else str(state).upper()
     k_val = kind.value if isinstance(kind, CriterionKind) else str(kind).upper()
@@ -394,8 +395,8 @@ def apply_context_elevation_guard(
         if k_val in ("RESPONSIBILITY", "EXPERIENCE_DURATION", "DURATION", "LEADERSHIP"):
             if ctx_val != ContextSectionType.WORK_EXPERIENCE.value:
                 return EvaluationStatus.PARTIAL, ["CONTEXT_ELEVATION_DOWNGRADE"]
-        elif ctx_val == ContextSectionType.SKILL_LIST.value:
-            # Standalone skill list cannot elevate state to STRONG
+        elif ctx_val in (ContextSectionType.SKILL_LIST.value, ContextSectionType.PROJECT.value):
+            # A standalone skill list or a project cannot elevate state to STRONG
             return EvaluationStatus.PARTIAL, ["CONTEXT_ELEVATION_DOWNGRADE"]
 
     return current_status, []
@@ -579,7 +580,7 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
         """Builds one closed question scoped to a single evidence chunk carried in the state."""
         scope = (
             f"Judge only evidence chunk '{chunk_key}' in the state; "
-            "'evidence_section' names the CV section the chunks were taken from. "
+            "'evidence_sections' names the CV section each chunk was taken from. "
         )
         if primitive == "noul":
             return Noul(
@@ -685,15 +686,16 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
         self,
         criterion_description: str,
         candidate_chunks: list[str],
-        section: ContextSectionType = ContextSectionType.UNKNOWN,
+        sections: list[ContextSectionType],
+        kind: CriterionKind | str = CriterionKind.SKILL,
         use_noul: bool = False,
         use_score: bool = False,
         primitive: str | None = None,
     ) -> tuple[EvaluationStatus, float, list[str], dict[str, Any], int]:
         """Judges every evidence chunk separately in one System One call and selects the decisive chunk.
 
-        Only the criterion, the source CV section name, and the evidence chunks are sent; the full CV
-        text never leaves the system.
+        Only the criterion, the CV section each chunk was taken from, and the evidence chunks are sent;
+        the full CV text never leaves the system.
         Returns (state, confidence, flags, telemetry, index of the chunk the decision rests on).
         """
         prim_req = (primitive or "").lower()
@@ -709,7 +711,7 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
         keys = [f"chunk_{i}" for i in range(len(candidate_chunks))]
         state: dict[str, Any] = {
             "criterion": criterion_description,
-            "evidence_section": section.value,
+            "evidence_sections": {k: sec.value for k, sec in zip(keys, sections, strict=True)},
             "evidence_chunks": dict(zip(keys, candidate_chunks, strict=True)),
         }
         questions: dict[str, Question] = {k: self._build_question(criterion_description, k, prim) for k in keys}
@@ -741,12 +743,20 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
             (*self._interpret_answer(prim, k, response.answers.get(k)), idx) for idx, k in enumerate(keys)
         ]
 
-        # Strongest state among confident judgements (ties: higher confidence, then earlier chunk);
+        # Pick the strongest state among confident judgements (ties: higher confidence, then earlier chunk);
         # if none is confident, the most confident one, which callers then treat as low confidence.
+        # Strength is measured after the context-elevation cap of each chunk's own section, so a skills line
+        # judged STRONG cannot outrank a job bullet that is also STRONG. The raw state is returned, so the
+        # caller's guard still records the downgrade when the winning chunk was capped.
         state_rank = {EvaluationStatus.STRONG: 2, EvaluationStatus.PARTIAL: 1}
+
+        def capped_rank(j: tuple[EvaluationStatus, float, str, int]) -> int:
+            capped, _ = apply_context_elevation_guard(j[0], kind, sections[j[3]])
+            return state_rank.get(capped, 0)
+
         confident = [j for j in judged if j[1] >= settings.VERIFIER_MIN_CONFIDENCE]
         if confident:
-            eval_st, conf, decision_value, best_idx = max(confident, key=lambda j: (state_rank.get(j[0], 0), j[1], -j[3]))
+            eval_st, conf, decision_value, best_idx = max(confident, key=lambda j: (capped_rank(j), j[1], -j[3]))
         else:
             eval_st, conf, decision_value, best_idx = max(judged, key=lambda j: (j[1], -j[3]))
 
@@ -790,7 +800,14 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
         rule_st = EvaluationStatus(rule_state) if isinstance(rule_state, str) else rule_state
         ctx_t = ContextSectionType(context_type) if isinstance(context_type, str) else context_type
 
-        chunks = [c for c in candidate_chunks if c and c.strip()]
+        raw_sections = kwargs.get("chunk_contexts") or []
+        pairs = [
+            (c, ContextSectionType(raw_sections[i]) if i < len(raw_sections) and raw_sections[i] else ctx_t)
+            for i, c in enumerate(candidate_chunks)
+            if c and c.strip()
+        ]
+        chunks = [c for c, _ in pairs]
+        chunk_sections = [sec for _, sec in pairs]
         if not chunks or not cv_full_text:
             return VerifierDecision(
                 state=rule_st,
@@ -831,12 +848,15 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
         eval_state, confidence, live_flags, telemetry, decisive_idx = await self._call_system_one_live(
             criterion_description=criterion_description,
             candidate_chunks=chunks,
-            section=ctx_t,
+            sections=chunk_sections,
+            kind=kind,
             use_noul=use_noul,
             use_score=use_score,
             primitive=prim,
         )
         flags.extend(live_flags)
+        # Provenance of the decision is the section of the chunk it rests on, not of the whole batch
+        decisive_section = chunk_sections[decisive_idx]
 
         # 2. Quote comes from the chunk Jev's decision rests on, never from a separate keyword pass
         selected_quote: str | None = (
@@ -879,7 +899,7 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
                     spans=[],
                     char_start=None,
                     char_end=None,
-                    context_type=ctx_t,
+                    context_type=decisive_section,
                     flags=["GROUNDING_FAIL", g_reason],
                     reason=f"Grounding invariant violation: {g_reason}",
                     provider_name=self.provider_name,
@@ -945,7 +965,7 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
         elev_state, elev_flags = apply_context_elevation_guard(
             state=eval_state,
             kind=kind,
-            context_type=ctx_t,
+            context_type=decisive_section,
         )
         flags.extend(elev_flags)
 
@@ -958,7 +978,7 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
             spans=quote_spans if quote_spans else ([selected_quote] if selected_quote else []),
             char_start=char_start,
             char_end=char_end,
-            context_type=ctx_t,
+            context_type=decisive_section,
             flags=flags,
             reason=reason,
             provider_name=self.provider_name,

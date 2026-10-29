@@ -49,7 +49,7 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 import pytest_asyncio
-from typesafe_sdk import ChoiceAnswer, SystemOneResponse, Usage
+from typesafe_sdk import ChoiceAnswer, NoulAnswer, ScoreAnswer, SystemOneResponse, Usage
 
 from src.api.main import app
 from src.domain.auth import create_access_token
@@ -59,14 +59,29 @@ DEMO_TENANT_ID = "00000000-0000-0000-0000-000000000001"
 
 
 def mock_jev_client(role_family: str = "BACKEND", choice: str = "STRONG", confidence: float = 0.95) -> AsyncMock:
-    """TypeSafe client stand-in: answers role-family questions with `role_family`, every other
-    (per-chunk evidence) question with `choice`."""
+    """TypeSafe client stand-in. Role-family questions get `role_family`; every other question gets an answer
+    of its own type that means `choice` (STRONG, PARTIAL or NOT_DEMONSTRATED)."""
 
-    def _answer(label: str) -> ChoiceAnswer:
+    score_for = {"STRONG": 2.4, "PARTIAL": 1.2, "NOT_DEMONSTRATED": 0.1}
+    noul_for = {"STRONG": confidence, "PARTIAL": 0.5, "NOT_DEMONSTRATED": 1.0 - confidence}
+
+    def _choice(label: str) -> ChoiceAnswer:
         return ChoiceAnswer(type="choice", choice=label, confidence=confidence, probabilities={label: confidence})
 
     async def _system_one(state, questions, **kwargs):
-        answers = {k: _answer(role_family if k == "role_family" else choice) for k in questions}
+        answers: dict = {}
+        for key, question in questions.items():
+            qtype = getattr(question, "type", "choice")
+            if qtype == "noul":
+                answers[key] = NoulAnswer(type="noul", noul=noul_for[choice])
+            elif qtype == "score":
+                levels = {i: f"level {i}" for i in range(len(question.criteria))}
+                probs = {i: (1.0 if i == 2 else 0.0) for i in levels}
+                answers[key] = ScoreAnswer(
+                    type="score", score=score_for[choice], confidence=confidence, legend=levels, probabilities=probs
+                )
+            else:
+                answers[key] = _choice(role_family if key == "role_family" else choice)
         return SystemOneResponse(model="jev-latest", usage=Usage(), answers=answers)
 
     client = AsyncMock()
