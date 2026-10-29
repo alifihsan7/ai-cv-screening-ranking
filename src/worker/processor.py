@@ -18,6 +18,7 @@ from src.infrastructure.database import get_connection
 from src.infrastructure.logging import logger
 from src.services.embedding import embed_texts
 from src.worker.adapter import extract_candidate_profile
+from src.worker.pii_scrub import scrub_hidden_text_findings
 from src.worker.redaction import extract_identity_and_redact, redact_text
 from src.worker.sanitizer import sanitize_file
 from typesafe_sdk import (
@@ -425,14 +426,14 @@ async def process_document(
                     uuid.uuid4(),
                     doc["tenant_id"],
                     doc_id,
-                    json.dumps(raw_profile),
+                    json.dumps(matching_profile),  # `profile` keeps the redacted view: the raw one holds identity and CV text
                     json.dumps(matching_profile),
                     full_text_redacted,
                     f"cv-extractor-{settings.EXTRACTOR_VERSION}",
                     json.dumps({
                         "flags": quality_flags,
                         "confidence": san.is_valid,
-                        "hidden_text_findings": getattr(san, "hidden_text_findings", []),
+                        "hidden_text_findings": scrub_hidden_text_findings(getattr(san, "hidden_text_findings", [])),
                     }),
                 ),
             )
