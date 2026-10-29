@@ -6,7 +6,7 @@ Enforces:
    isolated from contextual skills/responsibilities requiring ReAct reasoning.
 3. Reflection budgeting: maximum K = 3 cycles per criterion.
 4. Termination rule: if confidence < VERIFIER_MIN_CONFIDENCE (default 0.60) after K = 3 cycles, enforce baseline fallback
-   with LOW_CONFIDENCE flag.
+   with LOW_CONFIDENCE flag (NO_EVIDENCE_FOUND when the verifier was confident that no evidence exists).
 5. Verbatim grounding verification and context-elevation invariants.
 """
 
@@ -738,7 +738,10 @@ class ScreeningAgent:
                 # ---------------------------------------------------------
                 term_st_val = rule_st if rule_st in ("STRONG", "PARTIAL") else "NOT_DEMONSTRATED"
                 term_status = EvaluationStatus(term_st_val)
-                term_flags = list(set(rule_flgs + (decision.flags if decision else []) + ["LOW_CONFIDENCE"]))
+                # A confident NOT_DEMONSTRATED means the verifier found no evidence; it is not low confidence.
+                no_evidence = decision is not None and decision.confidence >= min_conf
+                term_flag = "NO_EVIDENCE_FOUND" if no_evidence else "LOW_CONFIDENCE"
+                term_flags = sorted(set(rule_flgs + (decision.flags if decision else []) + [term_flag]))
 
                 eval_res = EvaluationResult(
                     criterion_id=req_id,
@@ -747,7 +750,11 @@ class ScreeningAgent:
                     metrics=to_evaluation_metrics(rule_m),
                     evidences=[],
                     flags=term_flags,
-                    reasons=[f"Reflection budget exhausted (K=3) with confidence < {min_conf:.2f}. Enforced fallback termination."],
+                    reasons=[
+                        "Reflection budget exhausted (K=3) with "
+                        + ("no evidence found" if no_evidence else f"confidence < {min_conf:.2f}")
+                        + ". Enforced fallback termination."
+                    ],
                     evaluation_method=EvaluationMethod.DETERMINISTIC_RULE,
                 )
                 self.state.evaluation_results[req_id] = eval_res
@@ -760,8 +767,8 @@ class ScreeningAgent:
                         criterion_id=req_id,
                         note=f"Max reflection budget K=3 reached with confidence < {min_conf:.2f}",
                     ),
-                    observation=f"Enforced termination rule: fallback to {term_status.value} with LOW_CONFIDENCE flag.",
-                    state_mutation=f"evaluation_results[{req_id}] -> {term_status.value} (LOW_CONFIDENCE)",
+                    observation=f"Enforced termination rule: fallback to {term_status.value} with {term_flag} flag.",
+                    state_mutation=f"evaluation_results[{req_id}] -> {term_status.value} ({term_flag})",
                 )
                 return
 
