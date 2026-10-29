@@ -626,9 +626,9 @@ PENDIDIKAN & LATAR BELAKANG:
                           </div>
                           <p className="font-semibold text-[#13221C] text-[11px]">{s.description}</p>
                           {s.quote && (
-                            <div className="flex items-center gap-1.5 pt-0.5">
+                            <div className="flex items-start gap-1.5 pt-0.5">
                               <VerbatimGroundingChip isGrounded={true} />
-                              <p className="font-mono text-[10px] text-[#124B2E] italic truncate">
+                              <p className="font-mono text-[10px] text-[#124B2E] italic break-words flex-1 min-w-0" title={s.quote}>
                                 &quot;{s.quote}&quot;
                               </p>
                             </div>
@@ -1180,7 +1180,7 @@ PENDIDIKAN & LATAR BELAKANG:
                         </span>
                       )}
                     </div>
-                    <p className="font-mono text-[11px] text-[#713F12] truncate select-text">
+                    <p className="font-mono text-[11px] text-[#713F12] select-text break-words line-clamp-2" title={highlightedQuote}>
                       &ldquo;{highlightedQuote}&rdquo;
                     </p>
                   </div>

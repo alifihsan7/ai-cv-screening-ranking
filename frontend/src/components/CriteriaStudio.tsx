@@ -705,7 +705,7 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
                   <div key={cat.key} className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
                       <div className="flex items-center space-x-2 min-w-0">
-                        <span className="font-semibold text-[#13221C] truncate">{cat.label}</span>
+                        <span className="font-semibold text-[#13221C] whitespace-nowrap">{cat.label}</span>
                         <span className="font-mono text-[10px] text-[#2D4439] bg-[#EBF1EE] px-1.5 py-0.5 rounded border border-[#D5DFD9] font-medium tracking-tight shrink-0 select-all">
                           {cat.code}
                         </span>

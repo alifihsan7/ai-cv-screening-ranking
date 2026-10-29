@@ -292,9 +292,9 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
                     </div>
                     <p className="font-semibold text-[#13221C]">{s.description}</p>
                     {s.quote && (
-                      <div className="flex items-center gap-1.5 pt-0.5">
+                      <div className="flex items-start gap-1.5 pt-0.5">
                         <VerbatimGroundingChip isGrounded={true} />
-                        <p className="font-mono text-[11px] text-[#124B2E] italic truncate">
+                        <p className="font-mono text-[11px] text-[#124B2E] italic break-words flex-1 min-w-0" title={s.quote}>
                           &quot;{s.quote}&quot;
                         </p>
                       </div>

@@ -146,7 +146,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
           isSmall ? 'h-8 px-2.5 text-xs rounded-lg' : 'h-10 px-3.5 text-sm font-medium rounded-xl'
         } ${isOpen ? 'border-[#1B4938] ring-2 ring-[#1B4938]/15' : ''} ${buttonClassName}`}
       >
-        <div className="flex items-center space-x-2 truncate">
+        <div className="flex items-center space-x-1.5 min-w-0 flex-1">
           {selectedOption?.icon && (
             <span className="shrink-0 text-[#1B4938]">{selectedOption.icon}</span>
           )}
@@ -154,7 +154,8 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
             <span className={`w-2 h-2 rounded-full shrink-0 ${selectedOption.dotClassName}`} />
           )}
           <span
-            className={`truncate ${
+            title={selectedOption ? selectedOption.label : placeholder}
+            className={`truncate block min-w-0 ${
               !selectedOption
                 ? 'text-[#2D4439]/60'
                 : selectedOption.labelClassName ||
@@ -187,7 +188,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
           ref={listboxRef}
           role="listbox"
           tabIndex={-1}
-          className="absolute z-50 left-0 right-0 min-w-full mt-1.5 max-h-60 overflow-y-auto bg-[#FCFDFC] border border-[#D5DFD9] rounded-xl p-1 shadow-tactile-lg space-y-0.5 focus:outline-none animate-in fade-in zoom-in-95 duration-100"
+          className="absolute z-50 left-0 min-w-full w-max max-w-[320px] mt-1.5 max-h-60 overflow-y-auto bg-[#FCFDFC] border border-[#D5DFD9] rounded-xl p-1 shadow-tactile-lg space-y-0.5 focus:outline-none animate-in fade-in zoom-in-95 duration-100"
         >
           {options.map((opt, idx) => {
             const isSelected = opt.value === value
@@ -208,7 +209,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                   buttonRef.current?.focus()
                 }}
                 onMouseEnter={() => setFocusedIndex(idx)}
-                className={`px-3 py-2 rounded-lg text-xs sm:text-sm cursor-pointer flex items-center justify-between transition-colors select-none border ${
+                className={`px-3 py-2 rounded-lg text-xs sm:text-sm cursor-pointer flex items-center justify-between transition-colors select-none border gap-2 ${
                   isSelected
                     ? opt.containerClassName
                       ? `${opt.containerClassName} ${labelColor}`
@@ -218,13 +219,13 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                     : 'border-transparent text-[#13221C] hover:bg-[#F2F5F3]'
                 }`}
               >
-                <div className="flex items-center space-x-2 truncate">
+                <div className="flex items-center space-x-2 min-w-0">
                   {opt.icon && <span className="shrink-0">{opt.icon}</span>}
                   {opt.dotClassName && (
                     <span className={`w-2 h-2 rounded-full shrink-0 ${opt.dotClassName}`} />
                   )}
                   <div>
-                    <span className={`block truncate ${labelColor}`}>
+                    <span className={`block whitespace-nowrap ${labelColor}`} title={opt.label}>
                       {opt.label}
                     </span>
                     {opt.description && (

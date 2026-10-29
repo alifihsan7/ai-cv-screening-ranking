@@ -62,7 +62,7 @@ export const ScreeningTelemetryPanel: React.FC<ScreeningTelemetryPanelProps> = (
             </span>
             <ShieldCheck className="w-3 h-3 text-[#124B2E]" />
           </div>
-          <div className="font-mono text-xs font-bold text-[#13221C] truncate" title={telemetry.mode}>
+          <div className="font-mono text-xs font-bold text-[#13221C] break-words" title={telemetry.mode}>
             {telemetry.mode}
           </div>
           <p className="text-[10px] text-[#2D4439] font-mono leading-tight">
@@ -95,7 +95,7 @@ export const ScreeningTelemetryPanel: React.FC<ScreeningTelemetryPanelProps> = (
             </span>
             <DollarSign className="w-3 h-3 text-[#124B2E]" />
           </div>
-          <div className="font-mono text-xs font-bold text-[#13221C] tabular-nums truncate">
+          <div className="font-mono text-xs font-bold text-[#13221C] tabular-nums">
             {telemetry.total_inference_tokens} tok · &lt; $0.001
           </div>
           <p className="text-[10px] text-[#2D4439] font-mono leading-tight">

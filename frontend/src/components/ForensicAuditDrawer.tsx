@@ -619,7 +619,7 @@ PENDIDIKAN & LATAR BELAKANG:
                         </span>
                       )}
                     </div>
-                    <p className="font-mono text-[11px] text-[#713F12] truncate select-text">
+                    <p className="font-mono text-[11px] text-[#713F12] select-text break-words line-clamp-2" title={highlightedQuote}>
                       &quot;{highlightedQuote}&quot;
                     </p>
                   </div>

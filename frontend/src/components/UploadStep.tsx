@@ -341,32 +341,32 @@ export const UploadStep: React.FC<UploadStepProps> = ({
                     Status:
                   </span>
                   <div className="flex flex-col gap-1.5 font-medium">
-                    <div className="flex items-center space-x-2">
-                      <span className="inline-flex items-center gap-1 bg-[#EBF1EE] text-[#13221C] px-2 py-0.5 rounded border border-[#D5DFD9] font-mono text-[10px] font-semibold shrink-0">
+                    <div className="flex items-center space-x-2 min-w-0">
+                      <span className="inline-flex items-center gap-1 bg-[#EBF1EE] text-[#13221C] px-2 py-0.5 rounded border border-[#D5DFD9] font-mono text-[10px] font-semibold shrink-0 whitespace-nowrap">
                         <Clock className="w-2.5 h-2.5 text-[#13221C]" />
                         <span>Diterima (Antrean)</span>
                       </span>
-                      <span className="text-[10px] text-[#2D4439]/80 truncate">
+                      <span className="text-[10px] text-[#2D4439]/80 min-w-0 leading-tight">
                         {receivedFiles.length} berkas dalam antrean worker
                       </span>
                     </div>
 
-                    <div className="flex items-center space-x-2">
-                      <span className="inline-flex items-center gap-1 bg-[#FEF6E8] text-[#7A3E02] px-2 py-0.5 rounded border border-[#F8D8A7] font-mono text-[10px] font-semibold shrink-0">
+                    <div className="flex items-center space-x-2 min-w-0">
+                      <span className="inline-flex items-center gap-1 bg-[#FEF6E8] text-[#7A3E02] px-2 py-0.5 rounded border border-[#F8D8A7] font-mono text-[10px] font-semibold shrink-0 whitespace-nowrap">
                         <Loader2 className="w-2.5 h-2.5 text-[#7A3E02] animate-spin" />
                         <span>Memproses Teks & Embedding</span>
                       </span>
-                      <span className="text-[10px] text-[#2D4439]/80 truncate">
+                      <span className="text-[10px] text-[#2D4439]/80 min-w-0 leading-tight">
                         {processingFiles.length} berkas aktif diurai
                       </span>
                     </div>
 
-                    <div className="flex items-center space-x-2">
-                      <span className="inline-flex items-center gap-1 bg-[#EBF6EF] text-[#124B2E] px-2 py-0.5 rounded border border-[#BBE5CD] font-mono text-[10px] font-bold shrink-0">
+                    <div className="flex items-center space-x-2 min-w-0">
+                      <span className="inline-flex items-center gap-1 bg-[#EBF6EF] text-[#124B2E] px-2 py-0.5 rounded border border-[#BBE5CD] font-mono text-[10px] font-bold shrink-0 whitespace-nowrap">
                         <CheckCircle2 className="w-2.5 h-2.5 text-[#124B2E]" />
                         <span>Siap (READY)</span>
                       </span>
-                      <span className="text-[10px] text-[#2D4439]/80 truncate">
+                      <span className="text-[10px] text-[#2D4439]/80 min-w-0 leading-tight">
                         {readyFiles.length} CV terindeks & siap skrining
                       </span>
                     </div>
@@ -472,9 +472,9 @@ export const UploadStep: React.FC<UploadStepProps> = ({
                 <table className="w-full text-left text-xs table-fixed">
                   <thead className="bg-[#EBF1EE] text-[#2D4439] font-bold uppercase tracking-wider border-b border-[#D5DFD9] sticky top-0 z-10 shadow-tactile-sm">
                     <tr>
-                      <th className="py-2.5 px-3 min-w-0">Nama Berkas</th>
-                      <th className="py-2.5 px-2.5 w-20 text-xs shrink-0">Ukuran</th>
-                      <th className="py-2.5 px-2.5 w-28 shrink-0">Status</th>
+                      <th className="py-2.5 px-3 min-w-[220px]">Nama Berkas</th>
+                      <th className="py-2.5 px-2.5 w-16 text-xs shrink-0 text-right">Ukuran</th>
+                      <th className="py-2.5 px-2.5 w-36 shrink-0 text-left">Status</th>
                       <th className="py-2.5 px-1 w-14 text-center shrink-0">Aksi</th>
                     </tr>
                   </thead>
@@ -504,7 +504,7 @@ export const UploadStep: React.FC<UploadStepProps> = ({
                           !!refreshingFiles[file.id || file.name]
 
                         let badgeClass = 'bg-[#EBF1EE] text-[#13221C] border border-[#D5DFD9]'
-                        let statusLabel = 'Diterima (Antrean)'
+                        let statusLabel = 'Antrean'
                         let StatusIcon = Clock
 
                         if (normStatus === 'READY') {
@@ -515,12 +515,12 @@ export const UploadStep: React.FC<UploadStepProps> = ({
                         } else if (normStatus === 'PROCESSING') {
                           badgeClass =
                             'bg-[#FEF6E8] text-[#7A3E02] border border-[#F8D8A7] font-bold animate-pulse'
-                          statusLabel = 'Memproses Teks & Embedding'
+                          statusLabel = 'Memproses'
                           StatusIcon = Loader2
                         } else if (normStatus === 'RECEIVED') {
                           badgeClass =
                             'bg-[#EBF1EE] text-[#13221C] border border-[#D5DFD9] font-semibold'
-                          statusLabel = 'Diterima (Antrean)'
+                          statusLabel = 'Antrean'
                           StatusIcon = Clock
                         } else if (normStatus === 'REJECTED') {
                           badgeClass =
@@ -543,19 +543,19 @@ export const UploadStep: React.FC<UploadStepProps> = ({
                         let noteText = file.reason
                         if (!noteText) {
                           if (normStatus === 'READY') {
-                            noteText = 'Ekstraksi teks, chunking, & embedding selesai'
+                            noteText = 'Terindeks & Siap'
                           } else if (normStatus === 'PROCESSING') {
-                            noteText = 'Mengekstrak teks & pembuatan embedding...'
+                            noteText = 'Mengekstrak teks & embedding...'
                           } else if (normStatus === 'RECEIVED') {
-                            noteText = 'Diterima di antrean, menunggu giliran worker...'
+                            noteText = 'Dalam antrean worker...'
                           } else if (normStatus === 'REJECTED') {
-                            noteText = 'Gagal parsing format atau berkas ditolak'
+                            noteText = 'Gagal format atau berkas ditolak'
                           } else if (normStatus === 'DUPLICATE') {
                             noteText = file.duplicate_of
-                              ? `Identik dengan ${file.duplicate_of}`
-                              : 'Dokumen SHA-256 sama telah terdaftar'
+                              ? `Identik dgn ${file.duplicate_of}`
+                              : 'Dokumen duplikat SHA-256'
                           } else if (normStatus === 'NEEDS_REVIEW') {
-                            noteText = 'Kualitas teks memerlukan verifikasi manual'
+                            noteText = 'Perlu verifikasi manual'
                           }
                         }
 
@@ -586,14 +586,14 @@ export const UploadStep: React.FC<UploadStepProps> = ({
                               )}
                             </td>
                             <td
-                              className="py-2 px-2.5 w-20 text-xs shrink-0 text-[#2D4439] font-mono tabular-nums truncate"
+                              className="py-2 px-2.5 w-16 text-xs shrink-0 text-[#2D4439] font-mono tabular-nums whitespace-nowrap text-right"
                               title={file.size}
                             >
                               {file.size}
                             </td>
-                            <td className="py-2 px-2.5 w-28 shrink-0">
+                            <td className="py-2 px-2.5 w-36 shrink-0">
                               <span
-                                className={`px-2 py-0.5 rounded text-[11px] inline-flex items-center space-x-1 ${badgeClass} max-w-full truncate`}
+                                className={`px-2 py-0.5 rounded text-[11px] inline-flex items-center space-x-1.5 whitespace-nowrap ${badgeClass}`}
                                 title={statusLabel}
                               >
                                 <StatusIcon
@@ -601,7 +601,7 @@ export const UploadStep: React.FC<UploadStepProps> = ({
                                     normStatus === 'PROCESSING' ? 'animate-spin' : ''
                                   }`}
                                 />
-                                <span className="truncate">{statusLabel}</span>
+                                <span>{statusLabel}</span>
                               </span>
                             </td>
                             <td className="py-2 px-1 w-14 text-center shrink-0">

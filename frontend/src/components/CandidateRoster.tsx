@@ -44,6 +44,37 @@ const DECISION_OPTIONS: SelectOption[] = [
   },
 ]
 
+const DECISION_OPTIONS_COMPACT: SelectOption[] = [
+  {
+    value: '',
+    label: 'Belum Ada',
+    dotClassName: 'bg-[#8C9B93]',
+    labelClassName: 'text-[#2D4439] font-medium',
+    containerClassName: 'bg-[#FCFDFC] hover:bg-[#F2F5F3] border-[#D5DFD9] text-[#2D4439]',
+  },
+  {
+    value: 'SHORTLIST',
+    label: 'Lolos',
+    dotClassName: 'bg-[#124B2E]',
+    labelClassName: 'text-[#124B2E] font-bold',
+    containerClassName: 'bg-[#EBF6EF] hover:bg-[#E2F1E7] border-[#BBE5CD] text-[#124B2E]',
+  },
+  {
+    value: 'HOLD',
+    label: 'Hold',
+    dotClassName: 'bg-[#7A3E02]',
+    labelClassName: 'text-[#7A3E02] font-bold',
+    containerClassName: 'bg-[#FEF6E8] hover:bg-[#FBEED7] border-[#F8D8A7] text-[#7A3E02]',
+  },
+  {
+    value: 'TIDAK_LANJUT',
+    label: 'Gugur',
+    dotClassName: 'bg-[#8C1819]',
+    labelClassName: 'text-[#8C1819] font-bold',
+    containerClassName: 'bg-[#FCEBEB] hover:bg-[#F9DDDD] border-[#F6C1C1] text-[#8C1819]',
+  },
+]
+
 export interface CandidateRosterProps {
   candidates: CandidateDetail[]
   requirements: Requirement[]
@@ -192,13 +223,13 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
     if (isAllMet) {
       return (
         <span
-          className={`inline-flex items-center gap-1 rounded-md font-bold bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD] max-w-full truncate ${
+          className={`inline-flex items-center gap-1 rounded-md font-bold bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD] whitespace-nowrap ${
             compact ? 'px-1.5 py-0.2 text-[10px]' : 'px-2 py-0.5 text-[11px]'
           }`}
           title={`${fulfilledCount}/${mustHaveReqs.length} Kualifikasi Wajib Terpenuhi`}
         >
           <CheckCircle2 className={`${compact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-[#124B2E] shrink-0`} />
-          <span className="truncate">{fulfilledCount}/{mustHaveReqs.length} Terpenuhi</span>
+          <span>{fulfilledCount}/{mustHaveReqs.length} Terpenuhi</span>
         </span>
       )
     }
@@ -206,13 +237,13 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
     const deficitCount = mustHaveReqs.length - fulfilledCount
     return (
       <span
-        className={`inline-flex items-center gap-1 rounded-md font-bold bg-[#FEF6E8] text-[#7A3E02] border border-[#F8D8A7] max-w-full truncate ${
+        className={`inline-flex items-center gap-1 rounded-md font-bold bg-[#FEF6E8] text-[#7A3E02] border border-[#F8D8A7] whitespace-nowrap ${
           compact ? 'px-1.5 py-0.2 text-[10px]' : 'px-2 py-0.5 text-[11px]'
         }`}
         title={`${deficitCount} Kualifikasi Wajib Perlu Dicek`}
       >
         <AlertTriangle className={`${compact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-[#7A3E02] shrink-0`} />
-        <span className="truncate">{deficitCount} Perlu Dicek</span>
+        <span>{deficitCount} Perlu Dicek</span>
       </span>
     )
   }
@@ -363,17 +394,20 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
             {/* Table Header */}
             <thead className="sticky top-0 z-10 bg-[#F7FAF8] border-b border-[#D5DFD9] text-[10px] font-mono uppercase tracking-wider text-[#2D4439] font-bold">
               <tr>
-                <th className="py-2 px-2 w-12 text-center shrink-0">Rank</th>
+                <th className={`py-2 ${isDualPane ? 'px-1 w-10' : 'px-2 w-12'} text-center shrink-0`}>Rank</th>
                 <th className="py-2 px-2.5 min-w-0">
                   {isDualPane ? 'Kandidat' : 'Kandidat & Berkas'}
                 </th>
                 {!isDualPane && (
                   <th className="py-2 px-3 w-36 shrink-0">Kualifikasi Wajib</th>
                 )}
-                <th className="py-2 px-2 w-20 text-right shrink-0">Skor Fit</th>
-                <th className={`py-2 ${isDualPane ? 'px-1.5 w-24' : 'px-3 w-36'} shrink-0 text-left`}>
-                  <span className="truncate block" title={isDualPane ? 'Aksi / Keputusan' : 'Status Keputusan'}>
-                    {isDualPane ? 'Aksi / Keputusan' : 'Status Keputusan'}
+                <th className={`py-2 ${isDualPane ? 'px-1.5 w-16' : 'px-2 w-20'} text-right shrink-0`}>Skor Fit</th>
+                <th
+                  className={`py-2 ${isDualPane ? 'px-1.5 sm:px-2 w-32 sm:w-36' : 'px-2.5 w-40'} shrink-0 text-left`}
+                  aria-label="Status Keputusan"
+                >
+                  <span className="block" title={isDualPane ? 'Keputusan' : 'Status Keputusan'}>
+                    {isDualPane ? 'Keputusan' : 'Status Keputusan'}
                   </span>
                 </th>
                 {!isDualPane && (
@@ -403,7 +437,7 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
                     }`}
                   >
                     {/* 1. Rank Badge */}
-                    <td className="py-2.5 px-2 w-12 text-center shrink-0">
+                    <td className={`py-2.5 ${isDualPane ? 'px-1 w-10' : 'px-2 w-12'} text-center shrink-0`}>
                       <div
                         className={`w-7 h-6 mx-auto rounded-lg border flex items-center justify-center font-mono font-bold text-xs shadow-tactile-sm transition-colors ${
                           isSelected
@@ -478,7 +512,7 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
                     )}
 
                     {/* 4. Skor Fit */}
-                    <td className="py-2.5 px-2 w-20 text-right shrink-0">
+                    <td className={`py-2.5 ${isDualPane ? 'px-1.5 w-16' : 'px-2 w-20'} text-right shrink-0`}>
                       <div className="flex flex-col items-end">
                         <span className="font-mono tabular-nums font-bold text-sm text-[#13221C] leading-none">
                           {c.final_score.toFixed(1)}
@@ -490,9 +524,13 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
                     </td>
 
                     {/* 5. Dropdown Status Keputusan */}
-                    <td className={`py-2.5 ${isDualPane ? 'px-1.5 w-24' : 'px-3 w-36'} shrink-0`}>
+                    <td
+                      className={`py-2.5 ${
+                        isDualPane ? 'px-1.5 sm:px-2 w-32 sm:w-36' : 'px-2.5 w-40'
+                      } shrink-0 text-left`}
+                    >
                       <div
-                        className={isDualPane ? 'w-full' : 'w-[140px]'}
+                        className="w-full"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <CustomSelect
@@ -500,9 +538,9 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
                           onChange={(val) => {
                             onDecision(c.cv_id, val ? (val as 'SHORTLIST' | 'HOLD' | 'TIDAK_LANJUT') : '')
                           }}
-                          options={DECISION_OPTIONS}
+                          options={isDualPane ? DECISION_OPTIONS_COMPACT : DECISION_OPTIONS}
                           size="sm"
-                          buttonClassName={isDualPane ? 'px-1.5 text-[11px]' : ''}
+                          buttonClassName={isDualPane ? 'px-2 text-xs' : 'px-2.5 text-xs'}
                           ariaLabel={`Status keputusan untuk ${displayName}`}
                         />
                       </div>

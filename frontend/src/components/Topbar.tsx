@@ -107,7 +107,7 @@ export const Topbar: React.FC<TopbarProps> = ({
               {isLoading && !displayTitle ? (
                 <span className="inline-block h-3.5 w-24 sm:w-32 bg-[#D5DFD9] rounded animate-pulse" />
               ) : (
-                <span className="truncate max-w-[110px] sm:max-w-[160px] md:max-w-[200px] lg:max-w-[260px] font-bold">
+                <span className="truncate max-w-[140px] sm:max-w-[220px] md:max-w-[280px] lg:max-w-[360px] font-bold" title={displayTitle || ''}>
                   {displayTitle || (isLoading ? 'Memuat lowongan...' : 'Pilih Lowongan')}
                 </span>
               )}
