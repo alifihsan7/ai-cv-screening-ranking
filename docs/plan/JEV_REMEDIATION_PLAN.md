@@ -7,10 +7,12 @@ Dokumen ini berisi langkah perbaikan integrasi Jev di pipeline CV screening, ber
 | 1 | Sensor teks sebelum dikirim ke Jev | Kecil | Selesai (test DB belum dijalankan) |
 | 2 | Perbaiki ekstraksi pengalaman | Sedang | Belum (Opsi A) |
 | 3 | Hubungkan kutipan dengan keputusan Jev | Sedang | Belum |
-| 4 | Cache hasil Jev | Kecil | Belum |
-| 5 | Ambang batas confidence | Kecil | Belum |
+| 4 | Cache hasil Jev | Kecil | Belum (dikerjakan terakhir) |
+| 5 | Ambang batas confidence | Kecil | Selesai |
 | 6 | Bersih-bersih kode | Kecil | Belum |
 | 7 | Pengukuran (Jev vs LLM) | Sedang | Belum |
+
+Urutan pengerjaan: 1 → 5 → 2 → 3 → 6 → 7 → 4. Cache dikerjakan paling akhir supaya yang dibekukan adalah jawaban dari pipeline yang sudah diperbaiki dan diukur.
 
 ---
 
@@ -57,7 +59,7 @@ cv_core_text = redact_text(
 3. Validasi semua entri dalam satu panggilan `system_one`. Setiap entri menjadi satu pertanyaan Noul (`questions={"exp_0": Noul(...), "exp_1": ...}`), dengan `state` per entri berisi judul, organisasi, rentang tanggal, dan bullet.
    - Pertanyaan: "Apakah entri ini pengalaman kerja profesional yang nyata (bukan pendidikan, proyek kuliah, organisasi, atau minat)?"
 4. Simpan hasilnya di `WorkExperienceEntity`, dengan field baru `jev_validity: float | None` dan `flags: list[str]`.
-   - Nilai Noul di bawah ambang (memakai `JEV_MIN_CONFIDENCE` dari Tahap 5): beri flag `JEV_NOT_WORK_EXPERIENCE`. **Entri tidak dihapus.**
+   - Nilai Noul di bawah ambang (memakai `VERIFIER_MIN_CONFIDENCE` dari Tahap 5): beri flag `JEV_NOT_WORK_EXPERIENCE`. **Entri tidak dihapus.**
    - Perhitungan durasi di `eval_experience_duration` mengecualikan entri yang punya flag tersebut, dan alasannya dicatat ke `reasons` supaya terlihat oleh recruiter.
 5. Catat ke `jev_calls` satu baris per entri, dengan `criterion_id="EXPERIENCE_VALIDATION"` dan `primitive_type="NOUL"`.
 6. Buka client dengan `async with`.
@@ -94,13 +96,22 @@ Akibatnya, kutipan yang ditampilkan ke recruiter belum tentu menjadi dasar keput
 
 **Masalah.** `LLMGatewayVerifierProvider` sudah memakai `llm_cache`, sedangkan Jev belum. Menjalankan ulang input yang sama bisa menghasilkan status yang berbeda, dan setiap run tetap memakan biaya API.
 
+**Risiko.** Cache membekukan jawaban pertama. Kalau jawaban itu salah, kesalahannya ikut tersimpan.
+
 **Perubahan.**
-- Gunakan kunci cache `sha256(model + primitive + instruksi + kriteria + isi potongan)` di `JevTypeSafeVerifierProvider.verify`, `classify_role_family_jev`, dan extractor.
+- Gunakan kunci cache `sha256(versi prompt + model + primitive + instruksi + kriteria + isi potongan)` di `JevTypeSafeVerifierProvider.verify`, `classify_role_family_jev`, dan extractor.
+- Kunci versi model di config, misalnya `TYPESAFE_MODEL=jev-2026-09`, bukan `jev-latest`.
 - Pakai ulang `_get_db_cache` / `_save_db_cache` dengan `task='jev'`.
-- Hasil cache tetap dicatat ke `jev_calls` dengan penanda `cached=true`. Ini perlu migrasi kolom.
+
+**Pengaman.**
+1. Hanya jawaban dengan confidence ≥ `VERIFIER_MIN_CONFIDENCE` yang lolos grounding yang disimpan.
+2. Mengubah prompt atau model otomatis membatalkan cache lama, karena keduanya masuk ke kunci.
+3. Parameter `refresh=True` memanggil Jev lagi dan menimpa jawaban lama.
+4. Jawaban dari cache diberi flag `JEV_CACHED` dan dicatat di `jev_calls` dengan penanda `cached=true`. Ini perlu migrasi kolom.
 
 **Selesai jika.**
 - Ada test yang memanggil verifikasi dua kali dengan input sama. `system_one` hanya terpanggil sekali dan hasilnya identik.
+- Ada test di mana jawaban dengan confidence rendah tidak tersimpan, sehingga panggilan berikutnya tetap ke Jev.
 
 ---
 
@@ -108,13 +119,15 @@ Akibatnya, kutipan yang ditampilkan ke recruiter belum tentu menjadi dasar keput
 
 **Masalah.** Di [screening_service.py:423-445](../../src/domain/screening_service.py#L423-L445), hasil Jev selalu menggantikan status dari aturan, berapa pun confidence-nya.
 
-**Perubahan.**
-- Tambahkan setting `JEV_MIN_CONFIDENCE`, dengan default `0.6`, di [config.py](../../src/infrastructure/config.py).
-- Jika confidence di bawah ambang, status dari aturan dipertahankan, lalu ditambahkan flag `JEV_LOW_CONFIDENCE`.
-- Terapkan hal yang sama pada klasifikasi role family. Jika confidence rendah, gunakan hasil `classify_role_family` dan beri flag.
+**Yang dikerjakan.**
+- Setting baru `VERIFIER_MIN_CONFIDENCE` (default `0.60`) di [config.py](../../src/infrastructure/config.py) dan `.env.example`.
+- **Jalur non-agent** ([screening_service.py](../../src/domain/screening_service.py)): jika confidence Jev di bawah ambang, status dan bukti dari aturan dipertahankan, `method` tetap `rule`, dan ditambahkan flag `JEV_LOW_CONFIDENCE`. Flag ini tidak ditambahkan pada kasus `GROUNDING_FAIL`, karena kasus itu sudah punya flag sendiri.
+- **Klasifikasi role family** ([kind_rules.py](../../src/domain/kind_rules.py)): jika confidence Jev rendah, role family ditentukan oleh `classify_role_family` (aturan), dan ditambahkan flag `JEV_ROLE_FAMILY_LOW_CONFIDENCE` (sekali per kriteria).
+- **Jalur agent** ([agent.py](../../src/domain/agent.py)): sebelumnya sudah memakai ambang `0.60` yang ditulis langsung di kode, lalu mencoba ulang dan kembali ke status aturan dengan flag `LOW_CONFIDENCE`. Sekarang memakai setting yang sama, jadi ketiga jalur tidak bisa memakai angka yang berbeda.
 
-**Selesai jika.**
-- Ada test di mana Jev menjawab `NOT_DEMONSTRATED` dengan confidence 0.4 dan aturan menghasilkan `STRONG`. Status akhirnya tetap `STRONG` dan membawa flag.
+**Test.**
+- [test_jev_choice_role_family.py](../../tests/test_jev_choice_role_family.py): role family dengan confidence 0.30 kembali ke aturan dan diberi flag. Role family dengan confidence 0.95 tetap dipakai tanpa flag.
+- Jalur non-agent di `screening_service.py` belum punya test khusus, karena butuh database tes.
 
 ---
 

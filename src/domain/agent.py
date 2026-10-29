@@ -5,7 +5,7 @@ Enforces:
 2. Partitioned evaluation: deterministic pass (EDUCATION, DURATION, CERTIFICATION)
    isolated from contextual skills/responsibilities requiring ReAct reasoning.
 3. Reflection budgeting: maximum K = 3 cycles per criterion.
-4. Termination rule: if confidence < 0.60 after K = 3 cycles, enforce baseline fallback
+4. Termination rule: if confidence < VERIFIER_MIN_CONFIDENCE (default 0.60) after K = 3 cycles, enforce baseline fallback
    with LOW_CONFIDENCE flag.
 5. Verbatim grounding verification and context-elevation invariants.
 """
@@ -60,6 +60,7 @@ from src.domain.verifier import (
     normalize_text_nfkc,
     resolve_jev_primitive_params,
 )
+from src.infrastructure.config import settings
 from src.infrastructure.logging import logger
 
 DETERMINISTIC_KINDS = {
@@ -483,6 +484,7 @@ class ScreeningAgent:
 
         # Adaptive ReAct Loop with Max Reflection Budget K = 3
         current_query = desc
+        min_conf = settings.VERIFIER_MIN_CONFIDENCE
         k = 1
         decision: VerifierDecision | None = None
 
@@ -499,7 +501,7 @@ class ScreeningAgent:
                 )
             elif k == 2:
                 thought = (
-                    f"[Cycle {k}/{self.max_reflection_budget}] Initial retrieval inconclusive (confidence < 0.60). "
+                    f"[Cycle {k}/{self.max_reflection_budget}] Initial retrieval inconclusive (confidence < {min_conf:.2f}). "
                     f"Reflecting on taxonomy concepts to expand synonyms and domain terms."
                 )
             else:
@@ -646,8 +648,8 @@ class ScreeningAgent:
             # -------------------------------------------------------------
             # 4. REFLECT
             # -------------------------------------------------------------
-            # If high confidence (>= 0.60) and grounded evidence established:
-            if decision.confidence >= 0.60 and decision.state != EvaluationStatus.NOT_DEMONSTRATED:
+            # If high confidence (>= min_conf) and grounded evidence established:
+            if decision.confidence >= min_conf and decision.state != EvaluationStatus.NOT_DEMONSTRATED:
                 # Enforce Context-Elevation Invariant
                 elev_state, elev_flags = apply_context_elevation_guard(
                     state=decision.state,
@@ -706,24 +708,24 @@ class ScreeningAgent:
                     thought=thought,
                     action=f"REACT_CYCLE_{k}_{act_input.action_type}",
                     action_input=act_input,
-                    observation=f"{observation}. Criteria verified with sufficient confidence (>=0.60).",
+                    observation=f"{observation}. Criteria verified with sufficient confidence (>={min_conf:.2f}).",
                     state_mutation=f"evaluation_results[{req_id}] -> {elev_state.value}",
                 )
                 return
 
-            # If confidence < 0.60 and reflection budget remains:
+            # If confidence < min_conf and reflection budget remains:
             if k < self.max_reflection_budget:
                 self.record_step(
                     thought=thought,
                     action=f"REACT_CYCLE_{k}_{act_input.action_type}",
                     action_input=act_input,
-                    observation=f"{observation}. Confidence < 0.60. Advancing to next reflection cycle.",
+                    observation=f"{observation}. Confidence < {min_conf:.2f}. Advancing to next reflection cycle.",
                     state_mutation="reflection_budget_spent += 1",
                 )
                 k += 1
             else:
                 # ---------------------------------------------------------
-                # TERMINATION RULE (K=3 budget exhausted, confidence < 0.60)
+                # TERMINATION RULE (K=3 budget exhausted, confidence < min_conf)
                 # ---------------------------------------------------------
                 term_st_val = rule_st if rule_st in ("STRONG", "PARTIAL") else "NOT_DEMONSTRATED"
                 term_status = EvaluationStatus(term_st_val)
@@ -736,7 +738,7 @@ class ScreeningAgent:
                     metrics=to_evaluation_metrics(rule_m),
                     evidences=[],
                     flags=term_flags,
-                    reasons=["Reflection budget exhausted (K=3) with confidence < 0.60. Enforced fallback termination."],
+                    reasons=[f"Reflection budget exhausted (K=3) with confidence < {min_conf:.2f}. Enforced fallback termination."],
                     evaluation_method=EvaluationMethod.DETERMINISTIC_RULE,
                 )
                 self.state.evaluation_results[req_id] = eval_res
@@ -747,7 +749,7 @@ class ScreeningAgent:
                     action_input=GeneralActionInput(
                         action_type="GENERAL",
                         criterion_id=req_id,
-                        note="Max reflection budget K=3 reached with confidence < 0.60",
+                        note=f"Max reflection budget K=3 reached with confidence < {min_conf:.2f}",
                     ),
                     observation=f"Enforced termination rule: fallback to {term_status.value} with LOW_CONFIDENCE flag.",
                     state_mutation=f"evaluation_results[{req_id}] -> {term_status.value} (LOW_CONFIDENCE)",

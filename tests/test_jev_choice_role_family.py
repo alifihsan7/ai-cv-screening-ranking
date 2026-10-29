@@ -427,6 +427,59 @@ async def test_eval_experience_duration_dual_mode_awaited_with_jev():
     assert metrics["backend_months"] == 12.0
 
 
+def _stub_role_classifier(role_family: str, confidence: float):
+    async def _classify(title, bullets):
+        return RoleFamilyChoiceResult(role_family=role_family, confidence=confidence, raw_choice=role_family)
+
+    return _classify
+
+
+_BACKEND_PROFILE = {
+    "experiences": [
+        {
+            "title": "Backend Developer",
+            "start": "2022-01",
+            "end": "2024-12",  # 36 months
+            "context": "experience",
+            "bullets": [{"text": "FastAPI REST API"}],
+        }
+    ]
+}
+_BACKEND_REQ = {
+    "kind": "EXPERIENCE_DURATION",
+    "params": {"min_months": 36, "accepted_role_families": ["backend"]},
+}
+
+
+@pytest.mark.asyncio
+async def test_low_confidence_role_family_falls_back_to_rule_classifier():
+    """A low-confidence Jev role family must not exclude the experience; rule classifier decides, flagged."""
+    st, conf, metrics, evs, flgs = await eval_experience_duration_async(
+        profile=_BACKEND_PROFILE,
+        req=_BACKEND_REQ,
+        as_of="2026-01-01",
+        use_jev=True,
+        role_classifier=_stub_role_classifier("NON_TECHNICAL", 0.30),
+    )
+    assert st == "STRONG"
+    assert metrics["backend_months"] == 36.0
+    assert flgs.count("JEV_ROLE_FAMILY_LOW_CONFIDENCE") == 1
+
+
+@pytest.mark.asyncio
+async def test_confident_role_family_is_trusted():
+    """A confident Jev role family overrides the rule classifier without a low-confidence flag."""
+    st, conf, metrics, evs, flgs = await eval_experience_duration_async(
+        profile=_BACKEND_PROFILE,
+        req=_BACKEND_REQ,
+        as_of="2026-01-01",
+        use_jev=True,
+        role_classifier=_stub_role_classifier("NON_TECHNICAL", 0.95),
+    )
+    assert st == "NOT_DEMONSTRATED"
+    assert "JEV_ROLE_FAMILY_LOW_CONFIDENCE" not in flgs
+
+
 # -----------------------------------------------------------------------------
 # 6. Autonomous ScreeningAgent Integration Test
 # -----------------------------------------------------------------------------

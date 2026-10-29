@@ -51,6 +51,8 @@ class Settings(BaseSettings):
     LLM_MODEL_VERIFIER: str = "ag/gemini-3.8-flash-high"
     LLM_TEMPERATURE: float = 0.0
     VERIFIER_CONCURRENCY: int = 5
+    # Verifier/Jev answers below this confidence never override the deterministic rule state
+    VERIFIER_MIN_CONFIDENCE: float = 0.60
 
     # Eligibility Gate
     ELIGIBILITY_FOUR_EYES: bool = True

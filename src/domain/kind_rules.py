@@ -244,6 +244,18 @@ async def eval_experience_duration_async(
     flags: list[str] = []
     evidence: list[dict[str, Any]] = []
 
+    # Low-confidence Jev role families fall back to the deterministic classifier, flagged for review
+    if use_jev:
+        reclassified: list[tuple[dict[str, Any], str, float]] = []
+        for exp, rf, conf in classified_experiences:
+            if conf < settings.VERIFIER_MIN_CONFIDENCE:
+                bullet_text = " ".join(b.get("text", "") for b in exp.get("bullets", []) if isinstance(b, dict))
+                rf = classify_role_family(exp.get("title", ""), bullet_text).upper()
+                if "JEV_ROLE_FAMILY_LOW_CONFIDENCE" not in flags:
+                    flags.append("JEV_ROLE_FAMILY_LOW_CONFIDENCE")
+            reclassified.append((exp, rf, conf))
+        classified_experiences = reclassified
+
     for exp, rf, conf in classified_experiences:
         if not is_role_family_accepted(rf, accepted_rfs):
             continue
