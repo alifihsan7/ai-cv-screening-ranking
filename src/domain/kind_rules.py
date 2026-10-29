@@ -710,6 +710,9 @@ def eval_education(
             min_level = "S1"
 
     allow_related = any(r_term in desc_text for r_term in ["related", "terkait", "serumpun", "relevan", "sejenis"])
+    # Fields the recruiter lists explicitly as partial stay PARTIAL: "atau terkait" in the description only widens
+    # the fields inferred from the taxonomy, it does not override an explicit list (spec 4.2, EDUCATION).
+    promote_related = allow_related and not params.get("partial_fields")
 
     tax = get_taxonomy()
     strong_fields = [f.lower() for f in params.get("strong_fields", [])]
@@ -761,7 +764,7 @@ def eval_education(
         is_strong_f = any(f in comb for f in strong_fields)
         is_partial_f = any(f in comb for f in partial_fields)
 
-        if (is_strong_f or (is_partial_f and allow_related)) and lvl_r >= min_r:
+        if (is_strong_f or (is_partial_f and promote_related)) and lvl_r >= min_r:
             state = "STRONG"
             evidence.append({"quote": comb[:100], "context": "education", "verified": True})
             return state, 0.95, {}, evidence, []
@@ -840,6 +843,7 @@ def eval_achievement(
     has_tech_num = False
     has_hr_num = False
     has_biz_num = False
+    has_project_num = False
     has_comp_award = False
     has_unrelated_num = False
 
@@ -879,10 +883,10 @@ def eval_achievement(
             has_comp_award = True
             evidence.append({"quote": txt[:100], "context": "project", "verified": True})
         if num_pat.search(txt):
-            has_biz_num = True
+            has_project_num = True
             evidence.append({"quote": txt[:100], "context": "project", "verified": True})
 
-    if is_biz_comp and (has_comp_award or has_biz_num):
+    if is_biz_comp and (has_comp_award or has_biz_num or has_project_num):
         return "STRONG", 0.95, {}, evidence, []
     if has_comp_award:
         return "STRONG", 0.95, {}, evidence, []
@@ -890,8 +894,9 @@ def eval_achievement(
         return "STRONG", 0.95, {}, evidence, []
     if not is_hr_achievement and has_tech_num:
         return "STRONG", 0.95, {}, evidence, []
-    if has_biz_num:
-        return "STRONG", 0.95, {}, evidence, []
+    if has_biz_num or has_project_num:
+        # A number from a project, or from a job in an adjacent domain (e.g. a data analyst for a backend role)
+        return "PARTIAL", 0.85, {}, evidence, []
     if has_unrelated_num:
         has_tech_rf = any(
             classify_role_family(e.get("title", ""))

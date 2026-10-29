@@ -113,6 +113,30 @@ Sebagai pembanding, golden: 143/150 (95,3%) dan 144/150 (96,0%). Angkanya seband
 
 **Perlu ditinjau manusia:** H05.R9 (peningkatan kecepatan muat halaman 35 persen oleh frontend developer untuk lowongan backend). Saya beri PARTIAL karena domainnya berdekatan; bisa juga dibaca NOT_DEMONSTRATED. Sisa ketidaksesuaian lainnya jelas menurut spec dan parameter kriteria.
 
+### Perbaikan aturan EDUCATION dan ACHIEVEMENT
+
+Dua cacat aturan yang terbukti di golden (dan muncul lagi di hold-out) diperbaiki agar sesuai dengan definisi di spec (bagian 4.2), tanpa melihat detail hold-out saat merancangnya:
+
+- **EDUCATION:** deskripsi R7 berbunyi "…atau terkait", dan kata "terkait" membuat kode menganggap `partial_fields` setara `strong_fields`. Padahal kriteria itu mendaftar Statistika dan Teknik Elektro secara eksplisit sebagai `partial_fields`, dan spec menyatakan jurusan di daftar itu PARTIAL. Kini daftar eksplisit tidak dinaikkan oleh kata "terkait". Perilaku lama tetap berlaku bila recruiter tidak memberi daftar `partial_fields`.
+- **ACHIEVEMENT:** angka hasil di **proyek** (M3, S3, S5) dan angka di pekerjaan **bidang berdekatan** seperti data analyst untuk lowongan backend (M2) sebelumnya dinilai STRONG. Spec menyatakan keduanya PARTIAL; STRONG hanya untuk angka di pekerjaan pada domain kriteria.
+
+| | Sebelum | Sesudah |
+|---|---|---|
+| Golden, aturan murni | 143/150 | **149/150** (EDUCATION 15/15, ACHIEVEMENT 15/15, tanpa klaim berlebih) |
+| Golden, alur lengkap dengan Jev | 144/150 | **150/150** |
+| Set parafrase, aturan murni | 127/150 | 130/150 |
+| Set parafrase, alur lengkap dengan Jev | 143/150 | **146/150** |
+| Hold-out, aturan murni (informasi) | 112/120 | 114/120 |
+| Hold-out, alur lengkap dengan Jev (informasi) | 114/120 | 115/120 |
+
+**Skor 150/150 di golden bukan bukti kualitas umum.** Itu set yang diamati berkali-kali dan perbaikannya dirancang dari kegagalannya; ia hanya menunjukkan bahwa cacat yang diketahui tertutup. Hold-out lebih jujur: hanya naik 1, karena kesalahan yang tersisa di sana bukan jenis yang diperbaiki. Item H06.R7 dan H06.R9 di hold-out kini tidak lagi bersih.
+
+**Sisa kesalahan di hold-out (115/120):**
+- H04.R9 dan H09.R9: Jev menaikkan ACHIEVEMENT ke PARTIAL padahal CV tidak memuat satu angka hasil pun (spec: tanpa angka hasil = NOT_DEMONSTRATED).
+- H06.R9: aturan kini benar (PARTIAL, domain data), tetapi Jev menaikkannya ke STRONG.
+- H10.R8: sertifikat kedaluwarsa dinilai STRONG karena `eval_certification` tidak menangani kedaluwarsa sama sekali. Bobot R8 hanya 5 dari 100 (NICE_TO_HAVE), jadi selisih STRONG ke PARTIAL setara sekitar 2,5 poin skor kandidat; belum diimplementasikan.
+- H05.R9: label yang perlu ditinjau manusia (lihat di atas).
+
 ### Keterbatasan pembaruan ini
 
 - Dataset kecil (15 CV) dan sudah berkali-kali diamati. Perbaikan di atas tidak boleh dibaca sebagai estimasi akurasi pada CV nyata.
