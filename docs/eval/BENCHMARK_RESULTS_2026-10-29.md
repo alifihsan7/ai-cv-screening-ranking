@@ -208,6 +208,20 @@ Hold-out 3 hanya informasi: L04.R10, L06.R10 (pengaman) dan L12.R9/R10 (aturan m
 
 L09.R7 ("Bachelor of Informatics Engineering") dinilai NOT_DEMONSTRATED walau taksonomi punya alias "informatics": aturan hanya memakai alias taksonomi bila recruiter tidak menulis daftar `strong_fields`, dan JD-01 menulisnya ("Informatika", "Ilmu Komputer", dan seterusnya). Atas keputusan Anda, daftar recruiter kini diperluas dengan alias bidang taksonomi yang sama (menyimpang dari bunyi spec 4.2, "jurusan di `params.strong_fields`"; bidang `partial_fields` tidak diubah). Kriteria ditetapkan sebelum pengukuran: tidak ada sel lain yang berubah menjadi salah. Hasil aturan murni di lima set: **tepat satu sel berubah, L09.R7 NOT_DEMONSTRATED → STRONG (benar)**; golden 149, parafrase 130, hold-out 1 114, hold-out 2 110 tidak berubah, hold-out 3 117 → 118. Alur lengkap dengan Jev tidak diukur ulang: EDUCATION dinilai aturan murni dan tidak melewati Jev.
 
+### Pengaman "kutipan harus memuat besaran" untuk ACHIEVEMENT: ditolak
+
+Rancangan ulang dari pengaman "harus ada angka" yang ditolak sebelumnya: bila Jev menaikkan ACHIEVEMENT di atas status aturan, kutipan pendukungnya harus memuat besaran (angka, atau kata bilangan/kelipatan seperti "tiga kali lipat" dan "doubled"); bila tidak, status aturan dipertahankan (flag `JEV_ACHIEVEMENT_NO_FIGURE`). Kriteria penerimaan ditulis sebelum pengukuran (lihat checkpoint).
+
+| Set (alur lengkap dengan Jev) | Hasil |
+|---|---|
+| Golden | 150/150 |
+| Parafrase | **143**/150 (kriteria: ≥ 144) |
+| Hold-out 1 / 2 / 3 | 117 / 116 / 117 |
+
+**Kriteria 1 gagal** (parafrase 143), dan **kriteria 3 hanya terpenuhi sebagian**: H04.R9 menjadi benar, tetapi H09.R9 dan K11.R9 tidak, karena kutipannya memuat tahun ("2025", "2024") yang lolos sebagai angka. Pengaman juga **merusak tiga sel yang sebelumnya benar**: M2.R9 (parafrase), K08.R9 (hold-out 2), dan L07.R9 (hold-out 3). Pada ketiganya Jev benar tentang statusnya, tetapi kutipan yang dipilihnya tidak memuat angka (angkanya ada di kalimat tetangga dalam proyek atau organisasi yang sama).
+
+**Kesimpulan:** menguji kutipan yang dipilih Jev adalah ukuran yang salah untuk klaim "ada hasil terukur", karena kutipan hanya sebagian dari bukti yang dinilai. Perubahan tidak masuk kode (patch disimpan di luar repo). Bila dicoba lagi, dua hal harus berubah sekaligus: tahun dan tanggal tidak boleh dihitung sebagai besaran, dan uji dilakukan pada seluruh potongan bukti yang dinilai Jev (bullet atau blok proyek), bukan pada kutipannya saja. Itu percobaan baru dengan kriteria baru, dan harus diukur pada set yang belum pernah dilihat.
+
 ### Nama kandidat: nama file dan kegagalan deteksi nama
 
 **Diperbaiki:** `resolve_candidate_name_consensus` ([anchor.py](../../src/worker/anchor.py)) mengizinkan nama dari nama file menimpa nama di dokumen walau keduanya tidak punya satu kata pun yang sama (klausa "nama di dokumen ≤ 2 kata, nama file lebih panjang"). Pada K09 (`K09_platform_head_…`) nama kandidat menjadi "K09 Platform Head Table2": kata "Head" dan "Platform" disensor dari seluruh CV, sedangkan nama asli ("Arief Nugraha") lolos. Kini nama file hanya boleh melengkapi nama di dokumen bila ada kata yang sama; kasus ATS yang sah ("Yadi" dengan "3554_Yadi Apriyadi_…", "Aryo B" dengan "CV_Aryo Budi Hutomo") tetap bekerja. Dicakup oleh 4 test unit dan 3 test dari ujung ke ujung (nama asli tidak boleh tersisa di teks yang disensor, judul pekerjaan tidak boleh ikut disensor).
