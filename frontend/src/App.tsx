@@ -2098,34 +2098,45 @@ export default function App() {
 
         {currentStep === 'workbench' && (
           <div className="flex-1 flex flex-col overflow-hidden relative bg-[#F2F5F3]">
-            {/* Ergonomic Centered Workbench Container */}
-            <div className="flex-1 flex flex-col overflow-hidden max-w-6xl 2xl:max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 min-h-0">
-              {/* Elevated Workbench Card */}
-              <CandidateRoster
-                candidates={candidates}
-                requirements={requirements}
-                selectedCandidateId={selectedCandidate?.cv_id || null}
-                onSelectCandidate={handleSelectCandidate}
-                blindMode={blindMode}
-                onToggleBlindMode={() => setBlindMode((prev) => !prev)}
-                onDecision={handleDecision}
-                onRevealCandidate={handleRevealCandidate}
-                onOpenInspector={handleOpenInspector}
-                isRefreshing={isRefreshing}
-              />
-            </div>
+            {/* Ergonomic Widescreen Workbench Container */}
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 w-full flex-1 flex flex-col min-h-0">
+              <div className="flex-1 flex flex-col lg:flex-row gap-4 overflow-hidden min-h-0 relative">
+                {/* Left Panel: Master Candidate Roster (40% width on lg when inspector open, 100% when closed) */}
+                <div
+                  className={`flex flex-col min-h-0 transition-all duration-200 ${
+                    isInspectorOpen
+                      ? 'w-full lg:w-[42%] xl:w-[40%] shrink-0'
+                      : 'w-full flex-1'
+                  }`}
+                >
+                  <CandidateRoster
+                    candidates={candidates}
+                    requirements={requirements}
+                    selectedCandidateId={selectedCandidate?.cv_id || null}
+                    onSelectCandidate={handleSelectCandidate}
+                    blindMode={blindMode}
+                    onToggleBlindMode={() => setBlindMode((prev) => !prev)}
+                    onDecision={handleDecision}
+                    onRevealCandidate={handleRevealCandidate}
+                    onOpenInspector={handleOpenInspector}
+                    isRefreshing={isRefreshing}
+                    isCompact={isInspectorOpen}
+                  />
+                </div>
 
-            {/* Focused Candidate Inspector (Slide-over with Progressive Disclosure) */}
-            <CandidateInspector
-              isOpen={isInspectorOpen}
-              onClose={handleCloseInspector}
-              candidate={selectedCandidate}
-              requirements={requirements}
-              blindMode={blindMode}
-              onDecision={handleDecision}
-              onRevealCandidate={handleRevealCandidate}
-              initialTab={inspectorInitialTab}
-            />
+                {/* Right Panel: Persistent Forensic Inspector (Embedded Side-by-Side on Desktop) */}
+                <CandidateInspector
+                  isOpen={isInspectorOpen}
+                  onClose={handleCloseInspector}
+                  candidate={selectedCandidate}
+                  requirements={requirements}
+                  blindMode={blindMode}
+                  onDecision={handleDecision}
+                  onRevealCandidate={handleRevealCandidate}
+                  initialTab={inspectorInitialTab}
+                />
+              </div>
+            </div>
           </div>
         )}
       </main>

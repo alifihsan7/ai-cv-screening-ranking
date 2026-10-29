@@ -313,19 +313,21 @@ PENDIDIKAN & LATAR BELAKANG:
 
   return (
     <>
-      {/* Semi-transparent Backdrop for Focus */}
+      {/* Semi-transparent Backdrop for Mobile only */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/20 backdrop-blur-[1px] z-40 transition-opacity duration-200"
+          className="fixed inset-0 bg-black/20 backdrop-blur-[1px] z-40 transition-opacity duration-200 lg:hidden"
           onClick={onClose}
           aria-hidden="true"
         />
       )}
 
-      {/* Slide-over Inspector Panel */}
+      {/* Slide-over Inspector Panel (Mobile) / Persistent Master-Detail Embedded Panel (Desktop lg:) */}
       <aside
-        className={`fixed inset-y-0 right-0 w-full sm:w-[680px] lg:w-[780px] xl:w-[860px] max-w-full z-50 bg-[#FCFDFC] border-l border-[#D5DFD9] shadow-tactile-lg flex flex-col transform transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-          isOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'
+        className={`fixed inset-y-0 right-0 w-full sm:w-[680px] z-50 bg-[#FCFDFC] border-l border-[#D5DFD9] shadow-tactile-lg flex flex-col transform transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+          isOpen
+            ? 'translate-x-0 opacity-100 lg:static lg:inset-auto lg:h-full lg:flex-1 lg:max-w-none lg:z-auto lg:rounded-2xl lg:border lg:border-[#D5DFD9] lg:shadow-tactile-sm'
+            : 'translate-x-full pointer-events-none opacity-0'
         }`}
         aria-label="Panel Inspeksi Kandidat"
         role="dialog"
