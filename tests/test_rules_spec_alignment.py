@@ -94,3 +94,16 @@ def test_hr_number_still_counts_as_strong_for_an_hr_criterion():
     state, *_ = eval_achievement(job("HR Generalist", "Mempercepat time-to-hire dari 45 hari menjadi 30 hari."), HR_ACH_REQ)
 
     assert state == "STRONG"
+
+
+def test_education_listed_field_also_matches_its_taxonomy_aliases():
+    req = {
+        "kind": "EDUCATION",
+        "description": "S1 Teknik Informatika, Ilmu Komputer, atau terkait",
+        "params": {"min_level": "S1", "strong_fields": ["Teknik Informatika", "Ilmu Komputer"], "partial_fields": ["Matematika"]},
+    }
+    english = {"education": [{"level": "S1", "degree_raw": "Bachelor of Informatics Engineering", "institution": "Universitas X"}]}
+    state, *_ = eval_education(english, req)
+    assert state == "STRONG"
+    unrelated = {"education": [{"level": "S1", "degree_raw": "Bachelor of Business Administration", "institution": "Universitas X"}]}
+    assert eval_education(unrelated, req)[0] == "NOT_DEMONSTRATED"

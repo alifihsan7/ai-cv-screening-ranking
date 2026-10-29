@@ -719,6 +719,16 @@ def eval_education(
     strong_fields = [f.lower() for f in params.get("strong_fields", [])]
     partial_fields = [f.lower() for f in params.get("partial_fields", [])]
 
+    if strong_fields:
+        # The recruiter's list is written in one language; the same field has other names (Informatika, Informatics,
+        # Computer Science). Add the taxonomy aliases of any field the list already names.
+        listed = set(strong_fields)
+        for field_id, field_skill in tax.skills.items():
+            if field_id.startswith("field:"):
+                aliases = [a.lower() for a in getattr(field_skill, "aliases", [])]
+                if listed & set(aliases):
+                    strong_fields.extend(a for a in aliases if a not in listed)
+
     if not strong_fields:
         for field_id, field_skill in tax.skills.items():
             if field_id.startswith("field:"):

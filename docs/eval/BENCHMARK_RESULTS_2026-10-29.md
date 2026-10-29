@@ -204,6 +204,10 @@ Rancangan dan kriteria penerimaan ditulis sebelum pengukuran (lihat [checkpoint]
 
 Hold-out 3 hanya informasi: L04.R10, L06.R10 (pengaman) dan L12.R9/R10 (aturan murni) ikut membentuk rancangan, sehingga set itu tidak lagi bersih untuk sel-sel tersebut. Di alur lengkap L12.R9 dan L12.R10 masih dijawab Jev, dari kutipan di pekerjaan backend, jadi di luar jangkauan pengaman.
 
+### EDUCATION: alias taksonomi untuk daftar jurusan recruiter
+
+L09.R7 ("Bachelor of Informatics Engineering") dinilai NOT_DEMONSTRATED walau taksonomi punya alias "informatics": aturan hanya memakai alias taksonomi bila recruiter tidak menulis daftar `strong_fields`, dan JD-01 menulisnya ("Informatika", "Ilmu Komputer", dan seterusnya). Atas keputusan Anda, daftar recruiter kini diperluas dengan alias bidang taksonomi yang sama (menyimpang dari bunyi spec 4.2, "jurusan di `params.strong_fields`"; bidang `partial_fields` tidak diubah). Kriteria ditetapkan sebelum pengukuran: tidak ada sel lain yang berubah menjadi salah. Hasil aturan murni di lima set: **tepat satu sel berubah, L09.R7 NOT_DEMONSTRATED → STRONG (benar)**; golden 149, parafrase 130, hold-out 1 114, hold-out 2 110 tidak berubah, hold-out 3 117 → 118. Alur lengkap dengan Jev tidak diukur ulang: EDUCATION dinilai aturan murni dan tidak melewati Jev.
+
 ### Nama kandidat: nama file dan kegagalan deteksi nama
 
 **Diperbaiki:** `resolve_candidate_name_consensus` ([anchor.py](../../src/worker/anchor.py)) mengizinkan nama dari nama file menimpa nama di dokumen walau keduanya tidak punya satu kata pun yang sama (klausa "nama di dokumen ≤ 2 kata, nama file lebih panjang"). Pada K09 (`K09_platform_head_…`) nama kandidat menjadi "K09 Platform Head Table2": kata "Head" dan "Platform" disensor dari seluruh CV, sedangkan nama asli ("Arief Nugraha") lolos. Kini nama file hanya boleh melengkapi nama di dokumen bila ada kata yang sama; kasus ATS yang sah ("Yadi" dengan "3554_Yadi Apriyadi_…", "Aryo B" dengan "CV_Aryo Budi Hutomo") tetap bekerja. Dicakup oleh 4 test unit dan 3 test dari ujung ke ujung (nama asli tidak boleh tersisa di teks yang disensor, judul pekerjaan tidak boleh ikut disensor).
