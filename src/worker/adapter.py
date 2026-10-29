@@ -556,7 +556,22 @@ _DURATION_NOTE = re.compile(
     re.IGNORECASE,
 )
 _CONTACT_LINE = re.compile(r"@|linkedin\.com|github\.com|\+\d{2}[\d\s-]{6,}|\b0\d{2,3}[\s-]?\d{3,4}[\s-]?\d{3,5}\b", re.IGNORECASE)
+_EXPERIENCE_HEADING = re.compile(
+    r"^(?:pengalaman(?:\s+kerja)?|riwayat\s+pekerjaan|work\s+experience|professional\s+experience|experience|employment(?:\s+history)?)\s*:?$",
+    re.IGNORECASE,
+)
 _MODE_WORDS = {"remote", "onsite", "on-site", "hybrid", "wfh", "wfo", "full-time", "part-time", "fulltime", "parttime"}
+
+
+# Words that name a field more often than a job: "PT. Mitra Data" is a company, "Web Developer" has "developer".
+_GENERIC_ROLE_WORDS = {"data", "project", "software", "web", "mobile", "cloud", "head", "staff"}
+
+
+def _has_role_word(text: str) -> bool:
+    low = text.lower()
+    return any(
+        re.search(rf"(?<![a-z]){re.escape(k)}(?![a-z])", low) for k in ROLE_KEYWORDS if k not in _GENERIC_ROLE_WORDS
+    )
 
 
 def _is_bullet_line(line: str) -> bool:
@@ -633,6 +648,7 @@ def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None =
         valid_lines.append(l)
     lines = [_DURATION_NOTE.sub("", _MONTH_COMMA_YEAR.sub(r"\1 \2", l.replace("\xa0", " "))).rstrip(" |") for l in valid_lines]
     lines = _drop_repeated_page_header([l for l in lines if l.strip()], full_doc_text)
+    lines = [l for l in lines if not _EXPERIENCE_HEADING.match(l.strip())]
     if not lines:
         return []
 
@@ -689,8 +705,8 @@ def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None =
         # carries a place or mode ("| Jakarta", "Jakarta | Onsite |") or the company ("PT. X - City | |").
         same_line = (curr_head or slice_after).strip(")-:|•— \t")
         prev_header = lines[idx - 1].strip() if idx > 0 and (i == 0 or date_lines[i - 1][0] < idx) else ""
-        if same_line and prev_header and _is_header_like(prev_header) and any(k in prev_header.lower() for k in ROLE_KEYWORDS):
-            same_has_role = any(k in same_line.lower() for k in ROLE_KEYWORDS)
+        if same_line and prev_header and _is_header_like(prev_header) and _has_role_word(prev_header):
+            same_has_role = _has_role_word(same_line)
             same_has_company = any(re.search(rf"\b{re.escape(c)}\b", same_line.lower()) for c in COMPANY_KEYWORDS)
             if not same_has_role and (same_has_company or len(same_line.replace("|", " ").split()) <= 4):
                 t0, o0 = _extract_title_org(prev_header)
@@ -699,6 +715,33 @@ def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None =
                     if not org and same_has_company:
                         org = re.split(r"\s+[-–—]\s+|\s*\|\s*|,\s+", same_line)[0].strip()
                     used_lines.add(idx - 1)
+
+        # Strategy 0c/0d: "Company / dates / Title" or "Company dates / Title": the line after the dates is the job
+        # title and the text before them is the company, so the company must not become the title.
+        next_header = _plain_line(lines, idx + 1)
+        if (
+            not title
+            and next_header
+            and _is_header_like(next_header)
+            and _has_role_word(next_header)
+            and not (i + 1 < n_dates and date_lines[i + 1][0] == idx)
+        ):
+            company_text = ""
+            if same_line and not _has_role_word(same_line):
+                # 0d: company and dates share the line (the raw text: `curr_head` may have joined "PT" and the name)
+                company_text = slice_before.strip(")-:|•— \t") or same_line
+            elif (
+                not same_line
+                and idx > 0
+                and _is_header_like(lines[idx - 1])
+                and not _has_role_word(lines[idx - 1])
+            ):
+                company_text = lines[idx - 1].strip()  # 0c: the company is the line above the dates
+                used_lines.add(idx - 1)
+            if company_text:
+                title = next_header
+                org = re.split(r"\s+[-–—]\s+|\s*\|\s*|,\s+", company_text)[0].strip()
+                used_lines.add(idx + 1)
 
         # Strategy 1: Title from slice_before
         if not title and curr_head:

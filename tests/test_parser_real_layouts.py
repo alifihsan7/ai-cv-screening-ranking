@@ -160,3 +160,47 @@ def test_a_fresh_graduate_with_only_school_years_is_not_flagged():
 
     assert not has_job_like_date_ranges("S1 Teknik Informatika (2019 - 2023)\nSMK Negeri 1 (2016 - 2019)")
     assert not has_job_like_date_ranges("Pendidikan 2019 - 2023")
+
+
+COMPANY_DATES_THEN_TITLE = """PT. NUSA KARYA
+April 2024 – April 2025
+Backend Developer
+Developed REST APIs using Python and PostgreSQL for the billing system with good
+performance.
+Wrote automated tests.
+PENGALAMAN KERJA
+PT. MITRA DATA September 2023 – Desember 2023
+Software Engineer Intern
+Fixed bugs in the ordering application.
+PENGALAMAN ORGANISASI
+Himpunan Contoh"""
+
+COMPANY_CITY_DATES_THEN_TITLE_WITH_INTERN_NOTE = """PT. Nusa Karya - Jakarta
+Jul 2024 - Aug 2024
+Software Engineer (Intern)
+Built an internal tool with FastAPI and PostgreSQL for the operations team.
+Wrote unit tests for the reporting module.
+PT. Mitra Data - Bandung
+Nov 2023 - Jan 2024
+Backend Developer (Intern)
+Developed a REST API with Django."""
+
+
+def test_company_then_dates_then_title_with_a_repeated_section_heading():
+    parsed = parse_experiences(COMPANY_DATES_THEN_TITLE, COMPANY_DATES_THEN_TITLE)
+    assert [(e["title"], e["organization"], e["start"]["value"], e["end"]["value"]) for e in parsed] == [
+        ("Backend Developer", "PT. NUSA KARYA", "2024-04", "2025-04"),
+        ("Software Engineer Intern", "PT. MITRA DATA", "2023-09", "2023-12"),
+    ]
+    assert [b["text"] for b in parsed[0]["bullets"]] == [
+        "Developed REST APIs using Python and PostgreSQL for the billing system with good",
+        "performance.",
+        "Wrote automated tests.",
+    ]
+
+
+def test_company_and_city_then_dates_then_title():
+    assert _parse(COMPANY_CITY_DATES_THEN_TITLE_WITH_INTERN_NOTE) == [
+        ("Software Engineer (Intern)", "PT. Nusa Karya", "2024-07", "2024-08"),
+        ("Backend Developer (Intern)", "PT. Mitra Data", "2023-11", "2024-01"),
+    ]
