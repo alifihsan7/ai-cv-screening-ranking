@@ -28,6 +28,7 @@ from src.infrastructure.logging import logger
 from src.worker.anchor import resolve_candidate_name_consensus
 from src.worker.boundary import isolate_document_boundaries
 from src.worker.docling_parser import parse_with_docling
+from src.worker.pdf_reading_order import page_text_in_reading_order
 from src.worker.docx_text import extract_docx_text
 
 EMAIL_PATTERN = re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+")
@@ -162,11 +163,11 @@ class _FallbackExtractorService:
                 pages_text: list[str] = []
                 for i in range(len(pdf_doc)):
                     page = pdf_doc[i]
-                    p_txt = page.get_text()
+                    p_txt = page_text_in_reading_order(page)
                     if len(p_txt.strip()) < 30 and len(page.get_images()) > 0:
                         try:
                             tp = page.get_textpage_ocr(language="eng+ind", dpi=300)
-                            ocr_txt = clean_ocr_noise(page.get_text(textpage=tp))
+                            ocr_txt = clean_ocr_noise(page_text_in_reading_order(page, tp))
                             if len(ocr_txt.strip()) > len(p_txt.strip()):
                                 p_txt = ocr_txt
                         except Exception:
@@ -597,8 +598,11 @@ def _is_place_line(line: str) -> bool:
         return False
     if s.lower() in _MODE_WORDS:
         return True
-    parts = [p.strip() for p in s.split(",")]
-    return len(parts) >= 2 and all(p and p[0].isupper() and len(p.split()) <= 3 for p in parts)
+    trailing_comma = s.endswith(",")  # "Bandung," when the region wraps onto the next line
+    parts = [p.strip() for p in s.rstrip(",").split(",")]
+    if len(parts) == 1:
+        return trailing_comma and bool(parts[0]) and parts[0][0].isupper() and len(parts[0].split()) <= 3
+    return all(p and p[0].isupper() and len(p.split()) <= 3 for p in parts)
 
 
 def _drop_repeated_page_header(lines: list[str], full_doc_text: str) -> list[str]:
@@ -731,11 +735,20 @@ def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None =
         # Strategy 0c/0d: "Company / dates / Title" or "Company dates / Title": the line after the dates is the job
         # title and the text before them is the company, so the company must not become the title.
         next_header = _plain_line(lines, idx + 1)
+        # "Company / City, / dates" is a strong sign by itself: the line after the dates is then the title, whether
+        # or not it contains a word that names a role ("Pendamping Program Anak")
+        company_place_pattern = (
+            not same_line
+            and idx > 1
+            and _is_place_line(lines[idx - 1])
+            and _is_header_like(lines[idx - 2])
+            and not _has_role_word(lines[idx - 2])
+        )
         if (
             not title
             and next_header
             and _is_header_like(next_header)
-            and _has_role_word(next_header)
+            and (_has_role_word(next_header) or company_place_pattern)
             and not (i + 1 < n_dates and date_lines[i + 1][0] == idx)
         ):
             company_text = ""
@@ -747,9 +760,21 @@ def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None =
                 and idx > 0
                 and _is_header_like(lines[idx - 1])
                 and not _has_role_word(lines[idx - 1])
+                # "Title / Company / dates / subtitle": the title is already two lines up, so the line after the dates
+                # is a project subtitle, not the title
+                and not (idx > 1 and _is_header_like(lines[idx - 2]) and _has_role_word(lines[idx - 2]))
             ):
                 company_text = lines[idx - 1].strip()  # 0c: the company is the line above the dates
                 used_lines.add(idx - 1)
+                if (
+                    _is_place_line(company_text)
+                    and idx > 1
+                    and _is_header_like(lines[idx - 2])
+                    and not _has_role_word(lines[idx - 2])
+                ):
+                    # "Company / City, / dates / Title": the line above the dates is only the place
+                    company_text = lines[idx - 2].strip()
+                    used_lines.add(idx - 2)
             if company_text:
                 title = next_header
                 org = re.split(r"\s+[-–—]\s+|\s*\|\s*|,\s+", company_text)[0].strip()
@@ -790,6 +815,20 @@ def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None =
                 if org_line:
                     org = org_line.split(",")[0].strip()
                     used_lines.add(idx + 2)
+
+        # Strategy 2c: "Title / Company [| City] / dates": the title is two lines up and the company is the line above
+        # the dates (which may carry a "| City" suffix that the older two-part split would take for the organization).
+        if not title and not same_line and idx > 1 and (i == 0 or date_lines[i - 1][0] < idx):
+            title_line, company_line = lines[idx - 2].strip(), lines[idx - 1].strip()
+            if (
+                _is_header_like(title_line)
+                and _has_role_word(title_line)
+                and _is_header_like(company_line)
+                and not _has_role_word(company_line)
+            ):
+                title = title_line
+                org = re.split(r"\s+[-–—]\s+|\s*\|\s*|,\s+", company_line)[0].strip()
+                used_lines.update({idx - 2, idx - 1})
 
         # Strategy 3: Title from preceding lines (when date is on its own line)
         if not title and idx > 0 and (i == 0 or date_lines[i - 1][0] < idx):
@@ -1196,11 +1235,11 @@ def extract_candidate_profile(content: bytes, filename: str) -> dict[str, Any]:
             pages_data = []
             for i in range(len(doc)):
                 page = doc[i]
-                p_text = page.get_text()
+                p_text = page_text_in_reading_order(page)
                 if len(p_text.strip()) < 30 and len(page.get_images()) > 0:
                     try:
                         tp = page.get_textpage_ocr(language="eng+ind", dpi=300)
-                        ocr_txt = clean_ocr_noise(page.get_text(textpage=tp))
+                        ocr_txt = clean_ocr_noise(page_text_in_reading_order(page, tp))
                         if len(ocr_txt.strip()) > len(p_text.strip()):
                             p_text = ocr_txt
                     except Exception:

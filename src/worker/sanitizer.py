@@ -19,6 +19,7 @@ from src.worker.pdf_inspector import (
     normalize_canonical_text,
     visible_on_real_background,
 )
+from src.worker.pdf_reading_order import page_text_in_reading_order
 
 INJECTION_PATTERNS = [
     re.compile(r"ignore\s+all\s+(?:previous|prior)\s+instructions", re.IGNORECASE),
@@ -125,7 +126,7 @@ def sanitize_file(content: bytes, filename: str) -> SanitizeResult:
         pages_data: list[dict[str, Any]] = []
         for page_idx in range(len(doc)):
             page = doc[page_idx]
-            page_text = page.get_text()
+            page_text = page_text_in_reading_order(page)
             text_str = page_text if isinstance(page_text, str) else str(page_text)
             img_cnt = len(page.get_images())
             total_images += img_cnt
@@ -133,7 +134,7 @@ def sanitize_file(content: bytes, filename: str) -> SanitizeResult:
             if len(text_str.strip()) < 30 and img_cnt > 0:
                 try:
                     tp = page.get_textpage_ocr(language="eng+ind", dpi=150)
-                    ocr_txt = clean_ocr_noise(page.get_text(textpage=tp))
+                    ocr_txt = clean_ocr_noise(page_text_in_reading_order(page, tp))
                     if len(ocr_txt.strip()) > len(text_str.strip()):
                         text_str = ocr_txt
                 except Exception:

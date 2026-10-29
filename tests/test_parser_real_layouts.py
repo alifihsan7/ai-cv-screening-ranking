@@ -214,3 +214,48 @@ def test_one_word_per_line_text_is_fragmented_and_normal_text_is_not():
     normal = "\n".join(["Built REST APIs with Python and PostgreSQL for billing."] * 30 + ["Python", "Docker"] * 5)
     assert not is_fragmented_text(normal)
     assert not is_fragmented_text("Python\nGo\nDocker")  # too short to judge
+
+
+COMPANY_CITY_DATES_THEN_TITLE = """PT. NUSA KARYA
+Bandung,
+Mei 2023 - Sekarang
+Koordinator Program Kesehatan
+Menjalankan program kesehatan dan melaporkan hasilnya kepada pimpinan setiap bulan.
+PT. MITRA DATA
+Jakarta,
+Jan 2024 - Jun 2024
+Backend Developer
+Membangun REST API dengan Python."""
+
+
+def test_company_city_dates_pattern_takes_a_title_without_a_role_word():
+    text = """PT. NUSA KARYA
+Bandung,
+Mei 2023 - Sekarang
+Pendamping Program Anak
+Mendampingi anak-anak dalam kegiatan belajar setiap pekan di sekolah mitra."""
+    assert _parse(text) == [("Pendamping Program Anak", "PT. NUSA KARYA", "2023-05", "present")]
+
+
+def test_company_then_city_then_dates_then_title():
+    assert _parse(COMPANY_CITY_DATES_THEN_TITLE) == [
+        ("Koordinator Program Kesehatan", "PT. NUSA KARYA", "2023-05", "present"),
+        ("Backend Developer", "PT. MITRA DATA", "2024-01", "2024-06"),
+    ]
+
+
+def test_title_above_company_is_kept_when_a_project_subtitle_with_a_role_word_follows_the_dates():
+    text = """Backend Engineer
+PT. Nusa Karya | Bandung
+Maret 2020 - Mei 2023
+Support backend BPJS Kesehatan
+Membangun layanan integrasi dengan Java dan PostgreSQL untuk klaim peserta.
+Tech Lead
+PT. Mitra Data | Jakarta
+Agustus 2018 - Januari 2020
+Support backend Telkom
+Memimpin tim kecil untuk integrasi pembayaran."""
+    assert _parse(text) == [
+        ("Backend Engineer", "PT. Nusa Karya", "2020-03", "2023-05"),
+        ("Tech Lead", "PT. Mitra Data", "2018-08", "2020-01"),
+    ]
