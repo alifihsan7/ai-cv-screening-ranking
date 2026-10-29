@@ -104,10 +104,10 @@ Sebagai pembanding, golden: 143/150 (95,3%) dan 144/150 (96,0%). Angkanya seband
 
 **Jev membantu** pada klasifikasi peran ("Web Developer" dihitung sebagai backend, H03.R1), kepemimpinan ("Engineering Manager", H10.R10), tanggung jawab (H05.R2), dan pencapaian di proyek (H08.R9). **Jev merugikan** pada ACHIEVEMENT: H04.R9 dan H09.R9 dinilai PARTIAL padahal CV tidak memuat satu angka hasil pun. Primitive Score membaca pencapaian sebagai kedalaman keahlian umum, sehingga pekerjaan backend biasa pun dianggap "pencapaian". Spec mensyaratkan angka hasil untuk STRONG dan PARTIAL.
 
-**Kesalahan yang tidak melibatkan Jev, dan sudah terlihat di golden juga:**
-- EDUCATION: "S1 Statistika" dinilai STRONG padahal `partial_fields` pada kriteria menyebutnya PARTIAL (H06.R7). Ini kejadian ketiga setelah M2.R7 dan S4.R7 di golden.
-- ACHIEVEMENT: angka hasil di domain berbeda (pipeline data) dinilai STRONG, bukan PARTIAL (H06.R9). Pola sama dengan M2, M3, S3, S5 di golden.
-- CERTIFICATION: sertifikat bertulisan "2021 (expired 2023)" tetap dinilai STRONG (H10.R8). Spec menyatakan sertifikat kedaluwarsa yang tertulis menjadi PARTIAL; format penulisan ini tidak dikenali.
+**Kesalahan yang tidak melibatkan Jev:**
+- EDUCATION: "S1 Statistika" dinilai STRONG padahal `partial_fields` pada kriteria menyebutnya PARTIAL (H06.R7). *Sudah terlihat di golden*: ini kejadian ketiga setelah M2.R7 dan S4.R7.
+- ACHIEVEMENT: angka hasil di domain berbeda (pipeline data) dinilai STRONG, bukan PARTIAL (H06.R9). *Sudah terlihat di golden*: pola sama dengan M2, M3, S3, S5.
+- CERTIFICATION: sertifikat bertulisan "2021 (expired 2023)" dinilai STRONG, padahal spec menyatakan sertifikat yang kedaluwarsanya tertulis dan sudah lewat menjadi PARTIAL (H10.R8). *Baru terlihat di hold-out*: golden tidak punya kasus sertifikat kedaluwarsa, dan `eval_certification` tidak menangani kedaluwarsa sama sekali; fitur yang disebut spec itu belum pernah diimplementasikan.
 
 **Cacat ekstraksi baru:** pada tata letak "tanggal dulu, baru judul" (H02), judul pekerjaan terbaca salah ("Backend" dan "Containerized services with Docker.", yang sebenarnya bullet pekerjaan pertama), tanpa peringatan. Akurasi H02 tetap benar karena bullet-nya cukup, tetapi datanya keliru.
 
