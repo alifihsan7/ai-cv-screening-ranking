@@ -324,7 +324,7 @@ PENDIDIKAN & LATAR BELAKANG:
 
       {/* Slide-over Inspector Panel (Mobile) / Persistent Master-Detail Embedded Panel (Desktop lg:) */}
       <aside
-        className={`fixed inset-y-0 right-0 w-full sm:w-[680px] z-50 bg-[#FCFDFC] border-l border-[#D5DFD9] shadow-tactile-lg flex flex-col transform transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+        className={`fixed inset-y-0 right-0 w-full sm:w-[680px] z-50 bg-[#FCFDFC] border-l border-[#D5DFD9] shadow-tactile-lg flex flex-col min-h-0 overflow-hidden transform transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           isOpen
             ? 'translate-x-0 opacity-100 lg:static lg:inset-auto lg:h-full lg:flex-1 lg:max-w-none lg:z-auto lg:rounded-2xl lg:border lg:border-[#D5DFD9] lg:shadow-tactile-sm'
             : 'translate-x-full pointer-events-none opacity-0'
@@ -559,7 +559,7 @@ PENDIDIKAN & LATAR BELAKANG:
         </div>
 
         {/* Scrollable Inspector Body */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 min-h-0">
           {/* TAB 1: EVALUASI FORENSIK (Progressive Disclosure) */}
           {activeTab === 'evaluation' && (
             <div className="space-y-4">

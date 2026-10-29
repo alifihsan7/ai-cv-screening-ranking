@@ -2009,46 +2009,49 @@ export default function App() {
       </div>
 
       {/* 3. Main Body: 4-Step Progressive Workflow */}
-      <main className="flex-1 overflow-hidden flex flex-col">
+      <main className="flex-1 overflow-hidden flex flex-col min-h-0">
         {currentStep === 'setup' && (
-          <JobSetupStep
-            jobTitle={jobTitle}
-            setJobTitle={setJobTitle}
-            jobLocation={jobLocation}
-            setJobLocation={setJobLocation}
-            jobType={jobType}
-            setJobType={setJobType}
-            jobDescription={jobDescription}
-            setJobDescription={setJobDescription}
-            requirementsCount={requirements.length}
-            criteriaApproved={criteriaApproved}
-            criteriaVersion={criteriaVersion}
-            isCompiling={isCompiling}
-            isLoading={isJobLoading}
-            onCompileFromJd={handleCompileFromJd}
-            onBlurTitle={handleBlurTitle}
-            onBlurDetails={handleBlurDetails}
-            onSelectTemplate={handleSelectTemplate}
-            selectedTemplateId={activeTemplateId}
-            onSelectTemplateId={handleSetActiveTemplateId}
-            cachedTemplateIds={cachedTemplateIds}
-            onNext={() => {
-              if (debounceTitleTimerRef.current) {
-                clearTimeout(debounceTitleTimerRef.current)
-              }
-              if (jobTitleRef.current.trim() && currentJobIdRef.current) {
-                syncJobTitleToBackend(jobTitleRef.current.trim())
-              }
-              handleBlurDetails()
-              setCurrentStep('criteria')
-            }}
-          />
+          <div className="flex-1 flex flex-col overflow-hidden relative bg-[#F2F5F3]">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 w-full flex-1 flex flex-col min-h-0">
+              <JobSetupStep
+                jobTitle={jobTitle}
+                setJobTitle={setJobTitle}
+                jobLocation={jobLocation}
+                setJobLocation={setJobLocation}
+                jobType={jobType}
+                setJobType={setJobType}
+                jobDescription={jobDescription}
+                setJobDescription={setJobDescription}
+                requirementsCount={requirements.length}
+                criteriaApproved={criteriaApproved}
+                criteriaVersion={criteriaVersion}
+                isCompiling={isCompiling}
+                isLoading={isJobLoading}
+                onCompileFromJd={handleCompileFromJd}
+                onBlurTitle={handleBlurTitle}
+                onBlurDetails={handleBlurDetails}
+                onSelectTemplate={handleSelectTemplate}
+                selectedTemplateId={activeTemplateId}
+                onSelectTemplateId={handleSetActiveTemplateId}
+                cachedTemplateIds={cachedTemplateIds}
+                onNext={() => {
+                  if (debounceTitleTimerRef.current) {
+                    clearTimeout(debounceTitleTimerRef.current)
+                  }
+                  if (jobTitleRef.current.trim() && currentJobIdRef.current) {
+                    syncJobTitleToBackend(jobTitleRef.current.trim())
+                  }
+                  handleBlurDetails()
+                  setCurrentStep('criteria')
+                }}
+              />
+            </div>
+          </div>
         )}
 
         {currentStep === 'criteria' && (
           <div className="flex-1 flex flex-col overflow-hidden relative bg-[#F2F5F3]">
-            {/* Ergonomic Centered Criteria Studio Container */}
-            <div className="flex-1 flex flex-col overflow-hidden max-w-6xl 2xl:max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 min-h-0">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 w-full flex-1 flex flex-col min-h-0">
               <CriteriaStudio
                 jobTitle={jobTitle}
                 setJobTitle={setJobTitle}
@@ -2079,27 +2082,30 @@ export default function App() {
         )}
 
         {currentStep === 'upload' && (
-          <UploadStep
-            uploadedFiles={uploadedFiles}
-            isUploading={isUploading}
-            uploadStatusMsg={uploadStatusMsg}
-            isScreening={isScreening}
-            onUploadFiles={handleUploadFiles}
-            onLoadGoldenSample={handleLoadGoldenSample}
-            onClearFiles={handleClearUploadedCvs}
-            onRefreshStatus={handleManualRefresh}
-            onRemoveFile={handleRemoveUploadedFile}
-            isRefreshing={isRefreshing}
-            onStartScreening={handleStartScreening}
-            onBack={() => setCurrentStep('criteria')}
-            onNext={() => setCurrentStep('workbench')}
-          />
+          <div className="flex-1 flex flex-col overflow-hidden relative bg-[#F2F5F3]">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 w-full flex-1 flex flex-col min-h-0">
+              <UploadStep
+                uploadedFiles={uploadedFiles}
+                isUploading={isUploading}
+                uploadStatusMsg={uploadStatusMsg}
+                isScreening={isScreening}
+                onUploadFiles={handleUploadFiles}
+                onLoadGoldenSample={handleLoadGoldenSample}
+                onClearFiles={handleClearUploadedCvs}
+                onRefreshStatus={handleManualRefresh}
+                onRemoveFile={handleRemoveUploadedFile}
+                isRefreshing={isRefreshing}
+                onStartScreening={handleStartScreening}
+                onBack={() => setCurrentStep('criteria')}
+                onNext={() => setCurrentStep('workbench')}
+              />
+            </div>
+          </div>
         )}
 
         {currentStep === 'workbench' && (
           <div className="flex-1 flex flex-col overflow-hidden relative bg-[#F2F5F3]">
-            {/* Ergonomic Widescreen Workbench Container */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 w-full flex-1 flex flex-col min-h-0">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 w-full flex-1 flex flex-col min-h-0">
               <div className="flex-1 flex flex-col lg:flex-row gap-4 overflow-hidden min-h-0 relative">
                 {/* Left Panel: Master Candidate Roster (40% width on lg when inspector open, 100% when closed) */}
                 <div

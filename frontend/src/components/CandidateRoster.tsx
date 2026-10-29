@@ -72,8 +72,9 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
   onRevealCandidate,
   onOpenInspector,
   isRefreshing = false,
-  isCompact = false,
+  isCompact,
 }) => {
+  const isDualPane = isCompact !== undefined ? isCompact : selectedCandidateId !== null
   const [searchQuery, setSearchQuery] = useState('')
   const [bandFilter, setBandFilter] = useState<'ALL' | 'A' | 'B' | 'C'>('ALL')
 
@@ -173,10 +174,10 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
     }
   }
 
-  const renderMustHaveStatus = (c: CandidateDetail) => {
+  const renderMustHaveStatus = (c: CandidateDetail, compact: boolean = false) => {
     if (mustHaveReqs.length === 0) {
       return (
-        <span className="text-[11px] font-mono text-[#2D4439]/70">
+        <span className="text-[10px] font-mono text-[#2D4439]/70 truncate block" title="Tidak ada syarat wajib">
           Tidak ada syarat wajib
         </span>
       )
@@ -190,18 +191,28 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
 
     if (isAllMet) {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD]">
-          <CheckCircle2 className="w-3.5 h-3.5 text-[#124B2E] shrink-0" />
-          <span>{fulfilledCount}/{mustHaveReqs.length} Terpenuhi</span>
+        <span
+          className={`inline-flex items-center gap-1 rounded-md font-bold bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD] max-w-full truncate ${
+            compact ? 'px-1.5 py-0.2 text-[10px]' : 'px-2 py-0.5 text-[11px]'
+          }`}
+          title={`${fulfilledCount}/${mustHaveReqs.length} Kualifikasi Wajib Terpenuhi`}
+        >
+          <CheckCircle2 className={`${compact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-[#124B2E] shrink-0`} />
+          <span className="truncate">{fulfilledCount}/{mustHaveReqs.length} Terpenuhi</span>
         </span>
       )
     }
 
     const deficitCount = mustHaveReqs.length - fulfilledCount
     return (
-      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold bg-[#FEF6E8] text-[#7A3E02] border border-[#F8D8A7]">
-        <AlertTriangle className="w-3.5 h-3.5 text-[#7A3E02] shrink-0" />
-        <span>{deficitCount} Perlu Dicek</span>
+      <span
+        className={`inline-flex items-center gap-1 rounded-md font-bold bg-[#FEF6E8] text-[#7A3E02] border border-[#F8D8A7] max-w-full truncate ${
+          compact ? 'px-1.5 py-0.2 text-[10px]' : 'px-2 py-0.5 text-[11px]'
+        }`}
+        title={`${deficitCount} Kualifikasi Wajib Perlu Dicek`}
+      >
+        <AlertTriangle className={`${compact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-[#7A3E02] shrink-0`} />
+        <span className="truncate">{deficitCount} Perlu Dicek</span>
       </span>
     )
   }
@@ -213,7 +224,7 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
         {/* Top Row: Search Input + Band Filter + Blind Mode Toggle */}
         <div className="flex flex-wrap items-center justify-between gap-2.5">
           {/* Search Input */}
-          <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <div className="relative flex-1 min-w-[140px] max-w-sm">
             <Search className="w-3.5 h-3.5 text-[#2D4439] absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
@@ -316,7 +327,7 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
       </header>
 
       {/* 2. Candidate Table / Stream View */}
-      <div className="flex-1 overflow-y-auto overflow-x-auto min-h-0">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
         {isRefreshing && candidates.length === 0 ? (
           <div className="py-16 px-4 text-center space-y-3 text-[#2D4439]">
             <Loader2 className="w-8 h-8 mx-auto animate-spin text-[#1B4938]" />
@@ -348,16 +359,26 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
             </button>
           </div>
         ) : (
-          <table className="w-full text-left border-collapse min-w-[580px]">
+          <table className="w-full text-left border-collapse table-fixed">
             {/* Table Header */}
             <thead className="sticky top-0 z-10 bg-[#F7FAF8] border-b border-[#D5DFD9] text-[10px] font-mono uppercase tracking-wider text-[#2D4439] font-bold">
               <tr>
-                <th className="py-2 px-3 w-[52px] text-center">Rank</th>
-                <th className="py-2 px-3 min-w-[170px]">Kandidat & Berkas</th>
-                <th className="py-2 px-3 w-[140px]">Kualifikasi Wajib</th>
-                <th className="py-2 px-3 w-[90px] text-right">Skor Fit</th>
-                <th className="py-2 px-3 w-[150px]">Status Keputusan</th>
-                {!isCompact && <th className="py-2 px-3 w-[80px] text-right">Aksi</th>}
+                <th className="py-2 px-2 w-12 text-center shrink-0">Rank</th>
+                <th className="py-2 px-2.5 min-w-0">
+                  {isDualPane ? 'Kandidat' : 'Kandidat & Berkas'}
+                </th>
+                {!isDualPane && (
+                  <th className="py-2 px-3 w-36 shrink-0">Kualifikasi Wajib</th>
+                )}
+                <th className="py-2 px-2 w-20 text-right shrink-0">Skor Fit</th>
+                <th className={`py-2 ${isDualPane ? 'px-1.5 w-24' : 'px-3 w-36'} shrink-0 text-left`}>
+                  <span className="truncate block" title={isDualPane ? 'Aksi / Keputusan' : 'Status Keputusan'}>
+                    {isDualPane ? 'Aksi / Keputusan' : 'Status Keputusan'}
+                  </span>
+                </th>
+                {!isDualPane && (
+                  <th className="py-2 px-2.5 w-20 text-right shrink-0">Aksi</th>
+                )}
               </tr>
             </thead>
 
@@ -382,7 +403,7 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
                     }`}
                   >
                     {/* 1. Rank Badge */}
-                    <td className="py-2.5 px-3 w-[52px] text-center">
+                    <td className="py-2.5 px-2 w-12 text-center shrink-0">
                       <div
                         className={`w-7 h-6 mx-auto rounded-lg border flex items-center justify-center font-mono font-bold text-xs shadow-tactile-sm transition-colors ${
                           isSelected
@@ -395,10 +416,13 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
                     </td>
 
                     {/* 2. Kandidat: Name/Blind ID + File + Reveal */}
-                    <td className="py-2.5 px-3 min-w-[170px]">
-                      <div className="flex flex-col space-y-0.5">
-                        <div className="flex items-center space-x-1.5 flex-wrap">
-                          <span className="font-bold text-xs sm:text-sm text-[#13221C] tracking-tight group-hover:text-[#1B4938] transition-colors truncate max-w-[160px]">
+                    <td className="py-2.5 px-2.5 min-w-0">
+                      <div className="flex flex-col space-y-1 min-w-0">
+                        <div className="flex items-center space-x-1.5 flex-wrap min-w-0">
+                          <span
+                            className="font-bold text-xs sm:text-sm text-[#13221C] tracking-tight group-hover:text-[#1B4938] transition-colors truncate max-w-full"
+                            title={displayName}
+                          >
                             {displayName}
                           </span>
 
@@ -430,20 +454,31 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
                           </span>
                         </div>
 
-                        <div className="flex items-center space-x-1 text-[10px] text-[#2D4439] font-mono">
+                        <div className="flex items-center space-x-1 text-[10px] text-[#2D4439] font-mono min-w-0">
                           <FileText className="w-2.5 h-2.5 text-[#2D4439]/70 shrink-0" />
-                          <span className="truncate max-w-[180px]">{c.file_name}</span>
+                          <span className="truncate block max-w-full" title={c.file_name}>
+                            {c.file_name}
+                          </span>
                         </div>
+
+                        {/* In compact mode: qualification badge rendered right under candidate file */}
+                        {isDualPane && (
+                          <div className="pt-0.5 min-w-0">
+                            {renderMustHaveStatus(c, true)}
+                          </div>
+                        )}
                       </div>
                     </td>
 
-                    {/* 3. Kualifikasi Wajib Badge */}
-                    <td className="py-2.5 px-3 w-[140px]">
-                      {renderMustHaveStatus(c)}
-                    </td>
+                    {/* 3. Kualifikasi Wajib Badge (Non-compact only) */}
+                    {!isDualPane && (
+                      <td className="py-2.5 px-3 w-36 shrink-0">
+                        {renderMustHaveStatus(c, false)}
+                      </td>
+                    )}
 
                     {/* 4. Skor Fit */}
-                    <td className="py-2.5 px-3 w-[90px] text-right">
+                    <td className="py-2.5 px-2 w-20 text-right shrink-0">
                       <div className="flex flex-col items-end">
                         <span className="font-mono tabular-nums font-bold text-sm text-[#13221C] leading-none">
                           {c.final_score.toFixed(1)}
@@ -455,9 +490,9 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
                     </td>
 
                     {/* 5. Dropdown Status Keputusan */}
-                    <td className="py-2.5 px-3 w-[150px]">
+                    <td className={`py-2.5 ${isDualPane ? 'px-1.5 w-24' : 'px-3 w-36'} shrink-0`}>
                       <div
-                        className="w-[145px]"
+                        className={isDualPane ? 'w-full' : 'w-[140px]'}
                         onClick={(e) => e.stopPropagation()}
                       >
                         <CustomSelect
@@ -467,14 +502,15 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
                           }}
                           options={DECISION_OPTIONS}
                           size="sm"
+                          buttonClassName={isDualPane ? 'px-1.5 text-[11px]' : ''}
                           ariaLabel={`Status keputusan untuk ${displayName}`}
                         />
                       </div>
                     </td>
 
                     {/* 6. Aksi Detail (if not compact) */}
-                    {!isCompact && (
-                      <td className="py-2.5 px-3 w-[80px] text-right">
+                    {!isDualPane && (
+                      <td className="py-2.5 px-2.5 w-20 text-right shrink-0">
                         <div
                           className="flex items-center justify-end"
                           onClick={(e) => e.stopPropagation()}
