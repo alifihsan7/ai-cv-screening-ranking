@@ -189,8 +189,11 @@ def classify_document_is_cv(
         )
 
     # 5. Positive Consensus: Valid CV (including hybrid CV/Portfolio)
-    is_hybrid_portfolio = starts_with_cv or ends_with_cv or any(
-        kw in clean_text.lower() for kw in ("portfolio", "portofolio", "showcase", "kumpulan karya", "lampiran proyek")
+    # Hybrid means CV pages plus attachment pages. Every ordinary CV "starts with a CV page", and many CVs link a
+    # "Portfolio" (LinkedIn exports label the link that way), so neither fact alone makes a CV a hybrid. Attachment
+    # pages found by the boundary isolation below add the flag; here only explicit wording counts.
+    is_hybrid_portfolio = any(
+        kw in clean_text.lower() for kw in ("showcase", "kumpulan karya", "lampiran proyek")
     )
 
     flags: list[str] = []

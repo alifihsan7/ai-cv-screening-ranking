@@ -390,3 +390,18 @@ class TestHybridPortfolioAndDocumentClassifier:
         boundary = isolate_document_boundaries(pages)
         assert boundary.cv_core_pages == [1]
         assert boundary.attachment_pages == [2]
+
+
+def test_an_ordinary_cv_is_not_a_hybrid_portfolio_even_when_it_links_a_portfolio():
+    cv_page = {
+        "page_num": 1,
+        "text": (
+            "Dewi Contoh\ndewi@example.com +62 812 0000 0000\nPortfolio: dewi.example.com (Portfolio)\n"
+            "Pengalaman\nBackend Developer di PT Contoh (Januari 2022 - Sekarang)\nMembangun REST API.\n"
+            "Pendidikan\nS1 Teknik Informatika, Universitas Contoh (2018 - 2022)\nKeahlian\nPython, PostgreSQL, Docker"
+        ),
+        "image_count": 0,
+    }
+    res = classify_document_is_cv(cv_page["text"], page_count=1, total_images=0, pages=[cv_page])
+    assert res.is_cv is True
+    assert "HYBRID_PORTFOLIO_CV" not in res.flags
