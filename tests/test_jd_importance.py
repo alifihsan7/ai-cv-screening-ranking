@@ -1,8 +1,14 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from httpx import ASGITransport, AsyncClient
 
-from src.domain.jd_compiler import compile_jd_rule_based, compile_job_requirements
+from src.api.main import app
+from src.domain.jd_compiler import (
+    JDCompilationError,
+    compile_jd_rule_based,
+    compile_job_requirements,
+)
 
 
 def test_rule_based_importance_keywords():
@@ -62,7 +68,7 @@ def test_concept_regex_boundaries():
 
 
 @pytest.mark.asyncio
-async def test_llm_invalid_importance_coerced_or_fallback():
+async def test_llm_invalid_importance_coerced():
     mock_llm_res = {
         "requirements": [
             {
@@ -82,3 +88,79 @@ async def test_llm_invalid_importance_coerced_or_fallback():
         assert reqs[0]["importance"] == "NICE_TO_HAVE"
         # Weight clamped to max 30.0
         assert reqs[0]["weight"] <= 30.0
+
+
+@pytest.mark.asyncio
+async def test_compile_job_requirements_llm_exception_raises_fail_fast():
+    """Verify Honest Fail-Fast: when LLM gateway fails, JDCompilationError is raised without silent rule-based fallback."""
+    with patch("src.domain.jd_compiler.gateway.call_chat", new_callable=AsyncMock) as mock_call:
+        mock_call.side_effect = RuntimeError("Upstream 9Router connection timeout")
+        with pytest.raises(JDCompilationError) as exc_info:
+            await compile_job_requirements("Lowongan Backend Engineer\n- Minimal 3 tahun pengalaman Python")
+        assert "Gagal memanggil model AI" in str(exc_info.value)
+        assert exc_info.value.status_code == 502
+
+
+@pytest.mark.asyncio
+async def test_compile_job_requirements_none_response_raises_fail_fast():
+    """Verify Honest Fail-Fast: when LLM gateway returns None, JDCompilationError is raised."""
+    with patch("src.domain.jd_compiler.gateway.call_chat", new_callable=AsyncMock) as mock_call:
+        mock_call.return_value = None
+        with pytest.raises(JDCompilationError) as exc_info:
+            await compile_job_requirements("Lowongan Backend Engineer\n- Minimal 3 tahun pengalaman Python")
+        assert "tidak mengembalikan hasil" in str(exc_info.value)
+        assert exc_info.value.status_code == 502
+
+
+@pytest.mark.asyncio
+async def test_compile_job_requirements_invalid_schema_raises_fail_fast():
+    """Verify Honest Fail-Fast: invalid schema from LLM raises JDCompilationError."""
+    with patch("src.domain.jd_compiler.gateway.call_chat", new_callable=AsyncMock) as mock_call:
+        mock_call.return_value = {"something_else": 123}
+        with pytest.raises(JDCompilationError) as exc_info:
+            await compile_job_requirements("Lowongan Backend Engineer\n- Minimal 3 tahun pengalaman Python")
+        assert "Format respons model AI tidak sesuai skema" in str(exc_info.value)
+        assert exc_info.value.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_compile_job_requirements_empty_requirements_raises_fail_fast():
+    """Verify Honest Fail-Fast: empty requirements from LLM raises JDCompilationError."""
+    with patch("src.domain.jd_compiler.gateway.call_chat", new_callable=AsyncMock) as mock_call:
+        mock_call.return_value = {"requirements": []}
+        with pytest.raises(JDCompilationError) as exc_info:
+            await compile_job_requirements("Lowongan Backend Engineer\n- Minimal 3 tahun pengalaman Python")
+        assert "tidak menghasilkan kriteria screening" in str(exc_info.value)
+        assert exc_info.value.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_compile_preview_endpoint_returns_502_on_llm_failure(recruiter_token: str):
+    """Verify POST /api/v1/requirements/compile-preview returns HTTP 502 on upstream LLM failure."""
+    with patch("src.domain.jd_compiler.gateway.call_chat", new_callable=AsyncMock) as mock_call:
+        mock_call.side_effect = RuntimeError("504 Gateway Timeout")
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.post(
+                "/api/v1/requirements/compile-preview",
+                json={"jd_text": "Lowongan Senior Python Developer dengan minimal 5 tahun pengalaman kerja"},
+                headers={"Authorization": f"Bearer {recruiter_token}"},
+            )
+        assert resp.status_code == 502
+        assert "Gagal memanggil model AI" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_compile_preview_endpoint_returns_422_on_unparseable_output(recruiter_token: str):
+    """Verify POST /api/v1/requirements/compile-preview returns HTTP 422 on invalid/empty LLM output."""
+    with patch("src.domain.jd_compiler.gateway.call_chat", new_callable=AsyncMock) as mock_call:
+        mock_call.return_value = {"requirements": []}
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.post(
+                "/api/v1/requirements/compile-preview",
+                json={"jd_text": "Lowongan Senior Python Developer dengan minimal 5 tahun pengalaman kerja"},
+                headers={"Authorization": f"Bearer {recruiter_token}"},
+            )
+        assert resp.status_code == 422
+        assert "tidak menghasilkan kriteria screening" in resp.json()["detail"]

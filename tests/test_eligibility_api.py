@@ -1,5 +1,6 @@
 import uuid
 from datetime import date
+from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
@@ -220,7 +221,30 @@ async def test_jd_compiler_demographic_extraction_and_suggestion():
 - Menguasai Microsoft Excel
 - Pengalaman minimal 2 tahun sebagai Data Analyst"""
 
-    res = await compile_job_requirements(jd)
+    mock_llm_res = {
+        "requirements": [
+            {
+                "requirement_id": "R1",
+                "description": "Menguasai Microsoft Excel",
+                "category": "HARD_SKILLS",
+                "kind": "SKILL",
+                "importance": "MUST_HAVE",
+                "weight": 10.0,
+                "concepts": ["skill:excel"],
+            },
+            {
+                "requirement_id": "R2",
+                "description": "Pengalaman minimal 2 tahun sebagai Data Analyst",
+                "category": "EXPERIENCE",
+                "kind": "EXPERIENCE_DURATION",
+                "importance": "MUST_HAVE",
+                "weight": 20.0,
+                "concepts": ["role_family:data_analyst"],
+            },
+        ]
+    }
+    with patch("src.domain.jd_compiler.gateway.call_chat", new_callable=AsyncMock, return_value=mock_llm_res):
+        res = await compile_job_requirements(jd)
     # Requirements must NOT contain age or gender
     req_descs = [r["description"].lower() for r in res["requirements"]]
     assert not any("usia" in d or "umur" in d for d in req_descs)

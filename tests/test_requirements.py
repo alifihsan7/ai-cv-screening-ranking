@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
 
+from src.domain.jd_compiler import compile_jd_rule_based
 from src.infrastructure.database import get_connection
 
 
@@ -28,7 +30,9 @@ async def test_compile_jd01_covers_concepts(client: httpx.AsyncClient, recruiter
     job_id = j_res.json()["id"]
 
     # Compile requirements
-    c_res = await client.post(f"/api/v1/jobs/{job_id}/requirements/compile", headers=headers)
+    mock_llm_res = {"requirements": compile_jd_rule_based(jd_text)}
+    with patch("src.domain.jd_compiler.gateway.call_chat", new_callable=AsyncMock, return_value=mock_llm_res):
+        c_res = await client.post(f"/api/v1/jobs/{job_id}/requirements/compile", headers=headers)
     assert c_res.status_code == 201
     c_data = c_res.json()
     assert c_data["status"] == "DRAFT"
@@ -74,7 +78,32 @@ async def test_prohibited_criteria_blocks_approval(client: httpx.AsyncClient, re
     job_id = j_res.json()["id"]
 
     # Compile requirements
-    c_res = await client.post(f"/api/v1/jobs/{job_id}/requirements/compile", headers=headers)
+    mock_llm_res = {
+        "requirements": [
+            {
+                "requirement_id": "R1",
+                "description": "Berpenampilan menarik dan good looking",
+                "category": "HARD_SKILLS",
+                "kind": "SKILL",
+                "importance": "MUST_HAVE",
+                "weight": 10.0,
+                "concepts": [],
+                "source_text": "berpenampilan menarik, good looking",
+            },
+            {
+                "requirement_id": "R2",
+                "description": "Beragama tertentu",
+                "category": "HARD_SKILLS",
+                "kind": "SKILL",
+                "importance": "MUST_HAVE",
+                "weight": 10.0,
+                "concepts": [],
+                "source_text": "beragama tertentu",
+            },
+        ]
+    }
+    with patch("src.domain.jd_compiler.gateway.call_chat", new_callable=AsyncMock, return_value=mock_llm_res):
+        c_res = await client.post(f"/api/v1/jobs/{job_id}/requirements/compile", headers=headers)
     assert c_res.status_code == 201
     c_data = c_res.json()
 

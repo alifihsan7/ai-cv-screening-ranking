@@ -50,6 +50,30 @@ Persyaratan:
 """
 
 
+SAMPLE_LLM_REQUIREMENTS = {
+    "requirements": [
+        {
+            "requirement_id": "R1",
+            "description": "Pengalaman kerja minimal 4 tahun di bidang backend development.",
+            "category": "EXPERIENCE",
+            "kind": "EXPERIENCE_DURATION",
+            "importance": "MUST_HAVE",
+            "weight": 25.0,
+            "concepts": ["skill:backend"],
+        },
+        {
+            "requirement_id": "R2",
+            "description": "Menguasai bahasa pemrograman Python dan Docker containerization.",
+            "category": "HARD_SKILLS",
+            "kind": "SKILL",
+            "importance": "MUST_HAVE",
+            "weight": 15.0,
+            "concepts": ["skill:python", "skill:docker"],
+        },
+    ]
+}
+
+
 # -----------------------------------------------------------------------------
 # 1. Domain Level: compile_job_requirements with Jev System One
 # -----------------------------------------------------------------------------
@@ -72,12 +96,13 @@ async def test_jd_compiler_jev_success_with_mock_client():
     )
     mock_client.system_one.return_value = mock_response
 
-    res = await compile_job_requirements(
-        jd_text=SAMPLE_JD,
-        tenant_id=uuid.UUID(DEMO_TENANT_ID),
-        use_jev=True,
-        client=mock_client,
-    )
+    with patch("src.domain.jd_compiler.gateway.call_chat", new_callable=AsyncMock, return_value=SAMPLE_LLM_REQUIREMENTS):
+        res = await compile_job_requirements(
+            jd_text=SAMPLE_JD,
+            tenant_id=uuid.UUID(DEMO_TENANT_ID),
+            use_jev=True,
+            client=mock_client,
+        )
 
     # 1. Check returned metadata
     assert res.get("role_family") == "role_family:backend"
@@ -180,7 +205,9 @@ async def test_compile_endpoint_jev_success(recruiter_token: str):
         )
         await conn.commit()
 
-    with patch("src.domain.jd_compiler.classify_role_family_jev") as mock_classify:
+    with patch("src.domain.jd_compiler.classify_role_family_jev") as mock_classify, patch(
+        "src.domain.jd_compiler.gateway.call_chat", new_callable=AsyncMock, return_value=SAMPLE_LLM_REQUIREMENTS
+    ):
         from src.domain.verifier import RoleFamilyChoiceResult
 
         mock_classify.return_value = RoleFamilyChoiceResult(

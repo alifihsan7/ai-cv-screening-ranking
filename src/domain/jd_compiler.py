@@ -6,15 +6,8 @@ import re
 import uuid
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
 from fastapi import HTTPException, status
-
-from src.domain.pii import sanitize_contact_pii
-from src.domain.policy_linter import lint_text
-from src.domain.verifier import TypeSafeUnconfiguredError, classify_role_family_jev
-from src.infrastructure.config import settings
-from src.infrastructure.gateway import gateway
-from src.infrastructure.logging import logger
+from pydantic import BaseModel, Field
 from typesafe_sdk import (
     AsyncTypeSafeClient,
     TypeSafeAPIConnectionError,
@@ -22,10 +15,26 @@ from typesafe_sdk import (
     TypeSafeError,
 )
 
+from src.domain.pii import sanitize_contact_pii
+from src.domain.policy_linter import lint_text
+from src.domain.verifier import TypeSafeUnconfiguredError, classify_role_family_jev
+from src.infrastructure.config import settings
+from src.infrastructure.gateway import gateway
+from src.infrastructure.logging import logger
+
 VALID_IMPORTANCE = {"MUST_HAVE", "STRONG_PREFERENCE", "NICE_TO_HAVE"}
 VALID_CATEGORIES = {"EXPERIENCE", "HARD_SKILLS", "EDUCATION_CERT", "ACHIEVEMENT"}
 MUST_HAVE_KEYWORDS = {"wajib", "harus", "must", "required", "minimum", "minimal", "essential"}
 NICE_TO_HAVE_KEYWORDS = {"nilai tambah", "plus", "preferred", "nice to have", "diutamakan", "keuntungan"}
+
+
+class JDCompilationError(Exception):
+    """Raised when Job Description AI compilation fails or produces unparseable/invalid criteria."""
+
+    def __init__(self, message: str, status_code: int = 502):
+        super().__init__(message)
+        self.message = message
+        self.status_code = status_code
 
 HEADER_MUST_HAVE = re.compile(
     r"(?:kualifikasi\s+wajib|persyaratan\s+wajib|\brequirements\b|\bwajib\b|\bmust\b|\bminimum\b)",
@@ -391,65 +400,77 @@ async def compile_job_requirements(
             json_mode=True,
         )
     except Exception as e:
-        logger.warning(f"LLM compilation failed, falling back to rule-based: {e}")
-        llm_res = None
+        logger.error(f"LLM compilation failed: {e}")
+        raise JDCompilationError(f"Gagal memanggil model AI untuk kompilasi Job Description: {e}", status_code=502) from e
+
+    if llm_res is None:
+        logger.error("LLM compilation returned empty response or call was skipped.")
+        raise JDCompilationError("Model AI tidak mengembalikan hasil kompilasi kriteria.", status_code=502)
 
     req_list = []
     if isinstance(llm_res, list):
         req_list = llm_res
     elif isinstance(llm_res, dict) and isinstance(llm_res.get("requirements"), list):
         req_list = llm_res["requirements"]
+    else:
+        logger.error(f"LLM compilation returned invalid schema: {type(llm_res)}")
+        raise JDCompilationError("Format respons model AI tidak sesuai skema (harus berupa array requirements).", status_code=422)
+
+    if not req_list:
+        raise JDCompilationError("Model AI tidak menghasilkan kriteria screening dari Job Description.", status_code=422)
 
     validated_reqs = []
-    if req_list:
-        try:
-            for idx, item in enumerate(req_list, 1):
-                raw_imp = str(item.get("importance", "")).upper()
-                if raw_imp not in VALID_IMPORTANCE:
-                    raw_imp = determine_importance(item.get("description", "") or item.get("source_text", ""))
+    try:
+        for idx, item in enumerate(req_list, 1):
+            raw_imp = str(item.get("importance", "")).upper()
+            if raw_imp not in VALID_IMPORTANCE:
+                raw_imp = determine_importance(item.get("description", "") or item.get("source_text", ""))
 
-                raw_wt = float(item.get("weight") or 10.0)
-                raw_wt = max(1.0, min(30.0, raw_wt))
+            raw_wt = float(item.get("weight") or 10.0)
+            raw_wt = max(1.0, min(30.0, raw_wt))
 
-                desc = item.get("description", "")
-                r_lint = lint_text(desc)
-                if any(f.startswith("ADMIN_ONLY_") for f in r_lint["admin_flags"]):
-                    continue
+            desc = item.get("description", "")
+            r_lint = lint_text(desc)
+            if any(f.startswith("ADMIN_ONLY_") for f in r_lint["admin_flags"]):
+                continue
 
-                item_cat = item.get("category") if item.get("category") in VALID_CATEGORIES else "HARD_SKILLS"
-                concepts = list(item.get("concepts", []))
+            item_cat = item.get("category") if item.get("category") in VALID_CATEGORIES else "HARD_SKILLS"
+            concepts = list(item.get("concepts", []))
 
-                # Concept augmentation only if rule category matches requirement category
-                for pat, c_list, r_cat, _knd, _imp, _wt in CONCEPT_RULES:
-                    if r_cat == item_cat and (
-                        re.search(pat, desc, re.IGNORECASE)
-                        or re.search(pat, item.get("source_text", ""), re.IGNORECASE)
-                    ):
-                        for c in c_list:
-                            if c not in concepts:
-                                concepts.append(c)
+            # Concept augmentation only if rule category matches requirement category
+            for pat, c_list, r_cat, _knd, _imp, _wt in CONCEPT_RULES:
+                if r_cat == item_cat and (
+                    re.search(pat, desc, re.IGNORECASE)
+                    or re.search(pat, item.get("source_text", ""), re.IGNORECASE)
+                ):
+                    for c in c_list:
+                        if c not in concepts:
+                            concepts.append(c)
 
-                model = CompiledRequirement(
-                    requirement_id=f"R{idx}",
-                    description=desc,
-                    category=item_cat,
-                    kind=item.get("kind") or "SKILL",
-                    importance=raw_imp,  # type: ignore[arg-type]
-                    weight=raw_wt,
-                    concepts=concepts,
-                    params=item.get("params") or {},
-                    source_text=item.get("source_text") or desc,
-                )
-                req_dict = model.model_dump()
-                req_dict["lint_flags"] = (
-                    r_lint["prohibited_flags"] + r_lint["risky_flags"] + r_lint.get("admin_flags", [])
-                )
-                validated_reqs.append(req_dict)
-        except Exception as e:
-            logger.warning(f"Validation failed for LLM requirements output: {e}, falling back to rule-based.")
-            validated_reqs = []
+            model = CompiledRequirement(
+                requirement_id=f"R{idx}",
+                description=desc,
+                category=item_cat,
+                kind=item.get("kind") or "SKILL",
+                importance=raw_imp,  # type: ignore[arg-type]
+                weight=raw_wt,
+                concepts=concepts,
+                params=item.get("params") or {},
+                source_text=item.get("source_text") or desc,
+            )
+            req_dict = model.model_dump()
+            req_dict["lint_flags"] = (
+                r_lint["prohibited_flags"] + r_lint["risky_flags"] + r_lint.get("admin_flags", [])
+            )
+            validated_reqs.append(req_dict)
+    except Exception as e:
+        logger.error(f"Validation failed for LLM requirements output: {e}")
+        raise JDCompilationError(f"Format kriteria dari model AI gagal divalidasi: {e}", status_code=422) from e
 
-    requirements = validated_reqs or compile_jd_rule_based(clean_no_demographics)
+    if not validated_reqs:
+        raise JDCompilationError("Tidak ada kriteria valid yang dapat diekstraksi dari Job Description.", status_code=422)
+
+    requirements = validated_reqs
 
     # Filter out any lingering demographic requirements
     clean_reqs = []
@@ -465,13 +486,13 @@ async def compile_job_requirements(
         rf_concept = role_family_meta["role_family"]
         augmented = False
         for r in requirements:
-            if r.get("category") == "EXPERIENCE" or r.get("kind") == "EXPERIENCE_DURATION":
-                if rf_concept not in r.get("concepts", []):
-                    r["concepts"].append(rf_concept)
-                    augmented = True
-        if not augmented and requirements:
-            if rf_concept not in requirements[0].get("concepts", []):
-                requirements[0]["concepts"].append(rf_concept)
+            if (
+                r.get("category") == "EXPERIENCE" or r.get("kind") == "EXPERIENCE_DURATION"
+            ) and rf_concept not in r.get("concepts", []):
+                r["concepts"].append(rf_concept)
+                augmented = True
+        if not augmented and requirements and rf_concept not in requirements[0].get("concepts", []):
+            requirements[0]["concepts"].append(rf_concept)
 
     # Compile warnings
     compile_warnings = []

@@ -1,5 +1,6 @@
 import time
 import uuid
+from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
@@ -18,7 +19,21 @@ async def test_async_screening_run_202_and_status(client: httpx.AsyncClient, rec
     job_id = j_res.json()["id"]
 
     # Compile and approve requirements
-    c_res = await client.post(f"/api/v1/jobs/{job_id}/requirements/compile", headers=headers)
+    mock_llm_res = {
+        "requirements": [
+            {
+                "requirement_id": "R1",
+                "description": "Backend Engineer with Python and PostgreSQL experience",
+                "category": "EXPERIENCE",
+                "kind": "EXPERIENCE_DURATION",
+                "importance": "MUST_HAVE",
+                "weight": 20.0,
+                "concepts": ["role_family:backend", "skill:python", "skill:postgresql"],
+            }
+        ]
+    }
+    with patch("src.domain.jd_compiler.gateway.call_chat", new_callable=AsyncMock, return_value=mock_llm_res):
+        c_res = await client.post(f"/api/v1/jobs/{job_id}/requirements/compile", headers=headers)
     assert c_res.status_code == 201
 
     appr_res = await client.post(f"/api/v1/jobs/{job_id}/requirements/approve", headers=headers)

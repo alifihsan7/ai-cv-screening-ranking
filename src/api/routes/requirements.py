@@ -8,21 +8,21 @@ from typing import Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
+from typesafe_sdk import (
+    TypeSafeAPIConnectionError,
+    TypeSafeAPITimeoutError,
+    TypeSafeError,
+)
 
 from src.api.dependencies import get_job_for_tenant, require_role
 from src.api.middleware.rate_limiter import check_rate_limit
-from src.domain.jd_compiler import compile_job_requirements
+from src.domain.jd_compiler import JDCompilationError, compile_job_requirements
 from src.domain.models import User, UserRole
 from src.domain.policy_linter import lint_text
 from src.domain.verifier import TypeSafeUnconfiguredError
 from src.infrastructure.config import settings
 from src.infrastructure.database import get_connection
 from src.infrastructure.logging import logger
-from typesafe_sdk import (
-    TypeSafeAPIConnectionError,
-    TypeSafeAPITimeoutError,
-    TypeSafeError,
-)
 
 router = APIRouter(prefix="/api/v1/jobs/{job_id}/requirements", tags=["Requirements"])
 
@@ -69,6 +69,12 @@ async def compile_requirements(
                 tenant_id=current_user.tenant_id,
                 use_jev=effective_use_jev,
             )
+        except JDCompilationError as e:
+            logger.error(f"JD compilation failed: {e}")
+            raise HTTPException(
+                status_code=e.status_code,
+                detail=str(e),
+            ) from e
         except (TypeSafeUnconfiguredError, TypeSafeAPIConnectionError, TypeSafeAPITimeoutError, TypeSafeError) as e:
             logger.error(f"TypeSafe Jev compilation failed: {e}")
             raise HTTPException(
@@ -524,6 +530,12 @@ async def compile_preview_endpoint(
             tenant_id=current_user.tenant_id,
             use_jev=req.use_jev,
         )
+    except JDCompilationError as e:
+        logger.error(f"JD preview compilation failed: {e}")
+        raise HTTPException(
+            status_code=e.status_code,
+            detail=str(e),
+        ) from e
     except (TypeSafeUnconfiguredError, TypeSafeAPIConnectionError, TypeSafeAPITimeoutError, TypeSafeError) as e:
         logger.error(f"TypeSafe Jev preview compilation failed: {e}")
         raise HTTPException(
