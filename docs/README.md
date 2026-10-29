@@ -9,7 +9,7 @@
 | [`archive/`](archive/README.md) | Catatan perencanaan lama yang disimpan untuk riwayat |
 | [`DEPLOYMENT_AND_RUNBOOK.md`](DEPLOYMENT_AND_RUNBOOK.md) | Deploy, backup, restart, pemrosesan ulang, dan pembersihan data pribadi |
 | [`TAXONOMY.md`](TAXONOMY.md) | Cara memperluas taksonomi (peran, keahlian, alias bidang, daftar kata domain) |
-| [`ANSWERS.md`](ANSWERS.md) | Jawaban pertanyaan awal agent (arsip keputusan awal) |
+| [`ANSWERS.md`](ANSWERS.md) | Hasil eksekusi M0 sampai M3 (audit VPS, jawaban atas pertanyaan di `spec/09_QUESTIONS_FOR_AGENT.md`), tanggal 9 Oktober; sebagian sudah usang |
 
 ## Membangun ulang PDF
 
