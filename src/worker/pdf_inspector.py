@@ -227,7 +227,7 @@ class PdfInspectionReport:
 MIN_HIDDEN_SPAN_CHARS = 2
 
 
-def _visible_on_real_background(page: Any, color: Any, bbox: tuple[float, ...]) -> bool:
+def visible_on_real_background(page: Any, color: Any, bbox: tuple[float, ...]) -> bool:
     """True when text that is white-ish against a white page is drawn over a background that makes it readable."""
     background = dominant_background_rgb(page, bbox)
     return background is not None and contrast_against_background(color, background) >= 1.20
@@ -337,7 +337,7 @@ def inspect_pdf_adversarial(content: bytes) -> PdfInspectionReport:
                         if (
                             contrast < 1.20
                             and len(clean_text) >= MIN_HIDDEN_SPAN_CHARS
-                            and not _visible_on_real_background(page, color, span_bbox)
+                            and not visible_on_real_background(page, color, span_bbox)
                         ):
                             report.findings.append(
                                 HiddenTextFinding(

@@ -13,9 +13,11 @@ import pymupdf
 
 from src.worker.adapter import clean_ocr_noise
 from src.worker.pdf_inspector import (
+    MIN_HIDDEN_SPAN_CHARS,
     has_suspicious_zero_width,
     inspect_pdf_adversarial,
     normalize_canonical_text,
+    visible_on_real_background,
 )
 
 INJECTION_PATTERNS = [
@@ -153,11 +155,16 @@ def sanitize_file(content: bytes, filename: str) -> SanitizeResult:
                             txt = span.get("text", "").strip()
                             if not txt:
                                 continue
-                            if span.get("size", 10) < 4.0:
-                                has_hidden_text = True
                             color = span.get("color", 0)
-                            if color in (16777215, 0xFFFFFF):
-                                has_hidden_text = True
+                            # Same rules as the deep inspection: a lone glyph is a layout artifact, and white text
+                            # is only hidden where the page behind it is light too (not on a dark sidebar).
+                            if len(txt) >= MIN_HIDDEN_SPAN_CHARS:
+                                if span.get("size", 10) < 4.0:
+                                    has_hidden_text = True
+                                if color in (16777215, 0xFFFFFF) and not visible_on_real_background(
+                                    page, color, tuple(span.get("bbox", (0, 0, 0, 0)))
+                                ):
+                                    has_hidden_text = True
                             for pat in INJECTION_PATTERNS:
                                 if pat.search(txt):
                                     has_injection = True
