@@ -113,12 +113,14 @@ def resolve_candidate_name_consensus(
                 name_candidate = longest
         name_candidate = re.sub(r"\s+", " ", name_candidate)
 
-        # If high-confidence ATS filename anchor exists, prefer it if it's more complete
+        # A filename anchor may complete the name found in the document (e.g. "Yadi" -> "Yadi Apriyadi"), but only
+        # when the two agree on at least one word. A file name that shares nothing with the document's own name
+        # (e.g. "K09_platform_head.docx" next to "Arief Nugraha") is not that candidate's name: trusting it would
+        # leave the real name unredacted and redact job-title words instead.
         if fn_cand:
             fn_lower = fn_cand.lower()
-            cand_lower = name_candidate.lower()
-            cand_words = [w for w in cand_lower.split() if len(w) > 1]
-            if any(w in fn_lower for w in cand_words) or (len(fn_cand.split()) >= len(name_candidate.split()) and len(name_candidate.split()) <= 2):
+            cand_words = [w for w in name_candidate.lower().split() if len(w) > 1]
+            if any(w in fn_lower for w in cand_words):
                 return fn_cand
 
         return name_candidate

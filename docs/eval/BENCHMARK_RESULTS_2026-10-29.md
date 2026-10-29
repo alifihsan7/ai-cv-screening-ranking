@@ -163,6 +163,16 @@ Urutan ranking alur lengkap **identik** dengan urutan acuan (12 dari 12 posisi).
 
 **Dampak pada rencana pengaman "harus ada angka" untuk Jev:** dari enam positif palsu ACHIEVEMENT/LEADERSHIP yang Jev hasilkan di dua hold-out, pengaman itu hanya menangkap dua (H04.R9, H09.R9, keduanya tanpa angka sama sekali). Pada hold-out kedua, tiga CV tanpa angka (K06, K07, K10) dinilai benar oleh Jev. Penyebab dominan positif palsu bukan ketiadaan angka, melainkan **domain yang salah** (H06.R9 data, K11.R9 gudang, K05.R10 pemasaran, dan I4.R10 penjualan di golden). Pengaman angka saja berdampak kecil.
 
+### Nama kandidat: nama file dan kegagalan deteksi nama
+
+**Diperbaiki:** `resolve_candidate_name_consensus` ([anchor.py](../../src/worker/anchor.py)) mengizinkan nama dari nama file menimpa nama di dokumen walau keduanya tidak punya satu kata pun yang sama (klausa "nama di dokumen ≤ 2 kata, nama file lebih panjang"). Pada K09 (`K09_platform_head_…`) nama kandidat menjadi "K09 Platform Head Table2": kata "Head" dan "Platform" disensor dari seluruh CV, sedangkan nama asli ("Arief Nugraha") lolos. Kini nama file hanya boleh melengkapi nama di dokumen bila ada kata yang sama; kasus ATS yang sah ("Yadi" dengan "3554_Yadi Apriyadi_…", "Aryo B" dengan "CV_Aryo Budi Hutomo") tetap bekerja. Dicakup oleh 4 test unit dan 3 test dari ujung ke ujung (nama asli tidak boleh tersisa di teks yang disensor, judul pekerjaan tidak boleh ikut disensor).
+
+**Ditemukan, belum diperbaiki:** pemeriksaan sistematis pada 54 CV di empat set menemukan **15 CV yang masih memuat nama asli di `full_text_redacted`** (setelah perbaikan di atas):
+- PDF dua kolom (I3, M1, M5, S4, H05, H10, K08): kotak foto di sidebar bertuliskan "FOTO" dan terbaca sebagai nama kandidat (`full_name = 'FOTO'`), sehingga nama asli tidak disensor.
+- PDF hasil scan (M3, I5): nama terdeteksi sebagai jabatan organisasi ("Ketua Divisi Riset"); nama asli hanya tersisa di email yang terpecah OCR ("putri.maharani@ example.com"), yang juga lolos dari sensor email.
+
+Simulasi pencarian dengan 8 potongan menunjukkan nama asli ikut dalam bukti yang akan dikirim ke Jev pada **62 dari 63** verifikasi untuk CV-CV itu, karena blok header (nama, judul, kontak, ringkasan) adalah salah satu kalimat mentah di kumpulan bukti. Hal ini berlaku juga sebelum perubahan ke 8 potongan (pada 3 potongan blok header pun sering masuk 3 teratas), tetapi ukuran kumpulan 8 memperbesar paparannya. Semua CV di set uji fiktif, sehingga tidak ada data orang nyata yang terkirim; masalahnya ada pada CV nyata. Dengan demikian, jaminan "hanya teks tersensor yang sampai ke Jev" (aturan #4) saat ini tidak berlaku untuk tata letak seperti ini; test sensor yang ada hanya memeriksa email dan telepon.
+
 ### Keterbatasan pembaruan ini
 
 - Dataset kecil (15 CV) dan sudah berkali-kali diamati. Perbaikan di atas tidak boleh dibaca sebagai estimasi akurasi pada CV nyata.
