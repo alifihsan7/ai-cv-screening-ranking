@@ -30,3 +30,7 @@ logs/
 *.log
 tmp/
 /tmp/
+
+# Dokumen yang dihasilkan dari .md oleh scripts/compile_*_pdf.py (pandoc + typst): bangun ulang, jangan di-commit
+docs/spec/CETAK_BIRU_ARSITEKTUR_SISTEM_JEV.typ
+docs/spec/PROPOSAL_ARSITEKTUR_SISTEM_JEV.typ

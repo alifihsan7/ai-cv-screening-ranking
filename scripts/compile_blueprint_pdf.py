@@ -10,7 +10,7 @@ import subprocess
 import sys
 
 def main():
-    repo_dir = "/home/alifihsan/agentic-cv-screener"
+    repo_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     md_path = os.path.join(repo_dir, "docs/spec/CETAK_BIRU_ARSITEKTUR_SISTEM_JEV.md")
     raw_typ = "/tmp/blueprint_raw.typ"
     final_typ = os.path.join(repo_dir, "docs/spec/CETAK_BIRU_ARSITEKTUR_SISTEM_JEV.typ")

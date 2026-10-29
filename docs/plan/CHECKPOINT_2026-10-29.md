@@ -65,7 +65,8 @@ Akurasi status per kriteria. "Alur lengkap" adalah jalur produksi dengan Jev asl
 5. **Cabang pgvector di alur screening tidak pernah terpakai** (konteks tidak membawa `profile_id` dan `tenant_id`). Ditunda; bila dikerjakan, sebagai tambahan bukti per bagian CV, diukur dengan `profile_chunks` terisi, dan dengan bukti determinisme (D13).
 6. **Dua fitur spec 4.2 tidak diimplementasikan** (mahasiswa aktif, sertifikat kedaluwarsa): keputusan pemilik, D20.
 7. **Sisa kualitas kode (pilihan "kode" di bersih-bersih, belum dikerjakan):** sekitar 105 temuan ruff, 9 error mypy, `disallow_untyped_defs = false`, path `/srv/hermes-control` di `tests/conftest.py:15`, dan impor melingkar antara `processor`, `experience_extractor`, `verifier`.
-8. **Nama `ScreeningAgent`** (alur bertahap tetap, bukan agent otonom) belum diganti. Cakupan: internal saja (nilai DB `react_agent` dan field API `use_agent` dipertahankan), hanya istilah di dokumen, atau penuh termasuk DB dan API (butuh migrasi). Calon nama: `ScreeningWorkflow`, `EvidencePipeline`, `CandidateEvaluator`.
+8. **Pembuat PDF dokumen spec rusak:** `scripts/compile_spec_pdf.py` gagal (Typst `unclosed delimiter`) sejak sebelum 29 Okt; `PRODUCT_ARCHITECTURE_SPECIFICATION.typ` yang dilacak tidak bisa dibangun ulang darinya. Pembuat memo riset juga menjadikan header `UNTRUSTED_AGENT_OUTPUT` sebagai judul. Rincian di [`docs/README.md`](../README.md).
+9. **Nama `ScreeningAgent`** (alur bertahap tetap, bukan agent otonom) belum diganti. Cakupan: internal saja (nilai DB `react_agent` dan field API `use_agent` dipertahankan), hanya istilah di dokumen, atau penuh termasuk DB dan API (butuh migrasi). Calon nama: `ScreeningWorkflow`, `EvidencePipeline`, `CandidateEvaluator`.
 
 ## 6. Kesepakatan kerja
 
