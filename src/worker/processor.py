@@ -11,7 +11,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from src.domain.experience_extractor import WorkExperienceEntity, extract_work_experiences_jev
+from src.domain.experience_extractor import validate_work_experiences_jev
 from src.domain.verifier import TypeSafeUnconfiguredError
 from src.infrastructure.config import settings
 from src.infrastructure.database import get_connection
@@ -349,7 +349,7 @@ async def process_document(
             if prior_cand_doc and prior_cand_doc["candidate_code"]:
                 quality_flags.append(f"POSSIBLE_DUPLICATE_OF:{prior_cand_doc['candidate_code']}")
 
-            # Tahap 3: Work Experience Semantic Extraction via TypeSafe Jev System One (Strict Honest Fail-Fast)
+            # Tahap 3: Work Experience Validation via TypeSafe Jev System One (Strict Honest Fail-Fast)
             if use_jev_extraction is None:
                 await cur.execute(
                     "SELECT payload FROM jobs_queue WHERE type = 'ingest_cv' AND payload->>'document_id' = %s LIMIT 1",
@@ -374,26 +374,18 @@ async def process_document(
             )
 
             if is_jev_enabled:
-                # Only redacted text may leave the worker for the external Jev API
-                cv_core_text = redact_text(
-                    raw_profile.get("cv_core_text") or san.extracted_text,
-                    identity_rec["full_name"],
-                    [email_val] if email_val else [],
-                    [phone_val] if phone_val else [],
-                    links=identity_rec.get("links") or [],
-                )
+                # Jev validates the regex-parsed, already-redacted entries; no raw CV text leaves the worker
                 try:
-                    jev_entities = await extract_work_experiences_jev(
-                        text=cv_core_text,
+                    matching_profile["experiences"] = await validate_work_experiences_jev(
+                        matching_profile.get("experiences", []),
                         client=client,
                         candidate_id=str(candidate_id) if candidate_id else str(doc_id),
                     )
                 except (TypeSafeUnconfiguredError, TypeSafeAPIConnectionError, TypeSafeAPITimeoutError, TypeSafeError, Exception) as err:
-                    logger.error(f"TypeSafe Jev work experience extraction failed for document {filename}: {err}")
+                    logger.error(f"TypeSafe Jev work experience validation failed for document {filename}: {err}")
                     fail_reasons = [
-                        "Ekstraksi pengalaman kerja Jev gagal dieksekusi: "
-                        "TYPESAFE_API_KEY tidak dikonfigurasi atau API tidak dapat dijangkau. "
-                        "Menyediakan fallback regex tiruan dilarang oleh doktrin arsitektur."
+                        "Validasi pengalaman kerja via Jev gagal dieksekusi: "
+                        "TYPESAFE_API_KEY tidak dikonfigurasi atau API tidak dapat dijangkau."
                     ]
                     fail_flags = list(set(quality_flags + ["FAILED_JEV_EXTRACTION"]))
                     await cur.execute(
@@ -415,34 +407,6 @@ async def process_document(
                         "reasons": fail_reasons,
                         "error": str(err),
                     }
-
-                # Save extracted WorkExperienceEntity to matching_profile experiences
-                matching_profile["experiences"] = [
-                    ent.to_dict() if hasattr(ent, "to_dict") else dict(ent)
-                    for ent in jev_entities
-                ]
-                raw_profile["experiences"] = [
-                    ent.to_dict() if hasattr(ent, "to_dict") else dict(ent)
-                    for ent in jev_entities
-                ]
-
-                # Rebuild EXPERIENCE profile chunks
-                chunks = [c for c in chunks if str(c.get("kind", "")).lower() != "experience"]
-                for idx, exp in enumerate(matching_profile["experiences"], 1):
-                    bullets_text = "\n".join(
-                        b.get("text", "") if isinstance(b, dict) else str(b)
-                        for b in exp.get("bullets", [])
-                        if b
-                    )
-                    exp_blob = f"Role: {exp.get('title', '')} at {exp.get('organization', '')}\n{bullets_text}".strip()
-                    if exp_blob:
-                        chunks.append(
-                            {
-                                "kind": "EXPERIENCE",
-                                "entry_ref": f"exp_{idx}",
-                                "text_redacted": exp_blob,
-                            }
-                        )
 
             await cur.execute(
                 """

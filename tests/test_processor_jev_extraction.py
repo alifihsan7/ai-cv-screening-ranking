@@ -3,14 +3,13 @@
 Invariants verified:
 1. Pure Honest Fail-Fast (Opsi 1):
    - Missing TYPESAFE_API_KEY marks document as NEEDS_REVIEW with flags=['FAILED_JEV_EXTRACTION']
-     and reasons=['Ekstraksi pengalaman kerja Jev gagal dieksekusi: TYPESAFE_API_KEY tidak dikonfigurasi atau API tidak dapat dijangkau. Menyediakan fallback regex tiruan dilarang oleh doktrin arsitektur.'].
+     and reasons=['Validasi pengalaman kerja via Jev gagal dieksekusi: TYPESAFE_API_KEY tidak dikonfigurasi atau API tidak dapat dijangkau.'].
    - Connection/timeout errors trigger the exact same fail-fast response without silent regex fallback.
    - Zero fake or fallback candidate profiles are saved when Jev fails.
-2. Structured Experience Extraction:
-   - Successful Jev extraction persists WorkExperienceEntity fields:
-     (title, organization, start_date, end_date, duration_months, context)
-     to candidate's matching_profile["experiences"].
-   - Rebuilds profile_chunks for pgvector embeddings accordingly.
+2. Experience Validation:
+   - Jev validates the adapter's regex-parsed, redacted entries with one NOUL question each.
+   - Rejected entries are flagged JEV_NOT_WORK_EXPERIENCE in matching_profile, never dropped.
+   - Only redacted entries are sent to Jev; contact details never leave the worker.
 3. Telemetry:
    - Verifies Jev calls are audited in `jev_calls` table.
 """
@@ -26,15 +25,15 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from typesafe_sdk import (
     AsyncTypeSafeClient,
-    ChoiceAnswer,
+    NoulAnswer,
     SystemOneResponse,
     TypeSafeAPIConnectionError,
     Usage,
 )
 
-from src.domain.experience_extractor import WorkExperienceEntity
 from src.infrastructure.config import settings
 from src.infrastructure.database import get_connection
+from src.worker.adapter import parse_experiences
 from src.worker.processor import process_document
 from src.worker.sanitizer import SanitizeResult
 from tests.conftest import DEMO_TENANT_ID
@@ -56,6 +55,44 @@ Juli 2018 – Desember 2020
 - Mengembangkan RESTful API dengan Python Django.
 - Mengoptimasi database query latency hingga 40%.
 """
+
+
+def _raw_profile_with_experiences() -> dict:
+    """Adapter-shaped raw profile whose experiences come from the real regex parser over SAMPLE_CV_TEXT."""
+    experiences = parse_experiences(SAMPLE_CV_TEXT, SAMPLE_CV_TEXT)
+    experiences[0]["bullets"].append({"text": "Kontak tim: budi.santoso@example.com / 081234567890"})
+    return {
+        "document_id": None,
+        "identity": {
+            "full_name": "Budi Santoso",
+            "email": "budi.santoso@example.com",
+            "phone": "081234567890",
+            "location_raw": None,
+            "links": [],
+            "other_personal": {},
+        },
+        "headline": "",
+        "summary": "",
+        "language": ["id"],
+        "skills": [],
+        "experiences": experiences,
+        "education": [],
+        "certifications": [],
+        "projects": [],
+        "organizations": [],
+        "achievements": [],
+        "portfolio_attachments": [],
+        "cv_core_text": SAMPLE_CV_TEXT,
+        "quality": {},
+    }
+
+
+def _noul_response(*validities: float) -> SystemOneResponse:
+    return SystemOneResponse(
+        model="jev-latest",
+        usage=Usage(input_tokens=180, output_tokens=len(validities)),
+        answers={f"exp_{i}": NoulAnswer(type="noul", noul=v) for i, v in enumerate(validities)},
+    )
 
 
 @pytest.fixture
@@ -117,93 +154,34 @@ def setup_document_fixture():
 
 
 @pytest.mark.asyncio
-async def test_processor_jev_extraction_success_with_mock_client(setup_document_fixture):
-    """Test process_document with Jev enabled successfully extracts entities and updates profile."""
+async def test_processor_jev_validation_annotates_experiences(setup_document_fixture):
+    """Jev validates the adapter's redacted entries: rejected ones are flagged, never dropped."""
     doc_id, job_id, tenant_id, mock_san = await setup_document_fixture()
 
     mock_client = AsyncMock(spec=AsyncTypeSafeClient)
-    choice_answer = ChoiceAnswer(
-        type="choice",
-        choice="EXTRACTED",
-        confidence=0.98,
-        probabilities={"EXTRACTED": 0.98, "NO_EXPERIENCE": 0.02},
-    )
-    mock_response = SystemOneResponse(
-        model="jev-latest",
-        usage=Usage(input_tokens=180, output_tokens=40),
-        answers={"experience_extraction": choice_answer},
-    )
-    mock_client.system_one.return_value = mock_response
-
-    mock_entities = [
-        WorkExperienceEntity(
-            title="Senior Backend Engineer",
-            organization="PT FinTech Nusantara",
-            company="PT FinTech Nusantara",
-            start="2021-01",
-            end="2024-05",
-            start_date="2021-01",
-            end_date="2024-05",
-            duration_months=41.0,
-            context="experience",
-            employment_type="full_time",
-            responsibilities=["Merancang arsitektur microservices berbasis FastAPI."],
-            bullets=[{"text": "Merancang arsitektur microservices berbasis FastAPI."}],
-        ),
-        WorkExperienceEntity(
-            title="Software Engineer",
-            organization="PT Solusi Digital",
-            company="PT Solusi Digital",
-            start="2018-07",
-            end="2020-12",
-            start_date="2018-07",
-            end_date="2020-12",
-            duration_months=30.0,
-            context="experience",
-            employment_type="full_time",
-            responsibilities=["Mengembangkan RESTful API dengan Python Django."],
-            bullets=[{"text": "Mengembangkan RESTful API dengan Python Django."}],
-        ),
-    ]
+    mock_client.system_one.return_value = _noul_response(0.96, 0.08)
 
     with (
         patch("src.worker.processor.sanitize_file", return_value=mock_san),
-        patch("src.worker.processor.extract_work_experiences_jev", return_value=mock_entities) as mock_extract,
+        patch("src.worker.processor.extract_candidate_profile", return_value=_raw_profile_with_experiences()),
     ):
-        result = await process_document(
-            doc_id=doc_id,
-            use_jev_extraction=True,
-            client=mock_client,
-        )
+        result = await process_document(doc_id=doc_id, use_jev_extraction=True, client=mock_client)
 
-        assert result["status"] == "READY"
-        assert mock_extract.called
+    assert result["status"] == "READY"
+    assert mock_client.system_one.call_count == 1
 
-    # Verify document and candidate profile in database
     async with get_connection() as conn, conn.cursor() as cur:
-        await cur.execute("SELECT status, flags, reasons FROM documents WHERE id = %s", (doc_id,))
-        doc_row = await cur.fetchone()
-        assert doc_row["status"] == "READY"
-
         await cur.execute("SELECT matching_profile FROM candidate_profiles WHERE document_id = %s", (doc_id,))
         prof_row = await cur.fetchone()
-        assert prof_row is not None
-        matching_profile = prof_row["matching_profile"]
-        assert "experiences" in matching_profile
-        exps = matching_profile["experiences"]
-        assert len(exps) == 2
+        exps = prof_row["matching_profile"]["experiences"]
+        assert [e["title"] for e in exps] == ["Senior Backend Engineer", "Software Engineer"]
+        assert exps[0]["jev_validity"] == pytest.approx(0.96)
+        assert exps[0]["flags"] == []
+        assert exps[1]["flags"] == ["JEV_NOT_WORK_EXPERIENCE"]
 
-        first_exp = exps[0]
-        assert first_exp["title"] == "Senior Backend Engineer"
-        assert first_exp["organization"] == "PT FinTech Nusantara"
-        assert first_exp["start_date"] == "2021-01"
-        assert first_exp["end_date"] == "2024-05"
-        assert first_exp["duration_months"] == 41.0
-        assert first_exp["context"] == "experience"
-
-        # Check profile_chunks for kind = 'EXPERIENCE'
+        # Experience chunks come from the standard redaction pipeline, once per entry
         await cur.execute(
-            "SELECT count(*) as cnt FROM profile_chunks WHERE profile_id = (SELECT id FROM candidate_profiles WHERE document_id = %s) AND kind = 'EXPERIENCE'",
+            "SELECT count(*) as cnt FROM profile_chunks WHERE profile_id = (SELECT id FROM candidate_profiles WHERE document_id = %s) AND lower(kind) = 'experience'",
             (doc_id,),
         )
         chunk_row = await cur.fetchone()
@@ -211,25 +189,24 @@ async def test_processor_jev_extraction_success_with_mock_client(setup_document_
 
 
 @pytest.mark.asyncio
-async def test_processor_jev_extraction_receives_redacted_text(setup_document_fixture):
-    """Text sent to the external Jev API must not contain candidate contact details."""
+async def test_processor_jev_validation_receives_only_redacted_entries(setup_document_fixture):
+    """Only redacted experience entries are sent to the external Jev API, never contact details."""
     doc_id, job_id, tenant_id, mock_san = await setup_document_fixture()
+
+    mock_client = AsyncMock(spec=AsyncTypeSafeClient)
+    mock_client.system_one.return_value = _noul_response(0.9, 0.9)
 
     with (
         patch("src.worker.processor.sanitize_file", return_value=mock_san),
-        patch("src.worker.processor.extract_work_experiences_jev", return_value=[]) as mock_extract,
+        patch("src.worker.processor.extract_candidate_profile", return_value=_raw_profile_with_experiences()),
     ):
-        await process_document(
-            doc_id=doc_id,
-            use_jev_extraction=True,
-            client=AsyncMock(spec=AsyncTypeSafeClient),
-        )
+        await process_document(doc_id=doc_id, use_jev_extraction=True, client=mock_client)
 
-    sent_text = mock_extract.call_args.kwargs["text"]
-    assert "budi.santoso@example.com" not in sent_text
-    assert "081234567890" not in sent_text
-    assert "[EMAIL]" in sent_text
-    assert "Senior Backend Engineer" in sent_text
+    sent_state = json.dumps(mock_client.system_one.call_args.kwargs["state"])
+    assert "budi.santoso@example.com" not in sent_state
+    assert "081234567890" not in sent_state
+    assert "Budi" not in sent_state
+    assert "Senior Backend Engineer" in sent_state
 
 
 # -----------------------------------------------------------------------------
@@ -256,9 +233,8 @@ async def test_processor_jev_extraction_fail_fast_when_unconfigured(setup_docume
         assert result["status"] == "NEEDS_REVIEW"
         assert "FAILED_JEV_EXTRACTION" in result["flags"]
         expected_reason = (
-            "Ekstraksi pengalaman kerja Jev gagal dieksekusi: "
-            "TYPESAFE_API_KEY tidak dikonfigurasi atau API tidak dapat dijangkau. "
-            "Menyediakan fallback regex tiruan dilarang oleh doktrin arsitektur."
+            "Validasi pengalaman kerja via Jev gagal dieksekusi: "
+            "TYPESAFE_API_KEY tidak dikonfigurasi atau API tidak dapat dijangkau."
         )
         assert expected_reason in result["reasons"]
 
@@ -298,7 +274,10 @@ async def test_processor_jev_extraction_fail_fast_on_connection_error(setup_docu
     mock_client = AsyncMock(spec=AsyncTypeSafeClient)
     mock_client.system_one.side_effect = TypeSafeAPIConnectionError("api.typesafe.ai unreachable")
 
-    with patch("src.worker.processor.sanitize_file", return_value=mock_san):
+    with (
+        patch("src.worker.processor.sanitize_file", return_value=mock_san),
+        patch("src.worker.processor.extract_candidate_profile", return_value=_raw_profile_with_experiences()),
+    ):
         result = await process_document(
             doc_id=doc_id,
             use_jev_extraction=True,
@@ -308,9 +287,8 @@ async def test_processor_jev_extraction_fail_fast_on_connection_error(setup_docu
         assert result["status"] == "NEEDS_REVIEW"
         assert "FAILED_JEV_EXTRACTION" in result["flags"]
         expected_reason = (
-            "Ekstraksi pengalaman kerja Jev gagal dieksekusi: "
-            "TYPESAFE_API_KEY tidak dikonfigurasi atau API tidak dapat dijangkau. "
-            "Menyediakan fallback regex tiruan dilarang oleh doktrin arsitektur."
+            "Validasi pengalaman kerja via Jev gagal dieksekusi: "
+            "TYPESAFE_API_KEY tidak dikonfigurasi atau API tidak dapat dijangkau."
         )
         assert expected_reason in result["reasons"]
 

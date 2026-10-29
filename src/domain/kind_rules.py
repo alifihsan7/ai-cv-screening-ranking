@@ -118,6 +118,14 @@ def is_role_family_accepted(rf_str: str, accepted: list[str]) -> bool:
     return False
 
 
+def split_jev_rejected_experiences(
+    experiences: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """Drops entries Jev confidently rejected as non-work from duration scoring, returning a flag if any."""
+    kept = [e for e in experiences if "JEV_NOT_WORK_EXPERIENCE" not in (e.get("flags") or [])]
+    return kept, (["JEV_EXCLUDED_NON_WORK_ENTRY"] if len(kept) < len(experiences) else [])
+
+
 class DualEvaluationResult:
     """Hybrid outcome that is awaitable in async workflows and unpackable in legacy synchronous calls."""
 
@@ -186,9 +194,9 @@ async def eval_experience_duration_async(
     as_of_y, as_of_m = parse_ym("present", as_of)  # type: ignore[misc]
     as_of_total_m = as_of_y * 12 + as_of_m
 
-    experiences = profile.get("experiences", [])
+    experiences, excluded_flags = split_jev_rejected_experiences(profile.get("experiences", []))
     if not experiences:
-        return "NOT_DEMONSTRATED", 0.95, {"backend_months": 0.0}, [], []
+        return "NOT_DEMONSTRATED", 0.95, {"backend_months": 0.0}, [], excluded_flags
 
     req_id = str(req.get("requirement_id") or req.get("id") or "EXPERIENCE_DURATION")
 
@@ -241,7 +249,7 @@ async def eval_experience_duration_async(
 
     full_intervals: list[tuple[int, int]] = []
     intern_intervals: list[tuple[int, int]] = []
-    flags: list[str] = []
+    flags: list[str] = list(excluded_flags)
     evidence: list[dict[str, Any]] = []
 
     # Low-confidence Jev role families fall back to the deterministic classifier, flagged for review
@@ -348,12 +356,13 @@ def _eval_experience_duration_sync(
     as_of_y, as_of_m = parse_ym("present", as_of)  # type: ignore[misc]
     as_of_total_m = as_of_y * 12 + as_of_m
 
+    experiences, excluded_flags = split_jev_rejected_experiences(profile.get("experiences", []))
     full_intervals: list[tuple[int, int]] = []
     intern_intervals: list[tuple[int, int]] = []
-    flags: list[str] = []
+    flags: list[str] = list(excluded_flags)
     evidence: list[dict[str, Any]] = []
 
-    for exp in profile.get("experiences", []):
+    for exp in experiences:
         title = exp.get("title", "")
         bullet_text = " ".join(b.get("text", "") for b in exp.get("bullets", []) if isinstance(b, dict))
         rf = classify_role_family(title, bullet_text)

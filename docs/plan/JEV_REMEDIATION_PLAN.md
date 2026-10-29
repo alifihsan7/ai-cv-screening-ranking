@@ -4,8 +4,8 @@ Dokumen ini berisi langkah perbaikan integrasi Jev di pipeline CV screening, ber
 
 | # | Tahap | Ukuran | Status |
 |---|-------|--------|--------|
-| 1 | Sensor teks sebelum dikirim ke Jev | Kecil | Selesai (test DB belum dijalankan) |
-| 2 | Perbaiki ekstraksi pengalaman | Sedang | Belum (Opsi A) |
+| 1 | Sensor teks sebelum dikirim ke Jev | Kecil | Selesai (disempurnakan di Tahap 2) |
+| 2 | Perbaiki ekstraksi pengalaman | Sedang | Selesai (Opsi A) |
 | 3 | Hubungkan kutipan dengan keputusan Jev | Sedang | Belum |
 | 4 | Cache hasil Jev | Kecil | Belum (dikerjakan terakhir) |
 | 5 | Ambang batas confidence | Kecil | Selesai |
@@ -41,6 +41,8 @@ cv_core_text = redact_text(
 - Ada test yang memastikan payload `state` ke `system_one` tidak memuat nama, email, atau telepon dari fixture.
 - Ada test yang memastikan potongan `EXPERIENCE` hasil susun ulang tidak memuat identitas kandidat.
 
+**Catatan setelah Tahap 2.** Pengiriman teks CV ke Jev dihapus sama sekali. Jev sekarang hanya menerima entri pengalaman yang sudah disensor, dan penyusunan ulang potongan `EXPERIENCE` juga dihapus. Parameter `links` di `redact_text` tetap dipakai untuk `full_text_redacted`.
+
 ---
 
 ## Tahap 2 — Perbaiki ekstraksi pengalaman
@@ -53,23 +55,28 @@ cv_core_text = redact_text(
 
 **Keputusan: Opsi A.** Regex mengekstrak entri, lalu Jev memvalidasi tiap entri. Opsi B, yaitu menghapus Jev dari extractor, tidak dipilih.
 
-**Perubahan.**
-1. Hapus pertanyaan Choice `EXTRACTED` / `NO_EXPERIENCE` yang diajukan untuk seluruh CV.
-2. Ekstrak entri dengan `parse_experiences()` dari teks yang sudah disensor (lihat Tahap 1).
-3. Validasi semua entri dalam satu panggilan `system_one`. Setiap entri menjadi satu pertanyaan Noul (`questions={"exp_0": Noul(...), "exp_1": ...}`), dengan `state` per entri berisi judul, organisasi, rentang tanggal, dan bullet.
-   - Pertanyaan: "Apakah entri ini pengalaman kerja profesional yang nyata (bukan pendidikan, proyek kuliah, organisasi, atau minat)?"
-4. Simpan hasilnya di `WorkExperienceEntity`, dengan field baru `jev_validity: float | None` dan `flags: list[str]`.
-   - Nilai Noul di bawah ambang (memakai `VERIFIER_MIN_CONFIDENCE` dari Tahap 5): beri flag `JEV_NOT_WORK_EXPERIENCE`. **Entri tidak dihapus.**
-   - Perhitungan durasi di `eval_experience_duration` mengecualikan entri yang punya flag tersebut, dan alasannya dicatat ke `reasons` supaya terlihat oleh recruiter.
-5. Catat ke `jev_calls` satu baris per entri, dengan `criterion_id="EXPERIENCE_VALIDATION"` dan `primitive_type="NOUL"`.
-6. Buka client dengan `async with`.
-7. Terima `as_of` dari pemanggil, tanpa default `date.today()`.
-8. Perbarui docstring supaya jujur: ekstraksi memakai regex, validasi memakai Jev.
+**Yang dikerjakan.**
+1. Pertanyaan Choice `EXTRACTED` / `NO_EXPERIENCE` untuk seluruh CV dihapus.
+2. **Berbeda dari rencana awal:** processor tidak lagi mem-parsing ulang teks CV. Jev langsung memvalidasi `matching_profile["experiences"]` dari adapter, yang sudah di-parse per bagian dan sudah disensor. Alasannya:
+   - parsing ulang teks penuh berhenti di judul bagian pertama, misalnya "PENDIDIKAN", sehingga CV yang mencantumkan pendidikan lebih dulu kehilangan semua pengalaman;
+   - yang keluar ke Jev hanya entri pengalaman, bukan seluruh CV;
+   - profil dengan Jev sama dengan profil tanpa Jev, hanya ditambah anotasi.
+3. Fungsi baru `validate_work_experiences_jev` di [experience_extractor.py](../../src/domain/experience_extractor.py) memvalidasi semua entri dalam satu panggilan `system_one`, dengan satu pertanyaan Noul per entri (`exp_0`, `exp_1`, …). Data entri dikirim di `state`, bukan di instruksi.
+4. Setiap entri mendapat `jev_validity` (probabilitas "ya" dari Noul). Entri diberi flag `JEV_NOT_WORK_EXPERIENCE` hanya jika Jev **yakin** jawabannya "tidak": `1 − validity ≥ VERIFIER_MIN_CONFIDENCE`, yaitu validity ≤ 0.40 pada nilai default. Jawaban ragu (sekitar 0.5) tidak mengubah apa pun. **Entri tidak pernah dihapus.**
+5. Di [kind_rules.py](../../src/domain/kind_rules.py), `split_jev_rejected_experiences` mengecualikan entri yang punya flag tersebut dari hitungan durasi, di jalur async maupun sync, dan menambahkan flag `JEV_EXCLUDED_NON_WORK_ENTRY` ke hasil kriteria supaya terlihat oleh recruiter.
+6. Satu baris `jev_calls` per entri (`criterion_id="EXPERIENCE_VALIDATION"`, `primitive_type="NOUL"`). Pemakaian token dari satu panggilan gabungan hanya dicatat di baris pertama supaya tidak terhitung ganda.
+7. Client yang dibuat sendiri dibuka dengan `async with`.
+8. `extract_work_experiences_jev(text, …)` tetap ada sebagai pembungkus (regex, lalu validasi), dan `as_of` diteruskan apa adanya tanpa default `date.today()`.
+9. Pesan gagal di processor diubah menjadi "Validasi pengalaman kerja via Jev gagal dieksekusi…". Flag `FAILED_JEV_EXTRACTION` dipertahankan.
+10. Perbaikan kecil yang ikut masuk: `TypeSafeAPITimeoutError` sekarang menerima nilai timeout sesuai tipe SDK, bukan teks.
 
-**Selesai jika.**
-- Ada test di mana Jev menolak satu dari tiga entri. Ketiga entri tetap tersimpan, entri yang ditolak memiliki flag, dan durasi hanya dihitung dari dua entri.
-- Ada test di mana regex tidak menemukan entri apa pun. Jev tidak dipanggil.
-- Ada test di mana API Jev gagal. Dokumen menjadi `NEEDS_REVIEW` seperti perilaku saat ini.
+**Test** (dijalankan terhadap `cv_screening_test` lokal; seluruh suite: 302 passed, 2 skipped):
+- Jev menolak satu dari tiga entri. Ketiganya tetap ada, hanya yang ditolak mendapat flag, dan jawaban ragu tidak mengubah apa pun.
+- Durasi tidak menghitung entri yang ditolak, dan flag `JEV_EXCLUDED_NON_WORK_ENTRY` muncul.
+- Daftar entri kosong: Jev tidak dipanggil.
+- Jawaban Jev untuk salah satu entri hilang: langsung gagal.
+- Processor: entri tersimpan dengan anotasi, dan `state` yang dikirim ke Jev tidak memuat nama, email, atau telepon walaupun ada di bullet.
+- API Jev gagal atau belum dikonfigurasi: dokumen menjadi `NEEDS_REVIEW`.
 
 ---
 
@@ -145,7 +152,7 @@ Akibatnya, kutipan yang ditampilkan ke recruiter belum tentu menjadi dasar keput
 
 ## Tahap 7 — Pengukuran
 
-1. Siapkan `TEST_DATABASE_URL`, lalu pastikan seluruh test berjalan (`pytest -v`).
+1. Pastikan seluruh test berjalan. `TEST_DATABASE_URL` sudah ada di `.env` tetapi tidak dimuat otomatis oleh `conftest.py`, jadi perlu diekspor dulu: `export TEST_DATABASE_URL="$(grep '^TEST_DATABASE_URL=' .env | cut -d= -f2-)" && pytest -q`.
 2. Jalankan `python docs/spec/golden_dataset/evaluate.py` dalam tiga mode: `rules`, `llm_gateway`, dan `jev_typesafe`.
 3. Bandingkan akurasi status per kriteria, false positive rate, latensi p50/p95, dan biaya token. Data latensi dan token diambil dari `jev_calls`.
 4. Jalankan tiap mode dua kali untuk memastikan hasilnya identik.
