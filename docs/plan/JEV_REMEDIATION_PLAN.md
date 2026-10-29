@@ -10,7 +10,9 @@ Dokumen ini berisi langkah perbaikan integrasi Jev di pipeline CV screening, ber
 | 4 | Cache hasil Jev | Kecil | Belum (dikerjakan terakhir) |
 | 5 | Ambang batas confidence | Kecil | Selesai |
 | 6 | Bersih-bersih kode | Kecil | Selesai |
-| 7 | Pengukuran (Jev vs LLM) | Sedang | Belum |
+| 7 | Pengukuran (Jev vs LLM) | Sedang | **Sebagian**: Jev vs aturan murni terukur pada golden, parafrase, dan tiga hold-out; mode `llm_gateway` belum diukur |
+
+> **Status akhir 29 Oktober 2026:** Tahap 1, 2, 3, 5, 6 selesai; Tahap 7 sebagian; **Tahap 4 belum dikerjakan**. Hasil pengukuran ada di [BENCHMARK_RESULTS_2026-10-29.md](../eval/BENCHMARK_RESULTS_2026-10-29.md) (bukan di `BENCHMARK_JEV_VS_LLM.md` seperti rencana awal, yang kini bercap usang). Pengukuran juga menunjukkan bahwa menjalankan tiap mode dua kali **tidak** selalu identik untuk Jev (parafrase 143 sampai 146), sehingga Tahap 4 bernilai. Pekerjaan di luar rencana ini (ekstraksi CV nyata, urutan baca PDF, teks tersembunyi, data pribadi di basis data, pengaman domain) tercatat di [CHECKPOINT_2026-10-29.md](CHECKPOINT_2026-10-29.md) dan [DECISIONS.md](../spec/DECISIONS.md).
 
 Urutan pengerjaan: 1 → 5 → 2 → 3 → 6 → 7 → 4. Cache dikerjakan paling akhir supaya yang dibekukan adalah jawaban dari pipeline yang sudah diperbaiki dan diukur.
 

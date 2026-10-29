@@ -1,3 +1,5 @@
+> **Status (diperbarui 2026-10-29):** lanjutan dari `FIX_PLAN.md`; keduanya adalah dokumen lama yang disimpan untuk riwayat dan tidak lagi diperbarui. Posisi pekerjaan terkini ada di [`docs/plan/CHECKPOINT_2026-10-29.md`](../plan/CHECKPOINT_2026-10-29.md).
+
 # FIX_FOLLOWUP — Hasil Review Branch `fix/audit-remediation` (Ronde 1)
 
 > **Untuk:** AI coding agent.

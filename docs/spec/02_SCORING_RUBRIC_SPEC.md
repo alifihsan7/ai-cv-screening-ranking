@@ -124,6 +124,8 @@ dipakai sebagai bukti apa pun.
 - Jurusan di `params.strong_fields` dan jenjang ≥ `min_level` → `STRONG`.
 - Jurusan di `params.partial_fields`, atau jenjang di bawah `min_level` tapi jurusan cocok → `PARTIAL`.
 - Lainnya → `NOT_DEMONSTRATED`. Mahasiswa aktif (belum lulus) maksimal `PARTIAL`.
+  - *Catatan implementasi (D16):* nama jurusan di `strong_fields` juga dicocokkan dengan alias bidang yang sama di taksonomi ("Informatika" ↔ "Informatics"); `partial_fields` tidak diperluas.
+  - *Catatan implementasi (D20):* aturan mahasiswa aktif **belum diimplementasikan**.
 - **Nama kampus, akreditasi, dan IPK tidak dinilai** kecuali recruiter membuat kriteria eksplisit untuk itu,
   dan itu ditampilkan sebagai peringatan bias. Skala IPK berbeda (4,00 vs 10) tidak boleh dibandingkan.
 
@@ -132,6 +134,7 @@ dipakai sebagai bukti apa pun.
 - Nama sertifikat cocok dengan konsep → `STRONG`. Sertifikat yang tanggal kedaluwarsanya tertulis dan sudah
   lewat → `PARTIAL`. Kursus/pelatihan yang bukan sertifikasi resmi untuk konsep itu → `PARTIAL` hanya kalau
   recruiter mengizinkan di `params`. Tidak ada → `NOT_DEMONSTRATED`.
+- *Catatan implementasi (D20):* aturan sertifikat kedaluwarsa **belum diimplementasikan**; sertifikat yang cocok tetap `STRONG`.
 
 **`ACHIEVEMENT`** (pencapaian terukur di domain lowongan)
 
@@ -141,6 +144,7 @@ dipakai sebagai bukti apa pun.
   (mis. data analyst untuk lowongan backend).
 - `NOT_DEMONSTRATED`: tidak ada angka hasil, atau domain sama sekali berbeda (mis. target penjualan untuk
   lowongan backend).
+- *Catatan implementasi (D17):* angka yang hanya jumlah anggota tim pada kalimat memimpin ("memimpin tim 8 orang") bukan angka hasil.
 
 **`LEADERSHIP`** (memimpin/membimbing tim teknis)
 
@@ -149,6 +153,7 @@ dipakai sebagai bukti apa pun.
 - `PARTIAL`: kepemimpinan di organisasi/kampus/proyek, atau memimpin tim teknis di domain yang berdekatan
   (mis. tim QA untuk lowongan backend boleh `STRONG` atau `PARTIAL`).
 - `NOT_DEMONSTRATED`: tidak ada, atau memimpin tim non-teknis untuk lowongan teknis.
+- *Catatan implementasi (D17, D18):* kalimat memimpin yang menyebut tim non-teknis (daftar di `config/taxonomy/leadership.yaml`) dan tidak menyebut istilah teknis tidak dihitung. Verifier tidak boleh menaikkan LEADERSHIP atau ACHIEVEMENT memakai kutipan dari pekerjaan tanpa istilah teknis (flag `JEV_DOMAIN_GUARD`).
 
 **`LANGUAGE`, `LOCATION`, `WORK_AUTHORIZATION`**: hanya dari pernyataan eksplisit di CV. Boleh dijadikan
 **filter keras** kalau recruiter mengaktifkannya; kalau tidak tercantum → `UNKNOWN` (bukan gagal filter),
@@ -270,6 +275,7 @@ jadi `evidence_id` dipilih kode dari kandidat bukti teratas).
 | LLM verifier | nilai dari model, dibatasi maks 0.90 |
 
 - Confidence < 0.60 setelah verifier → status tetap dipakai, tapi kriteria diberi tanda "perlu dicek" di UI.
+- *Catatan implementasi (D19):* bila verifier yakin (≥ 0,60) bahwa tidak ada bukti, kriteria diberi flag `NO_EVIDENCE_FOUND`, bukan `LOW_CONFIDENCE`; `LOW_CONFIDENCE` per kriteria hanya untuk verifier yang ragu.
 - ≥ 3 kriteria dengan confidence < 0.60 → kandidat diberi flag `LOW_CONFIDENCE` dan muncul di filter
   "Perlu cek manual".
 
