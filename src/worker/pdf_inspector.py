@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 import re
 import unicodedata
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -98,6 +99,46 @@ def calculate_contrast_against_white(color_val: int | tuple[Any, ...] | list[Any
     return 1.05 / (lum + 0.05)
 
 
+def _color_to_rgb(color_val: int | tuple[Any, ...] | list[Any]) -> tuple[int, int, int] | None:
+    if isinstance(color_val, (tuple, list)):
+        if all(isinstance(c, float) and c <= 1.0 for c in color_val):
+            return tuple(int(c * 255) for c in color_val[:3])  # type: ignore[return-value]
+        return tuple(int(c) for c in color_val[:3])  # type: ignore[return-value]
+    if isinstance(color_val, int):
+        return (color_val >> 16) & 0xFF, (color_val >> 8) & 0xFF, color_val & 0xFF
+    return None
+
+
+def contrast_against_background(color_val: int | tuple[Any, ...] | list[Any], background: tuple[int, int, int]) -> float:
+    """WCAG contrast ratio of a text color against the background actually drawn under it."""
+    text_rgb = _color_to_rgb(color_val)
+    if text_rgb is None:
+        return 21.0
+    l_text, l_bg = calculate_relative_luminance(*text_rgb), calculate_relative_luminance(*background)
+    lighter, darker = max(l_text, l_bg), min(l_text, l_bg)
+    return (lighter + 0.05) / (darker + 0.05)
+
+
+def dominant_background_rgb(page: Any, bbox: tuple[float, ...]) -> tuple[int, int, int] | None:
+    """The most common color under a text span, rendered from the page; None when it cannot be rendered.
+
+    A span with a white font is only hidden if the page is white there. White text over a dark sidebar (a common
+    two-column template) is plainly visible, so the check needs the real background, not an assumed white one.
+    """
+    try:
+        rect = fitz.Rect(bbox) & page.rect
+        if rect.is_empty:
+            return None
+        pix = page.get_pixmap(clip=rect, dpi=36, colorspace=fitz.csRGB, alpha=False)
+        raw = pix.samples
+        counts = Counter(raw[i : i + 3] for i in range(0, len(raw) - 2, 3))
+        top = counts.most_common(1)[0][0]
+        return top[0], top[1], top[2]
+    except Exception as e:
+        logger.debug(f"Could not render the background under a span: {e}")
+        return None
+
+
 # ---------------------------------------------------------------------------
 # Canonical Text Standardization (NFKC & De-Hyphenation)
 # ---------------------------------------------------------------------------
@@ -173,6 +214,12 @@ class PdfInspectionReport:
 # ---------------------------------------------------------------------------
 # Primary Inspection Engine
 # ---------------------------------------------------------------------------
+
+
+def _visible_on_real_background(page: Any, color: Any, bbox: tuple[float, ...]) -> bool:
+    """True when text that is white-ish against a white page is drawn over a background that makes it readable."""
+    background = dominant_background_rgb(page, bbox)
+    return background is not None and contrast_against_background(color, background) >= 1.20
 
 
 def inspect_pdf_adversarial(content: bytes) -> PdfInspectionReport:
@@ -276,7 +323,7 @@ def inspect_pdf_adversarial(content: bytes) -> PdfInspectionReport:
                         # Check 3b: Low-contrast / white text on white background (WCAG CR < 1.20:1)
                         color = span.get("color", 0)
                         contrast = calculate_contrast_against_white(color)
-                        if contrast < 1.20 and clean_text:
+                        if contrast < 1.20 and clean_text and not _visible_on_real_background(page, color, span_bbox):
                             report.findings.append(
                                 HiddenTextFinding(
                                     page_number=page_num,
