@@ -253,3 +253,9 @@ Pada prototipe baru, lapisan evaluasi tengah sepenuhnya steril dari komputasi ve
   ]
 )
 ]
+
+
+#v(1.2em)
+#block(fill: rgb("#fef3c7"), inset: 9pt, radius: 3pt, width: 100%)[
+  *Catatan status (2026-10-29):* dokumen ini ditulis sebelum integrasi Jev diukur dan sebelum uji dengan CV nyata. Sebagian klaimnya berbeda dari implementasi dan hasil ukur: alurnya bertahap tetap, bukan agent otonom; hasil Jev tidak sepenuhnya deterministik (cache hasil Jev belum ada); angka kinerja apa pun di sini harus dibaca bersama hasil ukur yang sebenarnya. Yang berlaku: CLAUDE.md, docs/spec/DECISIONS.md, dan docs/eval/BENCHMARK\_RESULTS\_2026-10-29.md.
+]
