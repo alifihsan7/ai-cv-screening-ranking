@@ -13,7 +13,7 @@ import pymupdf
 
 from src.worker.adapter import clean_ocr_noise
 from src.worker.pdf_inspector import (
-    ZERO_WIDTH_PATTERN,
+    has_suspicious_zero_width,
     inspect_pdf_adversarial,
     normalize_canonical_text,
 )
@@ -306,7 +306,7 @@ def sanitize_file(content: bytes, filename: str) -> SanitizeResult:
                 docx_flags: list[str] = []
                 docx_findings: list[dict[str, Any]] = []
                 has_hidden = False
-                if ZERO_WIDTH_PATTERN.search(text):
+                if has_suspicious_zero_width(text):
                     has_hidden = True
                     docx_flags.append("HIDDEN_TEXT")
                     docx_findings.append({

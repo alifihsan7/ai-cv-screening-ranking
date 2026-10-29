@@ -82,3 +82,14 @@ def test_a_single_tiny_glyph_is_ignored_but_tiny_words_are_not():
 
     assert tiny_findings(_pdf(tiny("x"))) == []
     assert len(tiny_findings(_pdf(tiny("python kubernetes")))) == 1
+
+
+def test_zero_width_characters_are_suspicious_only_inside_words_in_runs_or_as_direction_overrides():
+    from src.worker.pdf_inspector import has_suspicious_zero_width
+
+    assert not has_suspicious_zero_width("KEAHLIAN ​\nBAHASA ​")  # template habit: after a heading
+    assert not has_suspicious_zero_width("﻿Ringkasan")  # a BOM at the start
+    assert not has_suspicious_zero_width("Teks ‏ arah kanan")  # a single direction mark
+    assert has_suspicious_zero_width("py​thon and kuber​netes")  # keyword smuggling
+    assert has_suspicious_zero_width("Skills ​‌​‌")  # a run of them
+    assert has_suspicious_zero_width("Name ‮ txet")  # a direction override

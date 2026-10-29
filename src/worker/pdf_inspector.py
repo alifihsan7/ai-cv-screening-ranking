@@ -43,13 +43,20 @@ ZERO_WIDTH_CHARS = {
 
 ZERO_WIDTH_PATTERN = re.compile(r"[\u200b\u200c\u200d\ufeff\u200e\u200f\u202a-\u202e]")
 
+# Zero-width characters are normal in templates (a ZWSP after a heading, a BOM in metadata). They only matter when
+# they cut a word (keyword smuggling: "py<ZWSP>thon"), come in runs (bits hidden in text), or override text direction.
+_ZW_CLASS = "\u200b\u200c\u200d\ufeff"
+SUSPICIOUS_ZERO_WIDTH = re.compile(rf"(?<=\w)[{_ZW_CLASS}](?=\w)|[{_ZW_CLASS}\u200e\u200f]{{3,}}|[\u202a-\u202e]")
+
+
+def has_suspicious_zero_width(text: str) -> bool:
+    return bool(SUSPICIOUS_ZERO_WIDTH.search(text))
+
+
+# Raw file bytes: only ZWSP and ZWNJ; ZWJ, direction marks and the BOM are ordinary in metadata and emoji.
 ZERO_WIDTH_BYTES = [
     b"\xe2\x80\x8b",  # U+200B
     b"\xe2\x80\x8c",  # U+200C
-    b"\xe2\x80\x8d",  # U+200D
-    b"\xef\xbb\xbf",  # U+FEFF
-    b"\xe2\x80\x8e",  # U+200E
-    b"\xe2\x80\x8f",  # U+200F
 ]
 
 RENDER_MODE_3_STREAM_PATTERN = re.compile(rb"(?:^|\s)3\s+Tr(?:\s|$)")
@@ -271,7 +278,7 @@ def inspect_pdf_adversarial(content: bytes) -> PdfInspectionReport:
 
         # 1. Zero-width Unicode check on extracted page text
         zw_matches = ZERO_WIDTH_PATTERN.findall(page_raw_text)
-        if zw_matches:
+        if zw_matches and has_suspicious_zero_width(page_raw_text):
             report.findings.append(
                 HiddenTextFinding(
                     page_number=page_num,
@@ -343,7 +350,7 @@ def inspect_pdf_adversarial(content: bytes) -> PdfInspectionReport:
                             )
 
                         # Check 3c: Zero-width Unicode characters in span text
-                        if any(c in ZERO_WIDTH_CHARS for c in span_text):
+                        if has_suspicious_zero_width(span_text):
                             report.findings.append(
                                 HiddenTextFinding(
                                     page_number=page_num,
