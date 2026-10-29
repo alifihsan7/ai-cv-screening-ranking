@@ -1,0 +1,526 @@
+{
+  "job_id": "JD-01",
+  "as_of": "2026-10-01",
+  "requirement_set": "docs/spec/golden_dataset/job_descriptions/JD-01_requirements.approved.json",
+  "authoring": "Labels derived from docs/spec/02_SCORING_RUBRIC_SPEC.md section 4 before the system was run on these CVs. Written by the assistant that worked on the system; needs human review.",
+  "reference_ranking": [
+    "K12",
+    "K01",
+    "K10",
+    "K02",
+    "K04",
+    "K07",
+    "K06",
+    "K03",
+    "K09",
+    "K08",
+    "K11",
+    "K05"
+  ],
+  "candidates": [
+    {
+      "cv_id": "K01",
+      "file": "cvs/core/K01_backend_docx_table2_id.docx",
+      "group": "strong",
+      "format": "docx_table2",
+      "language": "id",
+      "relevance_grade": 3,
+      "expected_states": {
+        "R1": [
+          "STRONG"
+        ],
+        "R2": [
+          "STRONG"
+        ],
+        "R3": [
+          "STRONG"
+        ],
+        "R4": [
+          "STRONG"
+        ],
+        "R5": [
+          "STRONG"
+        ],
+        "R6": [
+          "STRONG"
+        ],
+        "R7": [
+          "STRONG"
+        ],
+        "R8": [
+          "STRONG"
+        ],
+        "R9": [
+          "STRONG"
+        ],
+        "R10": [
+          "NOT_DEMONSTRATED"
+        ]
+      },
+      "expected_backend_months": 88,
+      "note": "Hasil terukur ditulis dengan kata ('tiga kali lipat') = angka hasil di pekerjaan backend. 'Amazon EKS' = Kubernetes di AWS. 66 + 22 bulan."
+    },
+    {
+      "cv_id": "K02",
+      "file": "cvs/core/K02_backend_inline_year_only_en.pdf",
+      "group": "strong",
+      "format": "pdf_inline",
+      "language": "en",
+      "relevance_grade": 2,
+      "expected_states": {
+        "R1": [
+          "STRONG"
+        ],
+        "R2": [
+          "STRONG"
+        ],
+        "R3": [
+          "STRONG"
+        ],
+        "R4": [
+          "STRONG"
+        ],
+        "R5": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R6": [
+          "PARTIAL"
+        ],
+        "R7": [
+          "STRONG"
+        ],
+        "R8": [
+          "STRONG"
+        ],
+        "R9": [
+          "PARTIAL"
+        ],
+        "R10": [
+          "NOT_DEMONSTRATED"
+        ]
+      },
+      "expected_backend_months": 88,
+      "note": "Tanggal hanya tahun: '2019 - 2022' = Jul 2019-Jun 2022 = 36 bulan, '2022 - Present' = Jul 2022-Okt 2026 = 52 bulan (aturan year-only). Azure hanya di daftar skill = PARTIAL. Angka hanya di proyek = PARTIAL."
+    },
+    {
+      "cv_id": "K03",
+      "file": "cvs/core/K03_backend_docx_dates_first_id.docx",
+      "group": "marginal",
+      "format": "docx_dates_first",
+      "language": "id",
+      "relevance_grade": 2,
+      "expected_states": {
+        "R1": [
+          "PARTIAL"
+        ],
+        "R2": [
+          "STRONG"
+        ],
+        "R3": [
+          "STRONG"
+        ],
+        "R4": [
+          "STRONG"
+        ],
+        "R5": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R6": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R7": [
+          "STRONG"
+        ],
+        "R8": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R9": [
+          "STRONG"
+        ],
+        "R10": [
+          "NOT_DEMONSTRATED"
+        ]
+      },
+      "expected_backend_months": 34,
+      "note": "Tata letak 'tanggal dulu, baru judul', tetapi hanya satu pekerjaan, sehingga cacat parser yang diketahui (butuh dua pekerjaan atau lebih) tidak teruji di sini. Jan 2024-Okt 2026 = 34 bulan < 36."
+    },
+    {
+      "cv_id": "K04",
+      "file": "cvs/core/K04_senior_java_single_en.pdf",
+      "group": "strong",
+      "format": "pdf_single",
+      "language": "en",
+      "relevance_grade": 2,
+      "expected_states": {
+        "R1": [
+          "STRONG"
+        ],
+        "R2": [
+          "STRONG"
+        ],
+        "R3": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R4": [
+          "STRONG"
+        ],
+        "R5": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R6": [
+          "STRONG"
+        ],
+        "R7": [
+          "STRONG"
+        ],
+        "R8": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R9": [
+          "STRONG"
+        ],
+        "R10": [
+          "STRONG"
+        ]
+      },
+      "expected_backend_months": 116,
+      "note": "Tanpa Python. Docker tidak disebut. 'Mentored three junior engineers' = mentoring tim teknis = STRONG untuk R10."
+    },
+    {
+      "cv_id": "K05",
+      "file": "cvs/core/K05_digital_marketing_docx_id.docx",
+      "group": "irrelevant",
+      "format": "docx_para",
+      "language": "id",
+      "relevance_grade": 0,
+      "expected_states": {
+        "R1": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R2": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R3": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R4": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R5": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R6": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R7": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R8": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R9": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R10": [
+          "NOT_DEMONSTRATED"
+        ]
+      },
+      "expected_backend_months": 0,
+      "note": "Angka hasil ada tetapi di domain pemasaran (domain sama sekali berbeda) = NOT_DEMONSTRATED. Tim konten non-teknis = NOT_DEMONSTRATED untuk R10."
+    },
+    {
+      "cv_id": "K06",
+      "file": "cvs/core/K06_fullstack_node_prose_id.pdf",
+      "group": "marginal",
+      "format": "pdf_prose",
+      "language": "id",
+      "relevance_grade": 1,
+      "expected_states": {
+        "R1": [
+          "STRONG"
+        ],
+        "R2": [
+          "STRONG"
+        ],
+        "R3": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R4": [
+          "STRONG"
+        ],
+        "R5": [
+          "STRONG"
+        ],
+        "R6": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R7": [
+          "STRONG"
+        ],
+        "R8": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R9": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R10": [
+          "NOT_DEMONSTRATED"
+        ]
+      },
+      "expected_backend_months": 49,
+      "note": "Fullstack diterima untuk R1 (Okt 2022-Okt 2026 = 49 bulan). D4 setara S1 dengan jurusan utama = STRONG. Tidak ada angka hasil sama sekali."
+    },
+    {
+      "cv_id": "K07",
+      "file": "cvs/core/K07_backend_docx_sidebar_en.docx",
+      "group": "marginal",
+      "format": "docx_sidebar",
+      "language": "en",
+      "relevance_grade": 2,
+      "expected_states": {
+        "R1": [
+          "STRONG"
+        ],
+        "R2": [
+          "STRONG"
+        ],
+        "R3": [
+          "STRONG"
+        ],
+        "R4": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R5": [
+          "STRONG"
+        ],
+        "R6": [
+          "STRONG"
+        ],
+        "R7": [
+          "PARTIAL"
+        ],
+        "R8": [
+          "STRONG"
+        ],
+        "R9": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R10": [
+          "NOT_DEMONSTRATED"
+        ]
+      },
+      "expected_backend_months": 58,
+      "note": "Seluruh CV berupa satu tabel dua kolom (sidebar). Matematika ada di partial_fields = PARTIAL. PostgreSQL tidak disebut. Tidak ada angka hasil."
+    },
+    {
+      "cv_id": "K08",
+      "file": "cvs/core/K08_active_student_two_column_id.pdf",
+      "group": "marginal",
+      "format": "pdf_two_col",
+      "language": "id",
+      "relevance_grade": 1,
+      "expected_states": {
+        "R1": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R2": [
+          "PARTIAL"
+        ],
+        "R3": [
+          "PARTIAL"
+        ],
+        "R4": [
+          "PARTIAL"
+        ],
+        "R5": [
+          "PARTIAL"
+        ],
+        "R6": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R7": [
+          "PARTIAL"
+        ],
+        "R8": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R9": [
+          "PARTIAL"
+        ],
+        "R10": [
+          "NOT_DEMONSTRATED"
+        ]
+      },
+      "expected_backend_months": 0,
+      "note": "Tanpa pengalaman kerja: semua bukti di proyek (PARTIAL). Mahasiswa aktif belum lulus = maksimal PARTIAL (spec 4.2 EDUCATION). Angka hasil hanya di proyek = PARTIAL."
+    },
+    {
+      "cv_id": "K09",
+      "file": "cvs/core/K09_platform_head_docx_table2_en.docx",
+      "group": "marginal",
+      "format": "docx_table2",
+      "language": "en",
+      "relevance_grade": 1,
+      "expected_states": {
+        "R1": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R2": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R3": [
+          "STRONG"
+        ],
+        "R4": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R5": [
+          "STRONG"
+        ],
+        "R6": [
+          "STRONG"
+        ],
+        "R7": [
+          "STRONG"
+        ],
+        "R8": [
+          "STRONG"
+        ],
+        "R9": [
+          "STRONG"
+        ],
+        "R10": [
+          "STRONG"
+        ]
+      },
+      "expected_backend_months": 0,
+      "note": "Role family devops tidak diterima untuk R1. Tooling CLI bukan REST API. Python di pekerjaan = STRONG. 'API latency' = kinerja backend = angka hasil relevan. Judul 'Head of' = STRONG untuk R10."
+    },
+    {
+      "cv_id": "K10",
+      "file": "cvs/core/K10_backend_inline_overlap_id.pdf",
+      "group": "strong",
+      "format": "pdf_inline",
+      "language": "id",
+      "relevance_grade": 3,
+      "expected_states": {
+        "R1": [
+          "STRONG"
+        ],
+        "R2": [
+          "STRONG"
+        ],
+        "R3": [
+          "STRONG"
+        ],
+        "R4": [
+          "STRONG"
+        ],
+        "R5": [
+          "STRONG"
+        ],
+        "R6": [
+          "STRONG"
+        ],
+        "R7": [
+          "STRONG"
+        ],
+        "R8": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R9": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R10": [
+          "NOT_DEMONSTRATED"
+        ]
+      },
+      "expected_backend_months": 93,
+      "note": "Freelance 2022 tumpang tindih penuh dengan pekerjaan utama: tidak dijumlahkan dua kali (59 + 34 = 93). Tidak ada angka hasil sama sekali."
+    },
+    {
+      "cv_id": "K11",
+      "file": "cvs/core/K11_warehouse_supervisor_docx_en.docx",
+      "group": "irrelevant",
+      "format": "docx_para",
+      "language": "en",
+      "relevance_grade": 0,
+      "expected_states": {
+        "R1": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R2": [
+          "PARTIAL"
+        ],
+        "R3": [
+          "PARTIAL"
+        ],
+        "R4": [
+          "PARTIAL"
+        ],
+        "R5": [
+          "PARTIAL"
+        ],
+        "R6": [
+          "PARTIAL"
+        ],
+        "R7": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R8": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R9": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R10": [
+          "NOT_DEMONSTRATED"
+        ]
+      },
+      "expected_backend_months": 0,
+      "note": "Bukti teknis hanya di proyek bootcamp (PARTIAL). Angka hasil (22 persen) ada tetapi di domain gudang = NOT_DEMONSTRATED. Memimpin tim non-teknis = NOT_DEMONSTRATED untuk R10. Teknik Industri bukan jurusan komputasi."
+    },
+    {
+      "cv_id": "K12",
+      "file": "cvs/core/K12_team_coordinator_single_id.pdf",
+      "group": "strong",
+      "format": "pdf_single",
+      "language": "id",
+      "relevance_grade": 3,
+      "expected_states": {
+        "R1": [
+          "STRONG"
+        ],
+        "R2": [
+          "STRONG"
+        ],
+        "R3": [
+          "STRONG"
+        ],
+        "R4": [
+          "STRONG"
+        ],
+        "R5": [
+          "STRONG"
+        ],
+        "R6": [
+          "STRONG"
+        ],
+        "R7": [
+          "STRONG"
+        ],
+        "R8": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R9": [
+          "STRONG"
+        ],
+        "R10": [
+          "STRONG"
+        ]
+      },
+      "expected_backend_months": 56,
+      "note": "Judul 'Koordinator Tim Backend' = STRONG untuk R10 (spec 4.2 LEADERSHIP). Heading 'Pengalaman' saja."
+    }
+  ]
+}

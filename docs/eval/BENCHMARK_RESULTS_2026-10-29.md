@@ -137,6 +137,32 @@ Dua cacat aturan yang terbukti di golden (dan muncul lagi di hold-out) diperbaik
 - H10.R8: sertifikat kedaluwarsa dinilai STRONG karena `eval_certification` tidak menangani kedaluwarsa sama sekali. Bobot R8 hanya 5 dari 100 (NICE_TO_HAVE), jadi selisih STRONG ke PARTIAL setara sekitar 2,5 poin skor kandidat; belum diimplementasikan.
 - H05.R9: label yang perlu ditinjau manusia (lihat di atas).
 
+### Hold-out kedua (K01 sampai K12): baseline
+
+`scripts/build_holdout2_set.py` membangun `docs/eval/holdout_set_2/`: 12 CV fiktif lagi, dengan tata letak yang belum ada di set sebelumnya (satu CV sebagai tabel dua kolom penuh, pekerjaan dalam tabel dua kolom, header sebaris "Judul di Perusahaan, Kota (tanggal)", tanggal hanya tahun). Aturan pakainya sama dengan hold-out pertama: hanya untuk mengukur, label ditulis dari spec sebelum sistem dijalankan oleh asisten yang sama (bukan wasit independen, perlu ditinjau manusia). Set ini **tidak acak**: ia dirancang setelah hold-out pertama diukur dan sengaja memuat kasus yang sudah dicurigai (ACHIEVEMENT tanpa angka, angka di domain berbeda, angka berupa kata, angka hanya di proyek).
+
+| Hold-out kedua, 12 CV × 10 kriteria | Akurasi |
+|---|---|
+| Aturan murni | 109/120 (90,8%) |
+| Jalur produksi dengan Jev (8 potongan) | **116/120 (96,7%)**: 9 diperbaiki, 2 dirusak, 1 netral |
+
+Urutan ranking alur lengkap **identik** dengan urutan acuan (12 dari 12 posisi). 119 panggilan, sekitar $0,0076, 38 detik.
+
+**Jev membantu** pada EXPERIENCE_DURATION (K04, K10), ACHIEVEMENT (K01: hasil ditulis "tiga kali lipat"; K02: angka di proyek; K04, K08, K09), dan LEADERSHIP (K04, K12). ACHIEVEMENT naik dari 7/12 ke 11/12.
+
+**Kesalahan di alur lengkap (4):**
+- K05.R10: Jev menilai STRONG (confidence 0,69) untuk memimpin tim konten pemasaran, padahal kriterianya tim *teknis*.
+- K11.R9: Jev menilai PARTIAL untuk angka hasil di gudang (22 persen), padahal domain sama sekali berbeda = NOT_DEMONSTRATED. Pengaman "harus ada angka" tidak akan menangkapnya, karena angkanya ada.
+- K08.R7: mahasiswa aktif (belum lulus) dinilai STRONG; spec menyatakan maksimal PARTIAL. Fitur ini belum diimplementasikan di aturan, seperti kedaluwarsa sertifikat.
+- K09.R10: Jev menjawab PARTIAL; judul "Head of Platform Engineering" rusak karena kebocoran nama file (lihat di bawah).
+
+**Temuan ekstraksi:**
+- Sistem menebak nama kandidat dari **nama file** dan mengalahkan nama di baris pertama dokumen. K09 (`K09_platform_head_…`) terdeteksi bernama "K09 Platform Head Table2", lalu kata "Head" dan "Platform" disensor di seluruh CV, termasuk judul pekerjaannya. Dengan file diberi nama `CV_Arief_Nugraha.docx`, judul terbaca benar. Sebagian ini artefak nama file deskriptif buatan saya, tetapi nama file seperti `CV_Backend_Developer.pdf` umum di dunia nyata.
+- Header sebaris "Backend Developer di PT Cakra Teknologi, Surabaya (tanggal)" (K10) diparse dengan judul "Surabaya" dan perusahaan "Backend Developer di PT Cakra Teknologi"; Jev tetap benar karena menilai dari bullet dan klasifikasi peran.
+- K03 (tata letak "tanggal dulu") hanya punya satu pekerjaan, sehingga cacat parser multi-pekerjaan yang diketahui (H02) tidak teruji.
+
+**Dampak pada rencana pengaman "harus ada angka" untuk Jev:** dari enam positif palsu ACHIEVEMENT/LEADERSHIP yang Jev hasilkan di dua hold-out, pengaman itu hanya menangkap dua (H04.R9, H09.R9, keduanya tanpa angka sama sekali). Pada hold-out kedua, tiga CV tanpa angka (K06, K07, K10) dinilai benar oleh Jev. Penyebab dominan positif palsu bukan ketiadaan angka, melainkan **domain yang salah** (H06.R9 data, K11.R9 gudang, K05.R10 pemasaran, dan I4.R10 penjualan di golden). Pengaman angka saja berdampak kecil.
+
 ### Keterbatasan pembaruan ini
 
 - Dataset kecil (15 CV) dan sudah berkali-kali diamati. Perbaikan di atas tidak boleh dibaca sebagai estimasi akurasi pada CV nyata.
