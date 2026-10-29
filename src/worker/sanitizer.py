@@ -13,10 +13,13 @@ import pymupdf
 
 from src.worker.adapter import clean_ocr_noise
 from src.worker.pdf_inspector import (
-    ZERO_WIDTH_PATTERN,
+    MIN_HIDDEN_SPAN_CHARS,
+    has_suspicious_zero_width,
     inspect_pdf_adversarial,
     normalize_canonical_text,
+    visible_on_real_background,
 )
+from src.worker.pdf_reading_order import page_text_in_reading_order
 
 INJECTION_PATTERNS = [
     re.compile(r"ignore\s+all\s+(?:previous|prior)\s+instructions", re.IGNORECASE),
@@ -123,7 +126,7 @@ def sanitize_file(content: bytes, filename: str) -> SanitizeResult:
         pages_data: list[dict[str, Any]] = []
         for page_idx in range(len(doc)):
             page = doc[page_idx]
-            page_text = page.get_text()
+            page_text = page_text_in_reading_order(page)
             text_str = page_text if isinstance(page_text, str) else str(page_text)
             img_cnt = len(page.get_images())
             total_images += img_cnt
@@ -131,7 +134,7 @@ def sanitize_file(content: bytes, filename: str) -> SanitizeResult:
             if len(text_str.strip()) < 30 and img_cnt > 0:
                 try:
                     tp = page.get_textpage_ocr(language="eng+ind", dpi=150)
-                    ocr_txt = clean_ocr_noise(page.get_text(textpage=tp))
+                    ocr_txt = clean_ocr_noise(page_text_in_reading_order(page, tp))
                     if len(ocr_txt.strip()) > len(text_str.strip()):
                         text_str = ocr_txt
                 except Exception:
@@ -153,11 +156,16 @@ def sanitize_file(content: bytes, filename: str) -> SanitizeResult:
                             txt = span.get("text", "").strip()
                             if not txt:
                                 continue
-                            if span.get("size", 10) < 4.0:
-                                has_hidden_text = True
                             color = span.get("color", 0)
-                            if color in (16777215, 0xFFFFFF):
-                                has_hidden_text = True
+                            # Same rules as the deep inspection: a lone glyph is a layout artifact, and white text
+                            # is only hidden where the page behind it is light too (not on a dark sidebar).
+                            if len(txt) >= MIN_HIDDEN_SPAN_CHARS:
+                                if span.get("size", 10) < 4.0:
+                                    has_hidden_text = True
+                                if color in (16777215, 0xFFFFFF) and not visible_on_real_background(
+                                    page, color, tuple(span.get("bbox", (0, 0, 0, 0)))
+                                ):
+                                    has_hidden_text = True
                             for pat in INJECTION_PATTERNS:
                                 if pat.search(txt):
                                     has_injection = True
@@ -306,7 +314,7 @@ def sanitize_file(content: bytes, filename: str) -> SanitizeResult:
                 docx_flags: list[str] = []
                 docx_findings: list[dict[str, Any]] = []
                 has_hidden = False
-                if ZERO_WIDTH_PATTERN.search(text):
+                if has_suspicious_zero_width(text):
                     has_hidden = True
                     docx_flags.append("HIDDEN_TEXT")
                     docx_findings.append({

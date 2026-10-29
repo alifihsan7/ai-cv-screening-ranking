@@ -28,6 +28,7 @@ from src.infrastructure.logging import logger
 from src.worker.anchor import resolve_candidate_name_consensus
 from src.worker.boundary import isolate_document_boundaries
 from src.worker.docling_parser import parse_with_docling
+from src.worker.pdf_reading_order import page_text_in_reading_order
 from src.worker.docx_text import extract_docx_text
 
 EMAIL_PATTERN = re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+")
@@ -162,11 +163,11 @@ class _FallbackExtractorService:
                 pages_text: list[str] = []
                 for i in range(len(pdf_doc)):
                     page = pdf_doc[i]
-                    p_txt = page.get_text()
+                    p_txt = page_text_in_reading_order(page)
                     if len(p_txt.strip()) < 30 and len(page.get_images()) > 0:
                         try:
                             tp = page.get_textpage_ocr(language="eng+ind", dpi=300)
-                            ocr_txt = clean_ocr_noise(page.get_text(textpage=tp))
+                            ocr_txt = clean_ocr_noise(page_text_in_reading_order(page, tp))
                             if len(ocr_txt.strip()) > len(p_txt.strip()):
                                 p_txt = ocr_txt
                         except Exception:
@@ -547,14 +548,111 @@ def _split_inline_boundary(raw_text: str) -> tuple[list[str], str]:
     return [s], ""
 
 
+_BULLET_START = ("•", "-", "*", "▪", "▫", "~", "·", "○", "◦", "►", "➢", "–")
+# "April , 2024" (a comma after the month) and "9 bulan" / "2 years 3 months" duration notes next to a date range
+_MONTH_COMMA_YEAR = re.compile(rf"\b({MONTHS_REGEX_STR})\s*,\s*(\d{{4}})\b", re.IGNORECASE)
+_DURATION_NOTE = re.compile(
+    r"[(\[]?\s*\d+\s*(?:tahun|years?|yrs?)(?:\s+\d+\s*(?:bulan|months?|mos?))?\s*[)\]]?"
+    r"|[(\[]\s*\d+\s*(?:bulan|months?|mos?)\s*[)\]]",
+    re.IGNORECASE,
+)
+_CONTACT_LINE = re.compile(r"@|linkedin\.com|github\.com|\+\d{2}[\d\s-]{6,}|\b0\d{2,3}[\s-]?\d{3,4}[\s-]?\d{3,5}\b", re.IGNORECASE)
+_EXPERIENCE_HEADING = re.compile(
+    r"^(?:pengalaman(?:\s+kerja)?|riwayat\s+pekerjaan|work\s+experience|professional\s+experience|experience|employment(?:\s+history)?)\s*:?$",
+    re.IGNORECASE,
+)
+_MODE_WORDS = {"remote", "onsite", "on-site", "hybrid", "wfh", "wfo", "full-time", "part-time", "fulltime", "parttime"}
+
+
+# Words that name a field more often than a job: "PT. Mitra Data" is a company, "Web Developer" has "developer".
+_GENERIC_ROLE_WORDS = {"data", "project", "software", "web", "mobile", "cloud", "head", "staff"}
+
+
+def _has_role_word(text: str) -> bool:
+    low = text.lower()
+    return any(
+        re.search(rf"(?<![a-z]){re.escape(k)}(?![a-z])", low) for k in ROLE_KEYWORDS if k not in _GENERIC_ROLE_WORDS
+    )
+
+
+def _is_bullet_line(line: str) -> bool:
+    s = line.lstrip()
+    return bool(s) and (s.startswith(_BULLET_START) or "\uf000" <= s[0] <= "\uf8ff")
+
+
+def _is_header_like(line: str) -> bool:
+    """A short line that can be a job title, a company, or both: not a bullet, a sentence, or a wrapped line."""
+    s = line.strip()
+    if not s or _is_bullet_line(s) or RANGE_REGEX.search(s) or len(s) > 90:
+        return False
+    words = s.split()
+    if len(words) > 10 or s[0].islower():
+        return False
+    return not (s.endswith(".") and len(words) > 4)
+
+
+def _is_place_line(line: str) -> bool:
+    """'Bandung, West Java, Indonesia' or 'Remote': a location written under a job header, never a bullet."""
+    s = line.strip()
+    if not s or _is_bullet_line(s) or s.endswith(".") or len(s.split()) > 7:
+        return False
+    if s.lower() in _MODE_WORDS:
+        return True
+    trailing_comma = s.endswith(",")  # "Bandung," when the region wraps onto the next line
+    parts = [p.strip() for p in s.rstrip(",").split(",")]
+    if len(parts) == 1:
+        return trailing_comma and bool(parts[0]) and parts[0][0].isupper() and len(parts[0].split()) <= 3
+    return all(p and p[0].isupper() and len(p.split()) <= 3 for p in parts)
+
+
+def _drop_repeated_page_header(lines: list[str], full_doc_text: str) -> list[str]:
+    """Removes a contact block (name, headline, contact line) that a paginated CV repeats on every page."""
+    head = {ln.strip() for ln in full_doc_text.splitlines() if ln.strip()}
+    first = [ln.strip() for ln in full_doc_text.splitlines() if ln.strip()][:8]
+    head = set(first)
+    drop: set[int] = set()
+    for j, line in enumerate(lines):
+        if line.strip() in head and _CONTACT_LINE.search(line):
+            drop.add(j)
+            for k in (j - 1, j - 2):
+                if k >= 0 and lines[k].strip() in head and not RANGE_REGEX.search(lines[k]):
+                    drop.add(k)
+    return [line for j, line in enumerate(lines) if j not in drop]
+
+
 def _plain_line(lines: list[str], i: int) -> str:
     """Line `i` if it is a header candidate (not a bullet, not a date line), else empty."""
     if i >= len(lines):
         return ""
     line = lines[i].strip()
-    if not line or line.startswith(("•", "-", "*", "▪", "~")) or RANGE_REGEX.search(line):
+    if not line or _is_bullet_line(line) or RANGE_REGEX.search(line):
         return ""
     return line
+
+
+def has_job_like_date_ranges(text: str) -> bool:
+    """True when the text holds at least two date ranges that look like jobs, not like school years.
+
+    A job range names a month or ends in "present"; a school range is usually two years ("2019 - 2023").
+    """
+    job_like = 0
+    for m in RANGE_REGEX.finditer(text.replace("\xa0", " ")):
+        start, end = m.group(1), m.group(2)
+        if end.strip().lower() in PRESENT_SET or not (start.strip().isdigit() and end.strip().isdigit()):
+            job_like += 1
+    return job_like >= 2
+
+
+def is_fragmented_text(text: str) -> bool:
+    """True for text that came out as a column-scrambled or one-word-per-line read order.
+
+    Such text cannot be parsed by any line heuristic. Most lines of a normal CV hold three or more words.
+    """
+    lines = [ln for ln in text.splitlines() if ln.strip()]
+    if len(lines) < 40:
+        return False
+    short = sum(1 for ln in lines if len(ln.split()) <= 2)
+    return short / len(lines) >= 0.5
 
 
 def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None = None) -> list[dict[str, Any]]:
@@ -564,7 +662,9 @@ def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None =
         if len(l_clean) < 60 and SECTION_BOUNDARY_REGEX.match(l_clean):
             break
         valid_lines.append(l)
-    lines = valid_lines
+    lines = [_DURATION_NOTE.sub("", _MONTH_COMMA_YEAR.sub(r"\1 \2", l.replace("\xa0", " "))).rstrip(" |") for l in valid_lines]
+    lines = _drop_repeated_page_header([l for l in lines if l.strip()], full_doc_text)
+    lines = [l for l in lines if not _EXPERIENCE_HEADING.match(l.strip())]
     if not lines:
         return []
 
@@ -617,8 +717,71 @@ def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None =
         used_lines: set[int] = {idx}
         post_bullets: list[str] = []
 
+        # Strategy 0: "Title, Company" (or "Title | Company", or just "Title") on the line before; the date line only
+        # carries a place or mode ("| Jakarta", "Jakarta | Onsite |") or the company ("PT. X - City | |").
+        same_line = (curr_head or slice_after).strip(")-:|•— \t")
+        prev_header = lines[idx - 1].strip() if idx > 0 and (i == 0 or date_lines[i - 1][0] < idx) else ""
+        if same_line and prev_header and _is_header_like(prev_header) and _has_role_word(prev_header):
+            same_has_role = _has_role_word(same_line)
+            same_has_company = any(re.search(rf"\b{re.escape(c)}\b", same_line.lower()) for c in COMPANY_KEYWORDS)
+            if not same_has_role and (same_has_company or len(same_line.replace("|", " ").split()) <= 4):
+                t0, o0 = _extract_title_org(prev_header)
+                if t0:
+                    title, org = t0, o0
+                    if not org and same_has_company:
+                        org = re.split(r"\s+[-–—]\s+|\s*\|\s*|,\s+", same_line)[0].strip()
+                    used_lines.add(idx - 1)
+
+        # Strategy 0c/0d: "Company / dates / Title" or "Company dates / Title": the line after the dates is the job
+        # title and the text before them is the company, so the company must not become the title.
+        next_header = _plain_line(lines, idx + 1)
+        # "Company / City, / dates" is a strong sign by itself: the line after the dates is then the title, whether
+        # or not it contains a word that names a role ("Pendamping Program Anak")
+        company_place_pattern = (
+            not same_line
+            and idx > 1
+            and _is_place_line(lines[idx - 1])
+            and _is_header_like(lines[idx - 2])
+            and not _has_role_word(lines[idx - 2])
+        )
+        if (
+            not title
+            and next_header
+            and _is_header_like(next_header)
+            and (_has_role_word(next_header) or company_place_pattern)
+            and not (i + 1 < n_dates and date_lines[i + 1][0] == idx)
+        ):
+            company_text = ""
+            if same_line and not _has_role_word(same_line):
+                # 0d: company and dates share the line (the raw text: `curr_head` may have joined "PT" and the name)
+                company_text = slice_before.strip(")-:|•— \t") or same_line
+            elif (
+                not same_line
+                and idx > 0
+                and _is_header_like(lines[idx - 1])
+                and not _has_role_word(lines[idx - 1])
+                # "Title / Company / dates / subtitle": the title is already two lines up, so the line after the dates
+                # is a project subtitle, not the title
+                and not (idx > 1 and _is_header_like(lines[idx - 2]) and _has_role_word(lines[idx - 2]))
+            ):
+                company_text = lines[idx - 1].strip()  # 0c: the company is the line above the dates
+                used_lines.add(idx - 1)
+                if (
+                    _is_place_line(company_text)
+                    and idx > 1
+                    and _is_header_like(lines[idx - 2])
+                    and not _has_role_word(lines[idx - 2])
+                ):
+                    # "Company / City, / dates / Title": the line above the dates is only the place
+                    company_text = lines[idx - 2].strip()
+                    used_lines.add(idx - 2)
+            if company_text:
+                title = next_header
+                org = re.split(r"\s+[-–—]\s+|\s*\|\s*|,\s+", company_text)[0].strip()
+                used_lines.add(idx + 1)
+
         # Strategy 1: Title from slice_before
-        if curr_head:
+        if not title and curr_head:
             t, o = _extract_title_org(curr_head)
             if t and (
                 any(k in t.lower() for k in ROLE_KEYWORDS)
@@ -643,15 +806,29 @@ def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None =
         # Strategy 2b: "date first" layout. The date sits alone on its line and the header follows it;
         # the line before is the previous entry's bullet (or nothing), so it cannot be this entry's header.
         if not title and not curr_head.strip() and not slice_after.strip(")-:|•— \t"):
-            prev_is_bullet = idx == 0 or lines[idx - 1].lstrip().startswith(("•", "-", "*", "▪", "~"))
+            prev_is_content = idx == 0 or not _is_header_like(lines[idx - 1])
             nxt = _plain_line(lines, idx + 1)
-            if prev_is_bullet and nxt:
+            if prev_is_content and nxt:
                 title = nxt
                 used_lines.add(idx + 1)
                 org_line = _plain_line(lines, idx + 2)
                 if org_line:
                     org = org_line.split(",")[0].strip()
                     used_lines.add(idx + 2)
+
+        # Strategy 2c: "Title / Company [| City] / dates": the title is two lines up and the company is the line above
+        # the dates (which may carry a "| City" suffix that the older two-part split would take for the organization).
+        if not title and not same_line and idx > 1 and (i == 0 or date_lines[i - 1][0] < idx):
+            title_line, company_line = lines[idx - 2].strip(), lines[idx - 1].strip()
+            if (
+                _is_header_like(title_line)
+                and _has_role_word(title_line)
+                and _is_header_like(company_line)
+                and not _has_role_word(company_line)
+            ):
+                title = title_line
+                org = re.split(r"\s+[-–—]\s+|\s*\|\s*|,\s+", company_line)[0].strip()
+                used_lines.update({idx - 2, idx - 1})
 
         # Strategy 3: Title from preceding lines (when date is on its own line)
         if not title and idx > 0 and (i == 0 or date_lines[i - 1][0] < idx):
@@ -666,7 +843,8 @@ def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None =
                 used_lines.add(idx - 1)
             else:
                 cand_title = prev_line.strip()
-                cand_org = lines[idx - 2].strip().split(",")[0].strip() if idx > 1 else ""
+                org_line = lines[idx - 2].strip() if idx > 1 else ""
+                cand_org = org_line.split(",")[0].strip() if _is_header_like(org_line) else ""
                 if cand_org and any(k in cand_org.lower() for k in ROLE_KEYWORDS) and (
                     not any(k in cand_title.lower() for k in ROLE_KEYWORDS)
                     or any(c in cand_title.lower() for c in COMPANY_KEYWORDS)
@@ -676,6 +854,8 @@ def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None =
                 else:
                     title, org = cand_title, cand_org
                     used_lines.add(idx - 1)
+                    if cand_org:
+                        used_lines.add(idx - 2)
                 title = re.sub(
                     r"^(?:interned\s+as\s+a|worked\s+as\s+an|worked\s+as\s+a|sebagai)\s+", "", title, flags=re.I
                 ).strip()
@@ -800,6 +980,8 @@ def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None =
 
             for line_no in range(idx + 1, end_line):
                 if line_no in meta["used_lines"]:
+                    continue
+                if line_no == idx + 1 and not slice_after.strip(")-:|•— \t") and _is_place_line(lines[line_no]):
                     continue
                 raw_bullets.append(lines[line_no])
 
@@ -1053,11 +1235,11 @@ def extract_candidate_profile(content: bytes, filename: str) -> dict[str, Any]:
             pages_data = []
             for i in range(len(doc)):
                 page = doc[i]
-                p_text = page.get_text()
+                p_text = page_text_in_reading_order(page)
                 if len(p_text.strip()) < 30 and len(page.get_images()) > 0:
                     try:
                         tp = page.get_textpage_ocr(language="eng+ind", dpi=300)
-                        ocr_txt = clean_ocr_noise(page.get_text(textpage=tp))
+                        ocr_txt = clean_ocr_noise(page_text_in_reading_order(page, tp))
                         if len(ocr_txt.strip()) > len(p_text.strip()):
                             p_text = ocr_txt
                     except Exception:
@@ -1216,8 +1398,13 @@ def extract_candidate_profile(content: bytes, filename: str) -> dict[str, Any]:
     # Parse sections
     experiences = parse_experiences(exp_text, full_text)
     quality_warnings = list(raw.get("meta", {}).get("warnings", []))
-    if not experiences and exp_text.strip():
-        # An experience section exists but yielded no entries: surface it instead of silently scoring 0 months
+    # The text as the extractor read it, line by line (sections are re-joined and lose the line structure)
+    read_order_text = boundary.cv_core_text if boundary and getattr(boundary, "cv_core_text", None) else full_text
+    if not experiences and (
+        exp_text.strip() or has_job_like_date_ranges(full_text) or is_fragmented_text(read_order_text)
+    ):
+        # Nothing was parsed although the CV has an experience section, dates that look like jobs, or text that is
+        # scrambled (two-column read order, one word per line): surface it instead of silently scoring 0 months
         quality_warnings.append("EXPERIENCE_NOT_PARSED")
     education = parse_education(ed_text, full_text)
     certifications = parse_certifications(ce_text, ed_text)

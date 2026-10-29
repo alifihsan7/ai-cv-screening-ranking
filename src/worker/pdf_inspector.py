@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 import re
 import unicodedata
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -42,13 +43,20 @@ ZERO_WIDTH_CHARS = {
 
 ZERO_WIDTH_PATTERN = re.compile(r"[\u200b\u200c\u200d\ufeff\u200e\u200f\u202a-\u202e]")
 
+# Zero-width characters are normal in templates (a ZWSP after a heading, a BOM in metadata). They only matter when
+# they cut a word (keyword smuggling: "py<ZWSP>thon"), come in runs (bits hidden in text), or override text direction.
+_ZW_CLASS = "\u200b\u200c\u200d\ufeff"
+SUSPICIOUS_ZERO_WIDTH = re.compile(rf"(?<=\w)[{_ZW_CLASS}](?=\w)|[{_ZW_CLASS}\u200e\u200f]{{3,}}|[\u202a-\u202e]")
+
+
+def has_suspicious_zero_width(text: str) -> bool:
+    return bool(SUSPICIOUS_ZERO_WIDTH.search(text))
+
+
+# Raw file bytes: only ZWSP and ZWNJ; ZWJ, direction marks and the BOM are ordinary in metadata and emoji.
 ZERO_WIDTH_BYTES = [
     b"\xe2\x80\x8b",  # U+200B
     b"\xe2\x80\x8c",  # U+200C
-    b"\xe2\x80\x8d",  # U+200D
-    b"\xef\xbb\xbf",  # U+FEFF
-    b"\xe2\x80\x8e",  # U+200E
-    b"\xe2\x80\x8f",  # U+200F
 ]
 
 RENDER_MODE_3_STREAM_PATTERN = re.compile(rb"(?:^|\s)3\s+Tr(?:\s|$)")
@@ -96,6 +104,46 @@ def calculate_contrast_against_white(color_val: int | tuple[Any, ...] | list[Any
 
     lum = calculate_relative_luminance(r, g, b)
     return 1.05 / (lum + 0.05)
+
+
+def _color_to_rgb(color_val: int | tuple[Any, ...] | list[Any]) -> tuple[int, int, int] | None:
+    if isinstance(color_val, (tuple, list)):
+        if all(isinstance(c, float) and c <= 1.0 for c in color_val):
+            return tuple(int(c * 255) for c in color_val[:3])  # type: ignore[return-value]
+        return tuple(int(c) for c in color_val[:3])  # type: ignore[return-value]
+    if isinstance(color_val, int):
+        return (color_val >> 16) & 0xFF, (color_val >> 8) & 0xFF, color_val & 0xFF
+    return None
+
+
+def contrast_against_background(color_val: int | tuple[Any, ...] | list[Any], background: tuple[int, int, int]) -> float:
+    """WCAG contrast ratio of a text color against the background actually drawn under it."""
+    text_rgb = _color_to_rgb(color_val)
+    if text_rgb is None:
+        return 21.0
+    l_text, l_bg = calculate_relative_luminance(*text_rgb), calculate_relative_luminance(*background)
+    lighter, darker = max(l_text, l_bg), min(l_text, l_bg)
+    return (lighter + 0.05) / (darker + 0.05)
+
+
+def dominant_background_rgb(page: Any, bbox: tuple[float, ...]) -> tuple[int, int, int] | None:
+    """The most common color under a text span, rendered from the page; None when it cannot be rendered.
+
+    A span with a white font is only hidden if the page is white there. White text over a dark sidebar (a common
+    two-column template) is plainly visible, so the check needs the real background, not an assumed white one.
+    """
+    try:
+        rect = fitz.Rect(bbox) & page.rect
+        if rect.is_empty:
+            return None
+        pix = page.get_pixmap(clip=rect, dpi=36, colorspace=fitz.csRGB, alpha=False)
+        raw = pix.samples
+        counts = Counter(raw[i : i + 3] for i in range(0, len(raw) - 2, 3))
+        top = counts.most_common(1)[0][0]
+        return top[0], top[1], top[2]
+    except Exception as e:
+        logger.debug(f"Could not render the background under a span: {e}")
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -175,6 +223,16 @@ class PdfInspectionReport:
 # ---------------------------------------------------------------------------
 
 
+# One character cannot carry a keyword or an instruction; a lone glyph in a zero-width box is a layout artifact.
+MIN_HIDDEN_SPAN_CHARS = 2
+
+
+def visible_on_real_background(page: Any, color: Any, bbox: tuple[float, ...]) -> bool:
+    """True when text that is white-ish against a white page is drawn over a background that makes it readable."""
+    background = dominant_background_rgb(page, bbox)
+    return background is not None and contrast_against_background(color, background) >= 1.20
+
+
 def inspect_pdf_adversarial(content: bytes) -> PdfInspectionReport:
     """Performs deep low-level inspection of PDF binary to detect hidden / adversarial text.
 
@@ -220,7 +278,7 @@ def inspect_pdf_adversarial(content: bytes) -> PdfInspectionReport:
 
         # 1. Zero-width Unicode check on extracted page text
         zw_matches = ZERO_WIDTH_PATTERN.findall(page_raw_text)
-        if zw_matches:
+        if zw_matches and has_suspicious_zero_width(page_raw_text):
             report.findings.append(
                 HiddenTextFinding(
                     page_number=page_num,
@@ -262,7 +320,7 @@ def inspect_pdf_adversarial(content: bytes) -> PdfInspectionReport:
 
                         # Check 3a: Micro-font size (< 2.0 pt)
                         size = float(span.get("size", 10.0))
-                        if size < 2.0 and clean_text:
+                        if size < 2.0 and len(clean_text) >= MIN_HIDDEN_SPAN_CHARS:
                             report.findings.append(
                                 HiddenTextFinding(
                                     page_number=page_num,
@@ -276,7 +334,11 @@ def inspect_pdf_adversarial(content: bytes) -> PdfInspectionReport:
                         # Check 3b: Low-contrast / white text on white background (WCAG CR < 1.20:1)
                         color = span.get("color", 0)
                         contrast = calculate_contrast_against_white(color)
-                        if contrast < 1.20 and clean_text:
+                        if (
+                            contrast < 1.20
+                            and len(clean_text) >= MIN_HIDDEN_SPAN_CHARS
+                            and not visible_on_real_background(page, color, span_bbox)
+                        ):
                             report.findings.append(
                                 HiddenTextFinding(
                                     page_number=page_num,
@@ -288,7 +350,7 @@ def inspect_pdf_adversarial(content: bytes) -> PdfInspectionReport:
                             )
 
                         # Check 3c: Zero-width Unicode characters in span text
-                        if any(c in ZERO_WIDTH_CHARS for c in span_text):
+                        if has_suspicious_zero_width(span_text):
                             report.findings.append(
                                 HiddenTextFinding(
                                     page_number=page_num,
