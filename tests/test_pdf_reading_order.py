@@ -93,3 +93,44 @@ def test_gutter_needs_text_on_both_sides_and_few_crossing_blocks():
     wide = [Block(40, 100 + i * 50, 560, 130 + i * 50, f"W{i}") for i in range(5)]
     assert find_gutter(wide + left[:1], 600) is None  # most of the text crosses the middle: no gutter
     assert [b.text for b in order_blocks(left + right, 600)][:5] == [f"L{i}" for i in range(5)]
+
+
+def test_a_block_beside_a_spanning_block_is_not_lost():
+    # a wide contact block across the page, and a narrow block that starts inside its vertical extent
+    sidebar = [Block(20, 150 + i * 60, 200, 190 + i * 60, f"S{i}") for i in range(5)]
+    main = [Block(247, 150 + i * 60, 560, 190 + i * 60, f"M{i}") for i in range(5)]
+    wide = Block(18, 56, 586, 104, "WIDE_CONTACT")
+    inside = Block(18, 90, 200, 130, "INSIDE_THE_WIDE_BLOCKS_EXTENT")
+    ordered = order_blocks(sidebar + main + [wide, inside], 595)
+    assert sorted(b.text for b in ordered) == sorted(b.text for b in sidebar + main + [wide, inside])
+
+
+def test_ordering_is_always_a_permutation_of_the_blocks():
+    import random
+
+    rnd = random.Random(7)
+    for _ in range(300):
+        blocks = []
+        for i in range(rnd.randint(1, 25)):
+            x0 = rnd.choice([18, 20, 150, 230, 247, 300, 370])
+            width = rnd.choice([60, 120, 200, 330, 560])
+            y0 = rnd.uniform(20, 780)
+            blocks.append(Block(x0, y0, min(x0 + width, 590), y0 + rnd.uniform(8, 120), f"B{i}"))
+        ordered = order_blocks(blocks, 595)
+        assert sorted(b.text for b in ordered) == sorted(b.text for b in blocks)
+
+
+def test_reading_order_never_loses_or_adds_words_on_the_synthetic_cv_pdfs():
+    """Reordering must be a permutation of the page's text. A lost block once dropped a whole contact line."""
+    from collections import Counter
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    pdfs = sorted(root.glob("docs/spec/golden_dataset/cvs/core/*.pdf")) + sorted(root.glob("docs/eval/*/cvs/core/*.pdf"))
+    if not pdfs:
+        import pytest
+
+        pytest.skip("synthetic CV PDFs are not built (python scripts/build_holdout_set.py ...)")
+    for pdf in pdfs:
+        for page in pymupdf.open(pdf):
+            assert Counter(page_text_in_reading_order(page).split()) == Counter(page.get_text().split()), pdf.name

@@ -124,16 +124,18 @@ def order_blocks(blocks: list[Block], page_width: float) -> list[Block]:
     right = [b for b in blocks if _column_of(b, gap_left, gap_right) == "right"]
     spanning = sorted((b for b in blocks if _column_of(b, gap_left, gap_right) == "span"), key=lambda b: b.y0)
 
+    # Zones are cut at the top edge of each spanning block, so a block that starts beside or inside a spanning block's
+    # vertical extent still lands in a zone (starting the zone after it) and no block can be dropped.
     ordered: list[Block] = []
     zone_top = float("-inf")
-    for sp in [*spanning, None]:
-        zone_bottom = sp.y0 if sp is not None else float("inf")
+    for k in range(len(spanning) + 1):
+        zone_bottom = spanning[k].y0 if k < len(spanning) else float("inf")
         in_left = [b for b in left if zone_top <= b.y0 < zone_bottom]
         in_right = [b for b in right if zone_top <= b.y0 < zone_bottom]
         ordered += _rows(in_left) + _rows(in_right)
-        if sp is not None:
-            ordered.append(sp)
-            zone_top = sp.y1
+        if k < len(spanning):
+            ordered.append(spanning[k])
+            zone_top = spanning[k].y0
     return ordered
 
 
@@ -145,6 +147,9 @@ def page_text_in_reading_order(page: Any, textpage: Any = None) -> str:
         if not blocks:
             return page.get_text(textpage=textpage) if textpage is not None else page.get_text()
         ordered = order_blocks(blocks, float(page.rect.width))
+        if len(ordered) != len(blocks) or {id(b) for b in ordered} != {id(b) for b in blocks}:
+            # never lose text to a reordering bug: fall back to the file order
+            return page.get_text(textpage=textpage) if textpage is not None else page.get_text()
         return "".join(b.text if b.text.endswith("\n") else b.text + "\n" for b in ordered)
     except Exception:
         return page.get_text(textpage=textpage) if textpage is not None else page.get_text()
