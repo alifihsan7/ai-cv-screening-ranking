@@ -361,6 +361,7 @@ test.describe('AI CV Screener E2E Smoke Test Suite', () => {
 
   test('7. Catatan Integritas Dokumen menampilkan penjelasan ramah manusia dalam kurung untuk setiap flag', async ({ page }) => {
     await page.goto('/');
+    await page.waitForLoadState('networkidle');
 
     // Muat data melalui Golden Dataset dan masuk ke Workbench
     await page.getByRole('button', { name: /Golden Dataset/i }).click();
@@ -394,5 +395,51 @@ test.describe('AI CV Screener E2E Smoke Test Suite', () => {
     await expect(
       inspectorDialog.getByText(/Flag:\s*JEV_ROLE_FAMILY_LOW_CONFIDENCE\s*\(Judul posisi di CV kurang spesifik\/tidak lazim\)/i)
     ).toBeVisible();
+  });
+
+  test('8. Unifikasi Evaluasi Kualifikasi & Bukti CV serta pemisahan Must-Have vs Diutamakan vs Nilai Tambah', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+
+    // Muat data melalui Golden Dataset dan masuk ke Workbench
+    await page.getByRole('button', { name: /Golden Dataset/i }).click();
+    await page.getByRole('button', { name: /Workbench/i }).click();
+
+    // Klik kandidat pertama
+    const firstRow = page.locator('tbody tr').first();
+    await expect(firstRow).toBeVisible();
+    await firstRow.click();
+
+    // Verifikasi modal dialog inspeksi terbuka
+    const inspectorDialog = page.getByRole('dialog', { name: 'Panel Inspeksi Kandidat' });
+    await expect(inspectorDialog).toBeVisible();
+
+    // Pastikan section terpadu 'Evaluasi Kualifikasi & Bukti CV' ada
+    await expect(inspectorDialog.getByRole('heading', { name: /Evaluasi Kualifikasi & Bukti CV/i })).toBeVisible();
+
+    // Pastikan tidak ada duplikasi judul 'Ringkasan Eksekutif' lama
+    await expect(inspectorDialog.getByRole('heading', { name: /^Ringkasan Eksekutif$/i })).toHaveCount(0);
+
+    // Verifikasi ketiga sub-blok kualifikasi terpisah secara visual
+    await expect(inspectorDialog.getByRole('heading', { name: /Kualifikasi Wajib \(Must-Have\)/i })).toBeVisible();
+    await expect(inspectorDialog.getByRole('heading', { name: /Kualifikasi Diutamakan \(Strong Preference\)/i })).toBeVisible();
+    await expect(inspectorDialog.getByRole('heading', { name: /Kualifikasi Nilai Tambah \(Nice-to-Have\)/i })).toBeVisible();
+
+    // Verifikasi 4 metrik taktis pada Executive Summary Banner
+    await expect(inspectorDialog.getByText('Skor Kesesuaian')).toBeVisible();
+    await expect(inspectorDialog.getByText('Syarat Wajib', { exact: true }).first()).toBeVisible();
+    await expect(inspectorDialog.getByText('Diutamakan', { exact: true }).first()).toBeVisible();
+    await expect(inspectorDialog.getByText('Nilai Tambah', { exact: true }).first()).toBeVisible();
+
+    // Verifikasi tombol toggle 'Buka Semua Bukti' / 'Tutup Semua Bukti'
+    const toggleQuotesBtn = inspectorDialog.getByRole('button', { name: /(Buka|Tutup) Semua Bukti/i });
+    await expect(toggleQuotesBtn).toBeVisible();
+    await toggleQuotesBtn.click();
+    await expect(inspectorDialog.getByRole('button', { name: /(Buka|Tutup) Semua Bukti/i })).toBeVisible();
+
+    // Tutup dialog
+    const closeBtn = inspectorDialog.getByTitle('Tutup Panel Inspeksi');
+    await closeBtn.click();
+    await expect(inspectorDialog).toHaveClass(/translate-x-full/);
   });
 });

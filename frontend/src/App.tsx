@@ -60,6 +60,7 @@ export default function App() {
   }
 
   const [isScreening, setIsScreening] = useState<boolean>(false)
+  const [isGoldenSampleActive, setIsGoldenSampleActive] = useState<boolean>(false)
   const [currentStep, setCurrentStepState] = useState<WorkflowStep>(getInitialStep)
 
   const setCurrentStep = useCallback((step: WorkflowStep) => {
@@ -877,6 +878,9 @@ export default function App() {
 
   const fetchLatestLeaderboard = useCallback(
     async (jId?: string, maxAttempts = 1) => {
+      if (isGoldenSampleActive) {
+        return
+      }
       try {
         const targetJobId = jId || (await ensureJobExists())
         if (!targetJobId) {
@@ -1416,6 +1420,9 @@ export default function App() {
   }
 
   const handleLoadGoldenSample = () => {
+    setIsGoldenSampleActive(true)
+    setCurrentJobId(null)
+    setCurrentRunId(null)
     setCandidates(MOCK_CANDIDATES)
     setSelectedCandidate(MOCK_CANDIDATES[0])
     setUploadedFiles([
@@ -1437,6 +1444,7 @@ export default function App() {
   const handleUploadCvs = async (files: FileList | File[]) => {
     if (!files || files.length === 0) return
 
+    setIsGoldenSampleActive(false)
     stopPollingJobCvs()
     if (pollTimerRef.current) {
       clearInterval(pollTimerRef.current)
@@ -1938,7 +1946,7 @@ export default function App() {
   // automatically populate the latest rankings if not actively screening.
   useEffect(() => {
     let isCancelled = false
-    if (currentStep === 'workbench' && currentJobId && !isScreening) {
+    if (currentStep === 'workbench' && currentJobId && !isScreening && !isGoldenSampleActive) {
       setIsRefreshing(true)
       fetchLatestLeaderboard(currentJobId, 3).finally(() => {
         if (!isCancelled) {
@@ -1949,7 +1957,7 @@ export default function App() {
     return () => {
       isCancelled = true
     }
-  }, [currentStep, currentJobId, isScreening, fetchLatestLeaderboard])
+  }, [currentStep, currentJobId, isScreening, isGoldenSampleActive, fetchLatestLeaderboard])
 
   const readyCvCount = useMemo(() => {
     return uploadedFiles.filter((f) => f.status?.toUpperCase() === 'READY').length

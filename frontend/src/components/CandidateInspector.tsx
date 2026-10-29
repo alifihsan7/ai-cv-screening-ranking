@@ -290,7 +290,7 @@ PENDIDIKAN & LATAR BELAKANG:
     return 'Desil Bawah · Cek Manual'
   }
 
-  // Must-have requirements status check
+  // Grouping & filtering requirements by importance (Must-Have, Strong Preference, Nice-to-Have)
   const mustHaveReqs = requirements.filter((r) => r.importance === 'MUST_HAVE')
   const mustHaveFulfilled = mustHaveReqs.filter(
     (r) => candidate.requirement_states[r.requirement_id] === 'STRONG'
@@ -300,8 +300,14 @@ PENDIDIKAN & LATAR BELAKANG:
   )
   const allMustHavesMet = mustHavePartialOrUnproven.length === 0
 
-  // Nice-to-have / preference requirements check
-  const niceToHaveReqs = requirements.filter((r) => r.importance !== 'MUST_HAVE')
+  const strongPrefReqs = requirements.filter((r) => r.importance === 'STRONG_PREFERENCE')
+  const strongPrefFulfilled = strongPrefReqs.filter(
+    (r) => candidate.requirement_states[r.requirement_id] === 'STRONG'
+  )
+
+  const niceToHaveReqs = requirements.filter(
+    (r) => r.importance === 'NICE_TO_HAVE' || (!['MUST_HAVE', 'STRONG_PREFERENCE'].includes(r.importance))
+  )
   const niceToHaveFulfilled = niceToHaveReqs.filter(
     (r) => candidate.requirement_states[r.requirement_id] === 'STRONG'
   )
@@ -319,7 +325,7 @@ PENDIDIKAN & LATAR BELAKANG:
     setHighlightedReqId(reqId)
     setExpandedQuotes((prev) => ({ ...prev, [reqId]: true }))
     setTimeout(() => {
-      const el = document.getElementById(`criterion-${reqId}`)
+      const el = document.getElementById(`criterion-${reqId}`) || document.getElementById(`req-${reqId}`)
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' })
       }
@@ -336,17 +342,20 @@ PENDIDIKAN & LATAR BELAKANG:
     const isExpanded = !!expandedQuotes[r.requirement_id]
     const isHighlighted = highlightedReqId === r.requirement_id
     const isMustHave = r.importance === 'MUST_HAVE'
+    const isStrongPref = r.importance === 'STRONG_PREFERENCE'
+    const unprovenItem = candidate.explanation.unproven?.find((u) => u.requirement_id === r.requirement_id)
 
     return (
       <div
         key={r.requirement_id}
         id={`criterion-${r.requirement_id}`}
-        className={`p-3 rounded-xl transition-all duration-300 shadow-tactile-sm space-y-2 ${
+        className={`p-3 rounded-xl transition-all duration-300 shadow-tactile-sm space-y-2 relative ${
           isHighlighted
             ? 'ring-2 ring-[#7A3E02] bg-[#FEF6E8] scale-[1.01] border-[#F8D8A7]'
             : 'bg-[#FCFDFC] hover:bg-[#F5F8F6] border border-[#D5DFD9] hover:border-[#1B4938]/40'
         }`}
       >
+        <span id={`req-${r.requirement_id}`} className="sr-only" />
         {/* Header Row Kriteria */}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center space-x-2 min-w-0 flex-wrap">
@@ -358,11 +367,15 @@ PENDIDIKAN & LATAR BELAKANG:
               {r.description}
             </span>
             {isMustHave ? (
-              <span className="font-mono text-[9px] px-1.5 py-0.2 rounded font-bold uppercase bg-[#FEF6E8] text-[#7A3E02] border border-[#F8D8A7]">
+              <span className="font-mono text-[9px] px-1.5 py-0.5 rounded font-bold uppercase bg-[#FCEBEB] text-[#8C1819] border border-[#F6C1C1]">
                 Wajib Mutlak
               </span>
+            ) : isStrongPref ? (
+              <span className="font-mono text-[9px] px-1.5 py-0.5 rounded font-bold uppercase bg-[#FEF6E8] text-[#7A3E02] border border-[#F8D8A7]">
+                Diutamakan
+              </span>
             ) : (
-              <span className="font-mono text-[9px] px-1.5 py-0.2 rounded font-bold uppercase bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD]">
+              <span className="font-mono text-[9px] px-1.5 py-0.5 rounded font-bold uppercase bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD]">
                 Nilai Tambah
               </span>
             )}
@@ -373,7 +386,7 @@ PENDIDIKAN & LATAR BELAKANG:
               Bobot: <strong>{r.weight}%</strong>
             </span>
             <span
-              className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold border ${
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border ${
                 state === 'STRONG'
                   ? 'bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD]'
                   : state === 'PARTIAL'
@@ -381,11 +394,22 @@ PENDIDIKAN & LATAR BELAKANG:
                   : 'bg-[#FCEBEB] text-[#8C1819] border-[#F6C1C1]'
               }`}
             >
-              {state === 'STRONG'
-                ? 'Terbukti'
-                : state === 'PARTIAL'
-                ? 'Sebagian'
-                : 'Tidak Tercantum'}
+              {state === 'STRONG' ? (
+                <>
+                  <CheckCircle2 className="w-3 h-3 text-[#124B2E]" />
+                  <span>Terbukti</span>
+                </>
+              ) : state === 'PARTIAL' ? (
+                <>
+                  <AlertTriangle className="w-3 h-3 text-[#7A3E02]" />
+                  <span>Sebagian</span>
+                </>
+              ) : (
+                <>
+                  <XCircle className="w-3 h-3 text-[#8C1819]" />
+                  <span>Tidak Tercantum</span>
+                </>
+              )}
             </span>
           </div>
         </div>
@@ -455,6 +479,11 @@ PENDIDIKAN & LATAR BELAKANG:
                 </div>
               </div>
             )}
+          </div>
+        ) : unprovenItem?.note ? (
+          <div className="pt-2 border-t border-[#E2E9E5]/60 text-[11px] text-[#7A3E02] italic flex items-center gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5 text-[#7A3E02] shrink-0" />
+            <span>Catatan AI: {unprovenItem.note}</span>
           </div>
         ) : (
           <div className="pt-1 text-[10px] text-[#2D4439]/70 italic font-mono flex items-center gap-2">
@@ -788,33 +817,176 @@ PENDIDIKAN & LATAR BELAKANG:
                 </section>
               )}
 
-              {/* Ringkasan Eksekutif */}
-              <section className="bg-[#FCFDFC] border border-[#D5DFD9] rounded-2xl p-4 shadow-tactile space-y-3.5">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E2E9E5] pb-2.5">
+              {/* Evaluasi Kualifikasi & Bukti CV (Unified Section) */}
+              <section className="bg-[#FCFDFC] border border-[#D5DFD9] rounded-2xl p-4 sm:p-5 shadow-tactile space-y-4">
+                {/* Header Section */}
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E2E9E5] pb-3">
                   <div className="flex items-center space-x-2">
                     <Award className="w-4 h-4 text-[#1B4938]" />
-                    <h3 className="text-xs font-bold text-[#13221C] uppercase tracking-wider">
-                      Ringkasan Eksekutif
+                    <h3 className="text-xs sm:text-sm font-bold text-[#13221C] uppercase tracking-wider">
+                      Evaluasi Kualifikasi & Bukti CV
                     </h3>
+                    <span className="font-mono text-xs text-[#2D4439] bg-[#EBF1EE] px-2 py-0.5 rounded border border-[#D5DFD9]">
+                      {requirements.length} Kriteria
+                    </span>
                   </div>
-                  <span className="text-[10px] font-mono text-[#2D4439]">
-                    Saran Rekomendasi (Decision-Support):{' '}
-                    <strong className="text-[#13221C]">
-                      {candidate.recommendation.replace('_', ' ')}
-                    </strong>
-                  </span>
+                  <button
+                    type="button"
+                    onClick={toggleAllQuotes}
+                    className="text-[11px] font-mono text-[#1B4938] hover:text-[#124B2E] font-bold flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#EBF1EE] hover:bg-[#E2E9E5] border border-[#D5DFD9] transition-all cursor-pointer active:scale-95 shadow-tactile-sm"
+                  >
+                    {requirements.every((r) => expandedQuotes[r.requirement_id]) ? (
+                      <>
+                        <ChevronUp className="w-3.5 h-3.5" />
+                        <span>Tutup Semua Bukti</span>
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="w-3.5 h-3.5" />
+                        <span>Buka Semua Bukti</span>
+                      </>
+                    )}
+                  </button>
                 </div>
 
-                {/* BLOK 1: Kualifikasi Wajib (Must-Have) */}
-                <div className="space-y-2.5 bg-[#F5F8F6] p-3.5 rounded-xl border border-[#D5DFD9]">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
+                {/* Executive Summary Banner / Bar */}
+                <div className="p-3.5 sm:p-4 rounded-xl bg-[#F5F8F6] border border-[#D5DFD9] space-y-3">
+                  {/* Rekap Status Taktis (Grid 4 metrik) */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
+                    {/* Metrik 1: Skor Kesesuaian */}
+                    <div className="p-2.5 rounded-lg bg-[#FCFDFC] border border-[#D5DFD9] shadow-tactile-sm">
+                      <span className="text-[10px] font-mono text-[#2D4439] uppercase tracking-wider block">
+                        Skor Kesesuaian
+                      </span>
+                      <div className="flex items-baseline space-x-1.5 mt-0.5">
+                        <span className="font-mono font-bold text-lg sm:text-xl text-[#13221C] tabular-nums">
+                          {candidate.final_score.toFixed(1)}%
+                        </span>
+                        <span className="text-[11px] font-bold text-[#1B4938]">
+                          Band {candidate.band}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Metrik 2: Syarat Wajib */}
+                    <div
+                      className={`p-2.5 rounded-lg border shadow-tactile-sm ${
+                        allMustHavesMet
+                          ? 'bg-[#EBF6EF]/60 border-[#BBE5CD]'
+                          : 'bg-[#FEF6E8]/70 border-[#F8D8A7]'
+                      }`}
+                    >
+                      <span className="text-[10px] font-mono text-[#2D4439] uppercase tracking-wider block">
+                        Syarat Wajib
+                      </span>
+                      <div className="flex items-center space-x-1 mt-0.5">
+                        {allMustHavesMet ? (
+                          <>
+                            <CheckCircle2 className="w-4 h-4 text-[#124B2E] shrink-0" />
+                            <span className="font-bold text-xs sm:text-sm text-[#124B2E]">
+                              100% Terpenuhi ({mustHaveFulfilled.length}/{mustHaveReqs.length})
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <AlertTriangle className="w-4 h-4 text-[#7A3E02] shrink-0" />
+                            <span className="font-bold text-xs sm:text-sm text-[#7A3E02]">
+                              {mustHavePartialOrUnproven.length} Perlu Dicek ({mustHaveFulfilled.length}/{mustHaveReqs.length})
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Metrik 3: Kualifikasi Diutamakan */}
+                    <div className="p-2.5 rounded-lg bg-[#FCFDFC] border border-[#D5DFD9] shadow-tactile-sm">
+                      <span className="text-[10px] font-mono text-[#2D4439] uppercase tracking-wider block">
+                        Diutamakan
+                      </span>
+                      <div className="flex items-center space-x-1 mt-0.5">
+                        <span className="font-mono font-bold text-base sm:text-lg text-[#7A3E02] tabular-nums">
+                          {strongPrefFulfilled.length}/{strongPrefReqs.length}
+                        </span>
+                        <span className="text-[11px] font-medium text-[#2D4439]">
+                          Terbukti
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Metrik 4: Kualifikasi Nilai Tambah */}
+                    <div className="p-2.5 rounded-lg bg-[#FCFDFC] border border-[#D5DFD9] shadow-tactile-sm">
+                      <span className="text-[10px] font-mono text-[#2D4439] uppercase tracking-wider block">
+                        Nilai Tambah
+                      </span>
+                      <div className="flex items-center space-x-1 mt-0.5">
+                        <span className="font-mono font-bold text-base sm:text-lg text-[#124B2E] tabular-nums">
+                          {niceToHaveFulfilled.length}/{niceToHaveReqs.length}
+                        </span>
+                        <span className="text-[11px] font-medium text-[#2D4439]">
+                          Terbukti
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Kesimpulan AI & Rekomendasi */}
+                  <div className="pt-2 border-t border-[#D5DFD9]/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                    <div className="flex items-start sm:items-center space-x-2 text-[#2D4439]">
+                      <Sparkles className="w-4 h-4 text-[#1B4938] shrink-0 mt-0.5 sm:mt-0" />
+                      <span className="leading-relaxed">
+                        {allMustHavesMet
+                          ? `Seluruh kualifikasi wajib (${mustHaveFulfilled.length}/${mustHaveReqs.length}) terbukti secara verbatim dalam berkas CV${
+                              strongPrefFulfilled.length > 0 ? `, didukung ${strongPrefFulfilled.length} kualifikasi diutamakan` : ''
+                            }.`
+                          : `Perhatian: Terdapat ${mustHavePartialOrUnproven.length} kualifikasi wajib (${mustHavePartialOrUnproven.map((r) => r.requirement_id).join(', ')}) yang belum terbukti penuh di CV dan memerlukan evaluasi manual.`}
+                      </span>
+                    </div>
+                    <span className="font-mono text-[11px] text-[#2D4439] shrink-0">
+                      Rekomendasi AI:{' '}
+                      <strong className="text-[#13221C]">
+                        {candidate.recommendation.replace('_', ' ')}
+                      </strong>
+                    </span>
+                  </div>
+
+                  {/* Catatan Integritas / Flags */}
+                  {candidate.flags && candidate.flags.length > 0 && (
+                    <div className="p-3 rounded-xl bg-[#FEF6E8] border border-[#F8D8A7] text-xs space-y-1.5 shadow-tactile-sm">
+                      <div className="flex items-center space-x-1.5 text-[#7A3E02] font-bold">
+                        <AlertTriangle className="w-3.5 h-3.5 text-[#7A3E02] shrink-0" />
+                        <span>Catatan Integritas Dokumen:</span>
+                      </div>
+                      <div className="space-y-1.5 text-[#7A3E02]">
+                        {candidate.flags.map((flag, idx) => {
+                          const explanation = getFlagExplanation(flag)
+                          return (
+                            <div key={`flag-${idx}`} className="flex items-start gap-1.5 text-xs">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#7A3E02] shrink-0 mt-1" />
+                              <span className="break-words">
+                                Flag: <strong>{flag}</strong>{' '}
+                                <span className="text-[#5A2E02] font-normal">({explanation})</span>
+                              </span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Sub-Blok 1: Kualifikasi Wajib (Must-Have) */}
+                <div className="space-y-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2 px-1">
                     <div className="flex items-center space-x-2">
-                      <span className="font-mono text-xs font-bold bg-[#1B4938] text-[#FCFDFC] px-2 py-0.5 rounded">
-                        Blok 1
+                      <span className="font-mono text-[10px] font-bold bg-[#1B4938] text-[#FCFDFC] px-2 py-0.5 rounded">
+                        Wajib
                       </span>
                       <h4 className="text-xs font-bold text-[#13221C] uppercase tracking-wider">
                         Kualifikasi Wajib (Must-Have)
                       </h4>
+                      <span className="text-[11px] text-[#2D4439]">
+                        • {mustHaveReqs.length} Kriteria Prasyarat
+                      </span>
                     </div>
                     {allMustHavesMet ? (
                       <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD]">
@@ -828,244 +1000,74 @@ PENDIDIKAN & LATAR BELAKANG:
                       </span>
                     )}
                   </div>
-                  <p className="text-[11px] text-[#2D4439]">
+                  <p className="text-[11px] text-[#2D4439] px-1">
                     Prasyarat mutlak lowongan. Seluruh syarat wajib harus terbukti secara verbatim dalam berkas CV kandidat.
                   </p>
 
-                  <div className="space-y-2 pt-1">
+                  <div className="space-y-2.5">
                     {mustHaveReqs.length === 0 ? (
-                      <p className="text-xs text-[#2D4439]/70 italic">Tidak ada syarat wajib yang ditentukan.</p>
+                      <p className="text-xs text-[#2D4439]/70 italic p-3 bg-[#F5F8F6] rounded-xl border border-[#D5DFD9]">
+                        Tidak ada kualifikasi wajib yang ditentukan.
+                      </p>
                     ) : (
-                      mustHaveReqs.map((r) => {
-                        const state = candidate.requirement_states[r.requirement_id] || 'NOT_DEMONSTRATED'
-                        const isStrong = state === 'STRONG'
-                        const isPartial = state === 'PARTIAL'
-                        const evList = candidate.evidence[r.requirement_id] || []
-                        const quote = evList[0]?.quote
-                        const unprovenItem = candidate.explanation.unproven?.find((u) => u.requirement_id === r.requirement_id)
-
-                        return (
-                          <div
-                            key={`exec-must-${r.requirement_id}`}
-                            className={`p-3 rounded-xl border text-xs space-y-1.5 transition-all shadow-tactile-sm ${
-                              isStrong
-                                ? 'bg-[#EBF6EF]/50 border-[#BBE5CD]'
-                                : isPartial
-                                ? 'bg-[#FEF6E8]/60 border-[#F8D8A7]'
-                                : 'bg-[#FCEBEB]/50 border-[#F6C1C1]'
-                            }`}
-                          >
-                            <div className="flex flex-wrap items-center justify-between gap-1.5">
-                              <div className="flex items-center space-x-2 min-w-0">
-                                <span className={`font-mono text-[10px] font-bold px-1.5 py-0.2 rounded border ${
-                                  isStrong
-                                    ? 'bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD]'
-                                    : isPartial
-                                    ? 'bg-[#FEF6E8] text-[#7A3E02] border-[#F8D8A7]'
-                                    : 'bg-[#FCEBEB] text-[#8C1819] border-[#F6C1C1]'
-                                }`}>
-                                  {r.requirement_id}
-                                </span>
-                                <span className="font-semibold text-[#13221C] text-[11px] truncate">
-                                  {r.description}
-                                </span>
-                              </div>
-                              <div className="flex items-center space-x-1.5 shrink-0">
-                                <span className="font-mono text-[10px] text-[#2D4439]">
-                                  Bobot {r.weight}%
-                                </span>
-                                <span className={`text-[10px] font-bold px-2 py-0.2 rounded border ${
-                                  isStrong
-                                    ? 'bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD]'
-                                    : isPartial
-                                    ? 'bg-[#FEF6E8] text-[#7A3E02] border-[#F8D8A7]'
-                                    : 'bg-[#FCEBEB] text-[#8C1819] border-[#F6C1C1]'
-                                }`}>
-                                  {isStrong ? 'Terbukti' : isPartial ? 'Perlu Dicek (Sebagian)' : 'Perlu Dicek (Tidak Ada)'}
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Kutipan Bukti Langsung */}
-                            {quote ? (
-                              <div className="flex items-start gap-1.5 pt-1">
-                                <VerbatimGroundingChip isGrounded={isVerbatimGrounded(quote, candidate.full_text)} />
-                                <p className="font-mono text-[10px] text-[#124B2E] italic break-words flex-1 min-w-0" title={quote}>
-                                  &ldquo;{quote}&rdquo;
-                                </p>
-                              </div>
-                            ) : unprovenItem?.note ? (
-                              <p className="text-[10px] text-[#7A3E02] italic pt-0.5">
-                                Catatan AI: {unprovenItem.note}
-                              </p>
-                            ) : (
-                              <p className="text-[10px] text-[#8C1819] italic pt-0.5">
-                                Belum ada bukti verbatim yang terverifikasi dalam teks CV.
-                              </p>
-                            )}
-                          </div>
-                        )
-                      })
+                      mustHaveReqs.map(renderCriterionCard)
                     )}
                   </div>
                 </div>
 
-                {/* BLOK 2: Kualifikasi Nilai Tambah / Diutamakan (Nice-to-Have) */}
-                <div className="space-y-2.5 bg-[#F5F8F6] p-3.5 rounded-xl border border-[#D5DFD9]">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center space-x-2">
-                      <span className="font-mono text-xs font-bold bg-[#2D4439] text-[#FCFDFC] px-2 py-0.5 rounded">
-                        Blok 2
+                {/* Sub-Blok 2: Kualifikasi Diutamakan (Strong Preference) */}
+                {strongPrefReqs.length > 0 && (
+                  <div className="space-y-2.5 pt-3 border-t border-[#E2E9E5]">
+                    <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                      <div className="flex items-center space-x-2">
+                        <span className="font-mono text-[10px] font-bold bg-[#FEF6E8] text-[#7A3E02] border border-[#F8D8A7] px-2 py-0.5 rounded">
+                          Diutamakan
+                        </span>
+                        <h4 className="text-xs font-bold text-[#13221C] uppercase tracking-wider">
+                          Kualifikasi Diutamakan (Strong Preference)
+                        </h4>
+                        <span className="text-[11px] text-[#2D4439]">
+                          • {strongPrefReqs.length} Kriteria Prioritas
+                        </span>
+                      </div>
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold bg-[#FEF6E8] text-[#7A3E02] border border-[#F8D8A7]">
+                        <Sparkles className="w-3.5 h-3.5 text-[#7A3E02]" />
+                        {strongPrefFulfilled.length}/{strongPrefReqs.length} Terbukti
                       </span>
-                      <h4 className="text-xs font-bold text-[#13221C] uppercase tracking-wider">
-                        Kualifikasi Nilai Tambah / Diutamakan (Nice-to-Have)
-                      </h4>
                     </div>
-                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD]">
-                      <Sparkles className="w-3.5 h-3.5 text-[#124B2E]" />
-                      {niceToHaveFulfilled.length} dari {niceToHaveReqs.length} Terbukti sebagai Poin Pembeda
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-[#2D4439]">
-                    Kualifikasi diutamakan yang dipenuhi kandidat untuk memberikan nilai tambah kompetitif dibanding kandidat lain.
-                  </p>
+                    <p className="text-[11px] text-[#2D4439] px-1">
+                      Prioritas tinggi pelamar yang memberikan bobot signifikansi kuat dalam penilaian kompetensi.
+                    </p>
 
-                  <div className="space-y-2 pt-1">
-                    {niceToHaveFulfilled.length > 0 ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        {niceToHaveFulfilled.map((r) => {
-                          const evList = candidate.evidence[r.requirement_id] || []
-                          const quote = evList[0]?.quote
-                          return (
-                            <div
-                              key={`exec-nice-${r.requirement_id}`}
-                              className="p-2.5 rounded-xl bg-[#EBF6EF]/50 border border-[#BBE5CD] text-xs space-y-1.5 shadow-tactile-sm"
-                            >
-                              <div className="flex items-center justify-between">
-                                <span className="font-mono text-[10px] font-bold text-[#124B2E]">
-                                  {r.requirement_id} • Bobot {r.weight}%
-                                </span>
-                                <span className="text-[9px] font-bold bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD] px-1.5 py-0.2 rounded">
-                                  Poin Plus
-                                </span>
-                              </div>
-                              <p className="font-semibold text-[#13221C] text-[11px]">{r.description}</p>
-                              {quote && (
-                                <div className="flex items-start gap-1.5 pt-0.5">
-                                  <VerbatimGroundingChip isGrounded={isVerbatimGrounded(quote, candidate.full_text)} />
-                                  <p className="font-mono text-[10px] text-[#124B2E] italic break-words flex-1 min-w-0" title={quote}>
-                                    &ldquo;{quote}&rdquo;
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    ) : (
-                      <div className="p-3 rounded-xl bg-[#FCFDFC] border border-[#D5DFD9] text-xs text-[#2D4439] italic text-center">
-                        Belum ada kualifikasi nilai tambah / diutamakan yang terbukti pada kandidat ini.
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Catatan Integritas / Flags */}
-                {candidate.flags && candidate.flags.length > 0 && (
-                  <div className="p-3 rounded-xl bg-[#FEF6E8] border border-[#F8D8A7] text-xs space-y-1.5 shadow-tactile-sm">
-                    <div className="flex items-center space-x-1.5 text-[#7A3E02] font-bold">
-                      <AlertTriangle className="w-3.5 h-3.5 text-[#7A3E02] shrink-0" />
-                      <span>Catatan Integritas Dokumen:</span>
-                    </div>
-                    <div className="space-y-1.5 text-[#7A3E02]">
-                      {candidate.flags.map((flag, idx) => {
-                        const explanation = getFlagExplanation(flag)
-                        return (
-                          <div key={`flag-${idx}`} className="flex items-start gap-1.5 text-xs">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#7A3E02] shrink-0 mt-1" />
-                            <span className="break-words">
-                              Flag: <strong>{flag}</strong>{' '}
-                              <span className="text-[#5A2E02] font-normal">({explanation})</span>
-                            </span>
-                          </div>
-                        )
-                      })}
+                    <div className="space-y-2.5">
+                      {strongPrefReqs.map(renderCriterionCard)}
                     </div>
                   </div>
                 )}
-              </section>
 
-              {/* Matriks Kriteria & Bukti dengan Progressive Disclosure */}
-              <section className="bg-[#FCFDFC] border border-[#D5DFD9] rounded-2xl p-4 shadow-tactile space-y-4">
-                <div className="flex items-center justify-between border-b border-[#E2E9E5] pb-2.5">
-                  <div className="flex items-center space-x-2">
-                    <Award className="w-4 h-4 text-[#1B4938]" />
-                    <h3 className="text-xs font-bold text-[#13221C] uppercase tracking-wider">
-                      Matriks Kualifikasi & Bukti ({requirements.length} Kriteria)
-                    </h3>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={toggleAllQuotes}
-                    className="text-[11px] font-mono text-[#1B4938] hover:text-[#124B2E] font-bold flex items-center gap-1 cursor-pointer"
-                  >
-                    {requirements.every((r) => expandedQuotes[r.requirement_id]) ? (
-                      <>
-                        <ChevronUp className="w-3 h-3" />
-                        <span>Tutup Semua Bukti</span>
-                      </>
-                    ) : (
-                      <>
-                        <ChevronDown className="w-3 h-3" />
-                        <span>Buka Semua Bukti</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                {/* Sub-Blok 1: Kualifikasi Wajib (Must-Have) */}
-                <div className="space-y-2.5">
-                  <div className="flex items-center justify-between px-1">
-                    <div className="flex items-center space-x-2">
-                      <span className="font-mono text-[10px] font-bold bg-[#7A3E02] text-[#FCFDFC] px-2 py-0.5 rounded">
-                        Kualifikasi Wajib (Must-Have)
-                      </span>
-                      <span className="text-xs font-bold text-[#13221C]">
-                        {mustHaveReqs.length} Kriteria Prasyarat
-                      </span>
-                    </div>
-                    {allMustHavesMet ? (
-                      <span className="text-[10px] font-bold text-[#124B2E]">
-                        ✓ Semua Terpenuhi
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-bold text-[#7A3E02]">
-                        ⚠ {mustHavePartialOrUnproven.length} Perlu Dicek
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="space-y-2.5">
-                    {mustHaveReqs.map(renderCriterionCard)}
-                  </div>
-                </div>
-
-                {/* Sub-Blok 2: Kualifikasi Nilai Tambah / Diutamakan (Nice-to-Have) */}
+                {/* Sub-Blok 3: Kualifikasi Nilai Tambah (Nice-to-Have) */}
                 {niceToHaveReqs.length > 0 && (
-                  <div className="space-y-2.5 pt-2 border-t border-[#E2E9E5]">
-                    <div className="flex items-center justify-between px-1">
+                  <div className="space-y-2.5 pt-3 border-t border-[#E2E9E5]">
+                    <div className="flex flex-wrap items-center justify-between gap-2 px-1">
                       <div className="flex items-center space-x-2">
-                        <span className="font-mono text-[10px] font-bold bg-[#1B4938] text-[#FCFDFC] px-2 py-0.5 rounded">
-                          Nilai Tambah / Diutamakan
+                        <span className="font-mono text-[10px] font-bold bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD] px-2 py-0.5 rounded">
+                          Nilai Tambah
                         </span>
-                        <span className="text-xs font-bold text-[#13221C]">
-                          {niceToHaveReqs.length} Kriteria Pembeda
+                        <h4 className="text-xs font-bold text-[#13221C] uppercase tracking-wider">
+                          Kualifikasi Nilai Tambah (Nice-to-Have)
+                        </h4>
+                        <span className="text-[11px] text-[#2D4439]">
+                          • {niceToHaveReqs.length} Kriteria Pembeda
                         </span>
                       </div>
-                      <span className="text-[10px] font-bold text-[#124B2E]">
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD]">
+                        <Sparkles className="w-3.5 h-3.5 text-[#124B2E]" />
                         {niceToHaveFulfilled.length}/{niceToHaveReqs.length} Terbukti
                       </span>
                     </div>
+                    <p className="text-[11px] text-[#2D4439] px-1">
+                      Poin plus opsional yang membedakan keunggulan komparatif kandidat dibanding pelamar lain.
+                    </p>
 
                     <div className="space-y-2.5">
                       {niceToHaveReqs.map(renderCriterionCard)}
