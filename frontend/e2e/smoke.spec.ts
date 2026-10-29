@@ -184,8 +184,8 @@ test.describe('AI CV Screener E2E Smoke Test Suite', () => {
     await expect(page.getByText('DOCX (.docx)')).toBeVisible();
     await expect(page.getByText('ZIP (.zip arsip batch)')).toBeVisible();
 
-    // Verifikasi alur terstruktur terlihat
-    await expect(page.getByText('Alur Terstruktur:')).toBeVisible();
+    // Verifikasi legenda status terlihat
+    await expect(page.getByText('Status:', { exact: true })).toBeVisible();
     await expect(page.getByText('Diterima (Antrean)').first()).toBeVisible();
     await expect(page.getByText('Memproses Teks & Embedding').first()).toBeVisible();
     await expect(page.getByText('Siap (READY)').first()).toBeVisible();

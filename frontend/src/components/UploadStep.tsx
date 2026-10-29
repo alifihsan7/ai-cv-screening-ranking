@@ -53,88 +53,6 @@ function normalizeStatus(st: string): NormalizedStatus {
   return 'RECEIVED'
 }
 
-interface PipelineStepProps {
-  status: NormalizedStatus
-}
-
-const PipelineTracker: React.FC<PipelineStepProps> = ({ status }) => {
-  if (status === 'REJECTED') {
-    return (
-      <div className="flex items-center space-x-1 text-[10px] text-[#8C1819] font-medium font-mono">
-        <XCircle className="w-3 h-3 text-[#8C1819] shrink-0" />
-        <span>Ditolak</span>
-      </div>
-    )
-  }
-  if (status === 'DUPLICATE') {
-    return (
-      <div className="flex items-center space-x-1 text-[10px] text-[#2D4439] font-medium font-mono">
-        <Copy className="w-3 h-3 text-[#2D4439] shrink-0" />
-        <span>Duplikat</span>
-      </div>
-    )
-  }
-  if (status === 'NEEDS_REVIEW') {
-    return (
-      <div className="flex items-center space-x-1 text-[10px] text-[#7A3E02] font-medium font-mono">
-        <AlertTriangle className="w-3 h-3 text-[#7A3E02] shrink-0" />
-        <span>Perlu Cek</span>
-      </div>
-    )
-  }
-
-  const isProcessingActive = status === 'PROCESSING'
-  const isReadyDone = status === 'READY'
-
-  return (
-    <div className="flex items-center space-x-1 text-[10px] font-mono select-none">
-      <span
-        title="Tahap 1: Diterima (Antrean)"
-        className={`inline-flex items-center justify-center px-1.5 py-0.5 rounded ${
-          isProcessingActive || isReadyDone
-            ? 'bg-[#EBF6EF] text-[#124B2E] font-bold border border-[#BBE5CD]'
-            : 'bg-[#EBF1EE] text-[#13221C] font-semibold border border-[#D5DFD9]'
-        }`}
-      >
-        {isProcessingActive || isReadyDone ? '✓ Antrean' : '● Antrean'}
-      </span>
-      <span className="text-[#2D4439]/40">›</span>
-      <span
-        title="Tahap 2: Memproses Teks & Embedding"
-        className={`inline-flex items-center justify-center px-1.5 py-0.5 rounded ${
-          isReadyDone
-            ? 'bg-[#EBF6EF] text-[#124B2E] font-bold border border-[#BBE5CD]'
-            : isProcessingActive
-            ? 'bg-[#FEF6E8] text-[#7A3E02] font-bold border border-[#F8D8A7] animate-pulse'
-            : 'bg-[#F2F5F3] text-[#2D4439]/60 border border-[#D5DFD9]/60'
-        }`}
-      >
-        {isReadyDone ? (
-          '✓ Memproses'
-        ) : isProcessingActive ? (
-          <span className="flex items-center space-x-0.5">
-            <Loader2 className="w-2.5 h-2.5 animate-spin mr-0.5" />
-            <span>Memproses</span>
-          </span>
-        ) : (
-          '○ Memproses'
-        )}
-      </span>
-      <span className="text-[#2D4439]/40">›</span>
-      <span
-        title="Tahap 3: Siap (READY)"
-        className={`inline-flex items-center justify-center px-1.5 py-0.5 rounded ${
-          isReadyDone
-            ? 'bg-[#EBF6EF] text-[#124B2E] font-bold border border-[#BBE5CD]'
-            : 'bg-[#F2F5F3] text-[#2D4439]/60 border border-[#D5DFD9]/60'
-        }`}
-      >
-        {isReadyDone ? '✓ Siap' : '○ Siap'}
-      </span>
-    </div>
-  )
-}
-
 function getFileIcon(name: string) {
   const lower = name.toLowerCase()
   if (lower.endsWith('.zip')) {
@@ -386,10 +304,10 @@ export const UploadStep: React.FC<UploadStepProps> = ({
                 />
               </div>
 
-              {/* Structured pipeline flow legend */}
+              {/* Status legend */}
               <div className="mt-3 pt-3 border-t border-[#E2E9E5] flex flex-col md:flex-row md:items-center justify-between gap-2 text-[11px] text-[#2D4439]">
                 <div className="flex flex-wrap items-center gap-1.5 font-medium">
-                  <span className="font-bold text-[#13221C]">Alur Terstruktur:</span>
+                  <span className="font-bold text-[#13221C]">Status:</span>
                   <span className="inline-flex items-center gap-1 bg-[#EBF1EE] text-[#13221C] px-2 py-0.5 rounded border border-[#D5DFD9] font-mono text-[10px] font-semibold">
                     <Clock className="w-2.5 h-2.5 text-[#13221C]" />
                     <span>Diterima (Antrean)</span>
@@ -461,7 +379,7 @@ export const UploadStep: React.FC<UploadStepProps> = ({
                   <tr>
                     <th className="py-2.5 px-3">Nama Berkas</th>
                     <th className="py-2.5 px-3 w-28">Ukuran</th>
-                    <th className="py-2.5 px-3 w-64">Status & Alur Pipeline</th>
+                    <th className="py-2.5 px-3 w-56">Status</th>
                     <th className="py-2.5 px-3">Catatan / Detail Ingestion</th>
                   </tr>
                 </thead>
@@ -550,19 +468,16 @@ export const UploadStep: React.FC<UploadStepProps> = ({
                             {file.size}
                           </td>
                           <td className="py-2.5 px-3">
-                            <div className="space-y-1.5">
-                              <span
-                                className={`px-2 py-0.5 rounded text-[11px] inline-flex items-center space-x-1 ${badgeClass}`}
-                              >
-                                <StatusIcon
-                                  className={`w-3 h-3 shrink-0 ${
-                                    normStatus === 'PROCESSING' ? 'animate-spin' : ''
-                                  }`}
-                                />
-                                <span>{statusLabel}</span>
-                              </span>
-                              <PipelineTracker status={normStatus} />
-                            </div>
+                            <span
+                              className={`px-2 py-0.5 rounded text-[11px] inline-flex items-center space-x-1 ${badgeClass}`}
+                            >
+                              <StatusIcon
+                                className={`w-3 h-3 shrink-0 ${
+                                  normStatus === 'PROCESSING' ? 'animate-spin' : ''
+                                }`}
+                              />
+                              <span>{statusLabel}</span>
+                            </span>
                           </td>
                           <td className="py-2.5 px-3 text-[#2D4439] text-[11px] font-mono">
                             <div className="flex items-center space-x-1.5">
