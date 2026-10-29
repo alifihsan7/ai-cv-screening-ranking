@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import re
 
-EMAIL_REGEX = re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+")
+# OCR often leaves a gap after the "@" ("putri.maharani@ example.com"); tolerate blanks, never line breaks
+EMAIL_REGEX = re.compile(r"[a-zA-Z0-9_.+-]+@[ \t]*[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+")
 PHONE_REGEX = re.compile(r"(?:\+62|62|08)[0-9\s-]{8,15}")
 
 # Demographic line scrubbers matching full line

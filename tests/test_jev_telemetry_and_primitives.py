@@ -98,7 +98,7 @@ async def test_score_primitive_evaluation():
     mock_response = SystemOneResponse(
         model="jev-latest",
         usage=Usage(input_tokens=35, output_tokens=2),
-        answers={"criterion_evaluation": score_ans},
+        answers={"chunk_0": score_ans},
     )
     mock_client.system_one.return_value = mock_response
 
@@ -159,7 +159,7 @@ async def test_polarity_choice_evaluation_others_did_it():
     mock_response = SystemOneResponse(
         model="jev-latest",
         usage=Usage(input_tokens=40, output_tokens=1),
-        answers={"criterion_evaluation": choice_ans},
+        answers={"chunk_0": choice_ans},
     )
     mock_client.system_one.return_value = mock_response
 
@@ -217,7 +217,7 @@ async def test_grounding_failure_records_telemetry_with_grounding_false():
     mock_response = SystemOneResponse(
         model="jev-latest",
         usage=Usage(input_tokens=22, output_tokens=1),
-        answers={"criterion_evaluation": choice_ans},
+        answers={"chunk_0": choice_ans},
     )
     mock_client.system_one.return_value = mock_response
 

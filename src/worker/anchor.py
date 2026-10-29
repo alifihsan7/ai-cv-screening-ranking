@@ -21,6 +21,7 @@ INSTITUTION_PATTERNS = [
 # Blacklist of section headers, formal greetings, and narrative phrases
 NOISE_HEADER_PATTERNS = [
     re.compile(r"\b(?:tentang\s+saya|about\s+me|profile|profil|personal\s+background|curriculum\s+vitae|resume|biodata|hubungi|contact|phone|email|alamat|address|born\s+in|tempat(?:\s+dan)?\s+tanggal\s+lahir|ttl|ringkasan|summary|executive\s+summary|overview|objektif|objective)\b", re.IGNORECASE),
+    re.compile(r"\b(?:foto|photo|pas\s*foto|pas\s*photo)\b", re.IGNORECASE),
     re.compile(r"\b(?:fresh\s+graduate|lulusan\s+baru|semangat\s+belajar|dengan\s+hormat|kepada\s+yth|dear\s+hiring|sehubungan\s+dengan|bersama\s+surat|surat\s+lamaran|hal\s*:)\b", re.IGNORECASE),
 ]
 
@@ -89,6 +90,26 @@ def extract_email_name_tokens(email: str | None) -> list[str]:
     return [p for p in parts if len(p) >= 3 and not p.isdigit()]
 
 
+def find_name_line_by_email(full_text: str, email: str | None) -> str | None:
+    """Finds the document line that spells out the name the email address is built from.
+
+    "kevin.halim@example.com" anchors the line "KEVIN HALIM", wherever the layout puts it (two-column PDFs
+    emit the sidebar first, so the header name is not on top). Needs at least two name tokens in the email.
+    """
+    tokens = extract_email_name_tokens(email)
+    if len(tokens) < 2:
+        return None
+    for raw_line in full_text.splitlines()[:80]:
+        line = clean_raw_name_string(raw_line)
+        words = re.findall(r"[A-Za-z']+", line)
+        if not 2 <= len(words) <= 5 or len(line.split()) != len(words) or is_blacklisted_as_name(line):
+            continue
+        lowered = {w.lower() for w in words}
+        if sum(1 for t in tokens if t in lowered) >= 2:
+            return line.title()
+    return None
+
+
 def resolve_candidate_name_consensus(
     extracted_name: str | None,
     full_text: str,
@@ -103,6 +124,15 @@ def resolve_candidate_name_consensus(
     # 1. Clean extracted name candidate
     name_candidate = clean_raw_name_string(extracted_name or "")
 
+    # The email is an independent witness. If the extracted name does not share a word with it, but a line of the
+    # document spells out the email's name, that line is the candidate's name (e.g. a "FOTO" box read as the name).
+    email_line = find_name_line_by_email(full_text, email)
+    if email_line:
+        email_words = set(extract_email_name_tokens(email))
+        extracted_words = {w.lower() for w in re.findall(r"[A-Za-z']+", name_candidate)}
+        if is_blacklisted_as_name(name_candidate) or not (email_words & extracted_words):
+            return email_line
+
     # If extracted name is valid and NOT blacklisted, check its quality
     if name_candidate and not is_blacklisted_as_name(name_candidate):
         # Additional check: multi-column duplicate e.g. 'Aryo B   Aryo Budi Hutomo'
@@ -113,12 +143,14 @@ def resolve_candidate_name_consensus(
                 name_candidate = longest
         name_candidate = re.sub(r"\s+", " ", name_candidate)
 
-        # If high-confidence ATS filename anchor exists, prefer it if it's more complete
+        # A filename anchor may complete the name found in the document (e.g. "Yadi" -> "Yadi Apriyadi"), but only
+        # when the two agree on at least one word. A file name that shares nothing with the document's own name
+        # (e.g. "K09_platform_head.docx" next to "Arief Nugraha") is not that candidate's name: trusting it would
+        # leave the real name unredacted and redact job-title words instead.
         if fn_cand:
             fn_lower = fn_cand.lower()
-            cand_lower = name_candidate.lower()
-            cand_words = [w for w in cand_lower.split() if len(w) > 1]
-            if any(w in fn_lower for w in cand_words) or (len(fn_cand.split()) >= len(name_candidate.split()) and len(name_candidate.split()) <= 2):
+            cand_words = [w for w in name_candidate.lower().split() if len(w) > 1]
+            if any(w in fn_lower for w in cand_words):
                 return fn_cand
 
         return name_candidate

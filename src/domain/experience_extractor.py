@@ -1,31 +1,34 @@
-"""Work Experience Entity Extraction using TypeSafe Jev System One & Deterministic Calendar Duration.
+"""Work Experience Entities: regex extraction, TypeSafe Jev System One validation & Deterministic Calendar Duration.
 
 Architecture Invariants:
-1. Pure Honest Fail-Fast (Opsi 1):
+1. Extraction is regex-based (`parse_experiences`); Jev only validates each extracted entry with a
+   NOUL question ("is this genuine professional work experience?"). Jev never drops an entry: confident
+   rejections are flagged `JEV_NOT_WORK_EXPERIENCE` and excluded from duration scoring downstream.
+2. Pure Honest Fail-Fast:
    - Missing or empty TYPESAFE_API_KEY MUST immediately raise TypeSafeUnconfiguredError.
    - Network connection errors or timeouts MUST propagate honestly as TypeSafeAPIConnectionError /
      TypeSafeAPITimeoutError without silent fake mocks or silent downgrade.
-2. Structured Extraction Schema:
+3. Structured Extraction Schema:
    - title: Position or job title
    - company: Organization or company name (synced with organization)
    - start: Normalized date (YYYY-MM or YYYY)
    - end: Normalized date (YYYY-MM, YYYY, or "present" / "now" / "sekarang")
    - context / employment_type: "experience" / "internship" / "freelance" / "contract" / "part_time"
    - bullets / responsibilities: Provenance-tracked bullets and responsibility strings
-3. Robust Anchor Date & Dash Normalization:
-   - "present", "now", "sekarang", "saat ini", "kini" anchored to as_of (default date.today())
+   - jev_validity / flags: Jev NOUL probability that the entry is genuine work experience
+4. Robust Anchor Date & Dash Normalization:
+   - "present", "now", "sekarang", "saat ini", "kini" anchored to the caller-supplied as_of
    - Robust normalization for en-dash (–), em-dash (—), hyphen (-), and parentheses
-4. Deterministic Calendar Duration:
+5. Deterministic Calendar Duration:
    - Non-overlapping duration calculation via merge_intervals (eliminates parallel double-counting)
    - 0.5 weighting for internships, 1.0 for full-time
    - Flags date anomalies (e.g. DATE_YEAR_ONLY_INFERRED, DATE_REVERSED)
-5. Comprehensive Telemetry:
-   - Persists all live Jev API calls to `jev_calls` table via record_jev_call.
+6. Comprehensive Telemetry:
+   - Persists one `jev_calls` row per validated entry via record_jev_call.
 """
 
 from __future__ import annotations
 
-import os
 import re
 import time
 import uuid
@@ -37,13 +40,28 @@ import httpx
 from pydantic import BaseModel, Field
 from typesafe_sdk import (
     AsyncTypeSafeClient,
-    Choice,
+    Noul,
+    NoulCriteria,
+    SystemOneResponse,
     TypeSafeAPIConnectionError,
     TypeSafeAPITimeoutError,
 )
 
 from src.domain.verifier import TypeSafeUnconfiguredError, record_jev_call
 from src.infrastructure.config import settings
+from src.infrastructure.typesafe import load_typesafe_config
+
+JEV_NOT_WORK_EXPERIENCE = "JEV_NOT_WORK_EXPERIENCE"
+
+EXPERIENCE_VALIDATION_INSTRUCTIONS = (
+    "Is the experience entry '{key}' in the state a genuine professional work experience "
+    "(employment, internship, freelance, or contract work) rather than education, a coursework "
+    "or personal project, an organization/volunteer role, or a stated interest?"
+)
+EXPERIENCE_VALIDATION_CRITERIA = NoulCriteria(
+    true="The entry describes real professional work the candidate performed for an employer or client.",
+    false="The entry is education, a coursework/personal project, an organization or volunteer role, or an interest.",
+)
 
 
 class WorkExperienceEntity(BaseModel):
@@ -65,6 +83,8 @@ class WorkExperienceEntity(BaseModel):
     bullets: list[dict[str, Any]] = Field(default_factory=list, description="Provenance bullets")
     responsibilities: list[str] = Field(default_factory=list, description="Textual responsibilities")
     source: dict[str, Any] = Field(default_factory=dict, description="Provenance source reference")
+    jev_validity: float | None = Field(default=None, description="Jev NOUL probability of genuine work experience")
+    flags: list[str] = Field(default_factory=list, description="Validation flags, e.g. JEV_NOT_WORK_EXPERIENCE")
 
     def model_post_init(self, __context: Any) -> None:
         if not self.organization and self.company:
@@ -115,6 +135,8 @@ class WorkExperienceEntity(BaseModel):
             "bullets": self.bullets,
             "responsibilities": self.responsibilities,
             "source": self.source,
+            "jev_validity": self.jev_validity,
+            "flags": self.flags,
         }
 
 
@@ -234,6 +256,166 @@ def calculate_experience_duration(
     }
 
 
+def _resolve_client(
+    client: AsyncTypeSafeClient | None,
+    model: str,
+    timeout: float,
+) -> AsyncTypeSafeClient | None:
+    """Returns None when the caller supplied a client; otherwise builds one or fails fast."""
+    if client is not None:
+        return None
+    cfg = load_typesafe_config(model=model, timeout=timeout)
+    if not cfg.is_configured:
+        raise TypeSafeUnconfiguredError(
+            "TypeSafe Jev System One credentials (TYPESAFE_API_KEY) are not configured. "
+            "Local emulation is disabled by sovereign architecture doctrine. "
+            "Provide a valid API key from https://console.typesafe.ai to execute work experience validation."
+        )
+    return AsyncTypeSafeClient(api_key=cfg.api_key, base_url=cfg.base_url, model=cfg.model, timeout=cfg.timeout)
+
+
+def _date_value(raw: Any) -> str:
+    return str(raw.get("value") if isinstance(raw, dict) else raw or "")
+
+
+def _experience_state_entry(exp: dict[str, Any]) -> dict[str, Any]:
+    """Typed, already-redacted view of one entry passed to Jev as data (never as instructions)."""
+    bullets = exp.get("bullets") or exp.get("responsibilities") or []
+    return {
+        "title": str(exp.get("title", "")),
+        "organization": str(exp.get("organization") or exp.get("company") or ""),
+        "start": _date_value(exp.get("start")),
+        "end": _date_value(exp.get("end")),
+        "context": str(exp.get("context", "")),
+        "bullets": [b.get("text", "") if isinstance(b, dict) else str(b) for b in bullets if b],
+    }
+
+
+async def validate_work_experiences_jev(
+    experiences: list[dict[str, Any]],
+    client: AsyncTypeSafeClient | None = None,
+    model: str | None = None,
+    timeout: float | None = None,
+    candidate_id: str | None = None,
+    run_id: str | uuid.UUID | None = None,
+) -> list[dict[str, Any]]:
+    """Validates regex-extracted (redacted) work experience entries with one Jev NOUL question each.
+
+    Returns copies of the entries annotated with `jev_validity`. An entry Jev confidently rejects
+    (1 - validity >= VERIFIER_MIN_CONFIDENCE) gains the `JEV_NOT_WORK_EXPERIENCE` flag; uncertain
+    answers leave the entry untouched. Entries are never dropped.
+    """
+    cfg = load_typesafe_config(model=model, timeout=timeout)
+    model_to_use, timeout_to_use = cfg.model, cfg.timeout
+    owned_client = _resolve_client(client, model_to_use, timeout_to_use)
+
+    if not experiences:
+        return []
+
+    keys = [f"exp_{i}" for i in range(len(experiences))]
+    state = {"experiences": {k: _experience_state_entry(e) for k, e in zip(keys, experiences, strict=True)}}
+    questions = {
+        k: Noul(instructions=EXPERIENCE_VALIDATION_INSTRUCTIONS.format(key=k), criteria=EXPERIENCE_VALIDATION_CRITERIA)
+        for k in keys
+    }
+
+    t0 = time.perf_counter()
+    try:
+        if owned_client is not None:
+            async with owned_client as session_client:
+                res: SystemOneResponse = await session_client.system_one(
+                    state=state, questions=questions, model=model_to_use, timeout=timeout_to_use
+                )
+        else:
+            assert client is not None
+            res = await client.system_one(state=state, questions=questions, model=model_to_use, timeout=timeout_to_use)
+    except (TypeSafeAPIConnectionError, TypeSafeAPITimeoutError):
+        raise
+    except httpx.ConnectError as e:
+        raise TypeSafeAPIConnectionError(f"Failed to connect to TypeSafe Jev API: {e}") from e
+    except httpx.TimeoutException as e:
+        raise TypeSafeAPITimeoutError(timeout_to_use) from e
+    latency_ms = (time.perf_counter() - t0) * 1000
+
+    input_tokens = int(res.usage.input_tokens or 0) if res.usage else 0
+    output_tokens = int(res.usage.output_tokens or 0) if res.usage else 0
+    used_model = res.model or model_to_use
+
+    validated: list[dict[str, Any]] = []
+    for i, (key, exp) in enumerate(zip(keys, experiences, strict=True)):
+        ans = res.nouls.get(key)
+        if ans is None:
+            raise ValueError(f"Missing Jev NOUL answer for experience entry '{key}'")
+        validity = float(ans.noul)
+        flags = list(exp.get("flags") or [])
+        if (1.0 - validity) >= settings.VERIFIER_MIN_CONFIDENCE and JEV_NOT_WORK_EXPERIENCE not in flags:
+            flags.append(JEV_NOT_WORK_EXPERIENCE)
+        validated.append({**exp, "jev_validity": validity, "flags": flags})
+
+        # One batched call answers every entry: attribute its usage to the first row only
+        await record_jev_call(
+            criterion_id="EXPERIENCE_VALIDATION",
+            primitive_type="NOUL",
+            model=used_model,
+            latency_ms=latency_ms,
+            input_tokens=input_tokens if i == 0 else 0,
+            output_tokens=output_tokens if i == 0 else 0,
+            decision_value=f"{validity:.4f}",
+            confidence=max(validity, 1.0 - validity),
+            grounding_valid=True,
+            run_id=run_id,
+            candidate_id=candidate_id,
+        )
+
+    return validated
+
+
+def _to_entity(item: dict[str, Any]) -> WorkExperienceEntity:
+    s_val = re.sub(r"[–—―−]", "-", _date_value(item.get("start"))).strip()
+    e_val = re.sub(r"[–—―−]", "-", _date_value(item.get("end"))).strip()
+
+    # Normalize present
+    if any(
+        p in e_val.lower()
+        for p in (
+            "present",
+            "sekarang",
+            "now",
+            "saat ini",
+            "kini",
+            "currently",
+            "to date",
+            "ongoing",
+        )
+    ):
+        e_val = "present"
+
+    company = item.get("company") or item.get("organization") or ""
+    bullets = item.get("bullets", [])
+    responsibilities = item.get("responsibilities", [])
+    if not responsibilities and bullets:
+        responsibilities = [b.get("text", "") if isinstance(b, dict) else str(b) for b in bullets if b]
+    elif not bullets and responsibilities:
+        bullets = [{"text": r} if isinstance(r, str) else r for r in responsibilities]
+
+    return WorkExperienceEntity(
+        title=str(item.get("title", "")).strip(),
+        company=company,
+        organization=company,
+        start=s_val,
+        end=e_val,
+        start_date=s_val,
+        end_date=e_val,
+        context=item.get("context", "experience"),
+        employment_type=item.get("employment_type", "full_time"),
+        bullets=bullets,
+        responsibilities=responsibilities,
+        source=item.get("source", {}),
+        jev_validity=item.get("jev_validity"),
+        flags=list(item.get("flags") or []),
+    )
+
+
 async def extract_work_experiences_jev(
     text: str,
     client: AsyncTypeSafeClient | None = None,
@@ -243,194 +425,20 @@ async def extract_work_experiences_jev(
     candidate_id: str | None = None,
     run_id: str | uuid.UUID | None = None,
 ) -> list[WorkExperienceEntity]:
-    """Extracts structured candidate work history entities using TypeSafe Jev System One.
+    """Regex-extracts work experience entries from (redacted) text, then validates each with Jev.
 
-    Doctrine Invariants:
-    1. Pure Honest Fail-Fast (Opsi 1):
-       - If TYPESAFE_API_KEY is not configured and no client is supplied, raises TypeSafeUnconfiguredError.
-       - Network errors or timeouts propagate honestly as TypeSafeAPIConnectionError / TypeSafeAPITimeoutError.
-       - Local imitation mocks or silent fallback to regex on failure are strictly forbidden.
-    2. Telemetry Logging:
-       - Every invocation persists telemetry into `jev_calls` table via `record_jev_call`.
-    3. Structured Schema:
-       - Returns a list of strongly typed `WorkExperienceEntity` objects.
+    Extraction is `parse_experiences` (deterministic regex); Jev only validates via
+    `validate_work_experiences_jev`. `as_of` is passed through unchanged so callers control date anchoring.
     """
-    model_to_use = model or getattr(settings, "TYPESAFE_MODEL", "jev-latest")
-    timeout_to_use = timeout or getattr(settings, "TYPESAFE_TIMEOUT", 10.0)
-    as_of_to_use = as_of or date.today().isoformat()
+    from src.worker.adapter import parse_experiences
 
-    client_to_use = client
-    if client_to_use is None:
-        env_key = os.environ.get("TYPESAFE_API_KEY")
-        raw_key = env_key if env_key is not None else (getattr(settings, "TYPESAFE_API_KEY", "") or "")
-        resolved_key = str(raw_key).strip() or None
-        if not resolved_key:
-            raise TypeSafeUnconfiguredError(
-                "TypeSafe Jev System One credentials (TYPESAFE_API_KEY) are not configured. "
-                "Local emulation is disabled by sovereign architecture doctrine. "
-                "Provide a valid API key from https://console.typesafe.ai to execute work experience extraction."
-            )
-        base_url = (
-            os.environ.get("TYPESAFE_BASE_URL")
-            or getattr(settings, "TYPESAFE_BASE_URL", None)
-            or None
-        )
-        client_to_use = AsyncTypeSafeClient(
-            api_key=resolved_key,
-            base_url=base_url,
-            model=model_to_use,
-            timeout=timeout_to_use,
-        )
-
-    choice_q = Choice(
-        instructions=(
-            "Evaluate candidate text and extract structured work experience history entities. "
-            "Determine if the CV contains verifiable professional work history."
-        ),
-        criteria={
-            "EXTRACTED": "Candidate has one or more structured work experience entities with dates and titles.",
-            "NO_EXPERIENCE": "Candidate has no relevant professional work experience in text.",
-        },
-    )
-
-    state = {
-        "cv_text": text,
-        "as_of_reference": as_of_to_use,
-        "instruction": (
-            "Extract all work experience entries including title, company/organization, "
-            "start date (YYYY-MM or YYYY), end date (YYYY-MM, YYYY, or present/sekarang), "
-            "context/employment_type (full_time, internship, freelance, contract, part_time), "
-            "and responsibilities/bullets."
-        ),
-    }
-
-    t0 = time.perf_counter()
-    try:
-        res = await client_to_use.system_one(
-            state=state,
-            questions={"experience_extraction": choice_q},
-            model=model_to_use,
-            timeout=timeout_to_use,
-        )
-    except (TypeSafeAPIConnectionError, TypeSafeAPITimeoutError):
-        raise
-    except httpx.ConnectError as e:
-        raise TypeSafeAPIConnectionError(f"Failed to connect to TypeSafe Jev API: {e}") from e
-    except httpx.TimeoutException as e:
-        raise TypeSafeAPITimeoutError(f"TypeSafe Jev API request timed out: {e}") from e
-
-    latency_ms = (time.perf_counter() - t0) * 1000
-
-    # Handle telemetry tokens and usage
-    input_tokens = 0
-    output_tokens = 0
-    used_model = model_to_use
-    if hasattr(res, "usage") and res.usage:
-        input_tokens = getattr(res.usage, "input_tokens", 0) or 0
-        output_tokens = getattr(res.usage, "output_tokens", 0) or 0
-    if hasattr(res, "model") and res.model:
-        used_model = res.model
-
-    # Determine decision choice
-    decision_val = "EXTRACTED"
-    confidence = 1.0
-    if hasattr(res, "answers") and isinstance(res.answers, dict):
-        ans = res.answers.get("experience_extraction")
-        if ans:
-            decision_val = getattr(ans, "choice", "EXTRACTED") or "EXTRACTED"
-            confidence = float(getattr(ans, "confidence", 1.0) or 1.0)
-
-    # Persist telemetry honestly to `jev_calls`
-    await record_jev_call(
-        criterion_id="EXPERIENCE_EXTRACTION",
-        primitive_type="CHOICE",
-        model=used_model,
-        latency_ms=latency_ms,
-        input_tokens=input_tokens,
-        output_tokens=output_tokens,
-        decision_value=decision_val,
-        confidence=confidence,
-        grounding_valid=True,
-        run_id=run_id,
+    raw_exps = parse_experiences(text, text, as_of=as_of)
+    validated = await validate_work_experiences_jev(
+        raw_exps,
+        client=client,
+        model=model,
+        timeout=timeout,
         candidate_id=candidate_id,
+        run_id=run_id,
     )
-
-    if decision_val == "NO_EXPERIENCE":
-        return []
-
-    # Parse extracted entities from response
-    extracted_items: list[dict[str, Any]] = []
-
-    if hasattr(res, "experiences") and isinstance(res.experiences, list):
-        for it in res.experiences:
-            extracted_items.append(it if isinstance(it, dict) else it.model_dump())
-    elif isinstance(res, dict) and "experiences" in res and isinstance(res["experiences"], list):
-        extracted_items.extend(res["experiences"])
-    else:
-        # Extract from text using anchor extraction verified by Jev System One
-        from src.worker.adapter import parse_experiences
-
-        raw_exps = parse_experiences(text, text, as_of=as_of_to_use)
-        for rx in raw_exps:
-            extracted_items.append(rx)
-
-    entities: list[WorkExperienceEntity] = []
-    for item in extracted_items:
-        s_raw = item.get("start")
-        e_raw = item.get("end")
-
-        s_val = s_raw.get("value") if isinstance(s_raw, dict) else str(s_raw or "")
-        e_val = e_raw.get("value") if isinstance(e_raw, dict) else str(e_raw or "")
-
-        # Clean dashes and format
-        s_val = re.sub(r"[–—―−]", "-", str(s_val or "")).strip()
-        e_val = re.sub(r"[–—―−]", "-", str(e_val or "")).strip()
-
-        # Normalize present
-        if any(
-            p in e_val.lower()
-            for p in (
-                "present",
-                "sekarang",
-                "now",
-                "saat ini",
-                "kini",
-                "currently",
-                "to date",
-                "ongoing",
-            )
-        ):
-            e_val = "present"
-
-        title = item.get("title", "").strip()
-        company = item.get("company") or item.get("organization") or ""
-
-        bullets = item.get("bullets", [])
-        responsibilities = item.get("responsibilities", [])
-        if not responsibilities and bullets:
-            responsibilities = [
-                b.get("text", "") if isinstance(b, dict) else str(b)
-                for b in bullets
-                if b
-            ]
-        elif not bullets and responsibilities:
-            bullets = [{"text": r} if isinstance(r, str) else r for r in responsibilities]
-
-        entities.append(
-            WorkExperienceEntity(
-                title=title,
-                company=company,
-                organization=company,
-                start=s_val,
-                end=e_val,
-                start_date=s_val,
-                end_date=e_val,
-                context=item.get("context", "experience"),
-                employment_type=item.get("employment_type", "full_time"),
-                bullets=bullets,
-                responsibilities=responsibilities,
-                source=item.get("source", {}),
-            )
-        )
-
-    return entities
+    return [_to_entity(item) for item in validated]

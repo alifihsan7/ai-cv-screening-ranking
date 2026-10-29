@@ -156,7 +156,7 @@ async def test_live_verifier_provider_multi_column_grounded_decision():
     mock_response = SystemOneResponse(
         model="jev-latest",
         usage=Usage(input_tokens=30, output_tokens=1),
-        answers={"criterion_evaluation": choice_ans},
+        answers={"chunk_0": choice_ans},
     )
     mock_client.system_one.return_value = mock_response
 

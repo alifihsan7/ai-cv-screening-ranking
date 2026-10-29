@@ -51,6 +51,8 @@ class Settings(BaseSettings):
     LLM_MODEL_VERIFIER: str = "ag/gemini-3.8-flash-high"
     LLM_TEMPERATURE: float = 0.0
     VERIFIER_CONCURRENCY: int = 5
+    # Verifier/Jev answers below this confidence never override the deterministic rule state
+    VERIFIER_MIN_CONFIDENCE: float = 0.60
 
     # Eligibility Gate
     ELIGIBILITY_FOUR_EYES: bool = True
@@ -63,6 +65,8 @@ class Settings(BaseSettings):
     # Hybrid Retrieval & Scoring Mode (FX-32 / Mode 3 Jev Hybrid)
     SCORING_MODE: str = "rules"  # "rules" | "hybrid" | "jev_hybrid"
     SEMANTIC_THRESHOLD: float = 0.65
+    # How many evidence chunks the screening flow sends to the verifier per retrieval cycle
+    EVIDENCE_TOP_K: int = 8
     USE_SCREENING_AGENT: bool = True
     USE_JEV_EXTRACTION: bool = False
 

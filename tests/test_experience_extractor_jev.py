@@ -1,6 +1,9 @@
 """Comprehensive test suite for TypeSafe Jev System One Work Experience Extraction & Deterministic Duration.
 
 Architecture & Verification Invariants:
+0. Extraction vs Validation:
+   - Entries are regex-extracted; Jev only validates each one with a NOUL question.
+   - Confident rejections are flagged JEV_NOT_WORK_EXPERIENCE (never dropped) and excluded from duration.
 1. Pure Honest Fail-Fast:
    - Missing or empty TYPESAFE_API_KEY MUST raise TypeSafeUnconfiguredError.
    - Network drop or timeout MUST propagate as TypeSafeAPIConnectionError / TypeSafeAPITimeoutError.
@@ -28,7 +31,7 @@ import httpx
 import pytest
 from typesafe_sdk import (
     AsyncTypeSafeClient,
-    ChoiceAnswer,
+    NoulAnswer,
     SystemOneResponse,
     TypeSafeAPIConnectionError,
     TypeSafeAPITimeoutError,
@@ -39,7 +42,9 @@ from src.domain.experience_extractor import (
     WorkExperienceEntity,
     calculate_experience_duration,
     extract_work_experiences_jev,
+    validate_work_experiences_jev,
 )
+from src.domain.kind_rules import eval_experience_duration
 from src.domain.verifier import (
     TypeSafeUnconfiguredError,
 )
@@ -55,6 +60,19 @@ from src.domain.verifier import (
 from src.infrastructure.config import settings
 from src.infrastructure.database import get_connection
 from src.worker.adapter import _FallbackExtractorService, parse_experiences
+
+CV_WITH_ONE_ENTRY = """Software Engineer
+PT Solusi Awam
+(11/2024 – 06/2025)
+- Built FastAPI microservices"""
+
+
+def _noul_response(*validities: float) -> SystemOneResponse:
+    return SystemOneResponse(
+        model="jev-latest",
+        usage=Usage(input_tokens=120, output_tokens=len(validities)),
+        answers={f"exp_{i}": NoulAnswer(type="noul", noul=v) for i, v in enumerate(validities)},
+    )
 
 # =============================================================================
 # 1. Re-Export Verification
@@ -90,7 +108,7 @@ async def test_fail_fast_connection_error_propagates():
     mock_client.system_one.side_effect = httpx.ConnectError("Failed to connect to api.typesafe.ai")
 
     with pytest.raises(TypeSafeAPIConnectionError) as exc_info:
-        await extract_work_experiences_jev("Curriculum Vitae text", client=mock_client)
+        await extract_work_experiences_jev(CV_WITH_ONE_ENTRY, client=mock_client)
     assert "connect" in str(exc_info.value).lower()
 
 
@@ -101,7 +119,7 @@ async def test_fail_fast_timeout_error_propagates():
     mock_client.system_one.side_effect = TypeSafeAPITimeoutError(10.0)
 
     with pytest.raises(TypeSafeAPITimeoutError):
-        await extract_work_experiences_jev("Curriculum Vitae text", client=mock_client)
+        await extract_work_experiences_jev(CV_WITH_ONE_ENTRY, client=mock_client)
 
 
 # =============================================================================
@@ -401,53 +419,37 @@ PT Kreasi Bangsa
 
 @pytest.mark.asyncio
 async def test_extract_work_experiences_jev_with_mock_client():
-    """Verify live System One extraction executes schema, parses entities, and logs telemetry."""
+    """Regex extracts the entry, Jev validates it with NOUL, and telemetry is logged per entry."""
     run_id = uuid.uuid4()
     candidate_id = "CAND-JEV-EXP-001"
 
-    cv_text = """John Doe
-Software Engineer
-PT Solusi Awam
-(11/2024 – 06/2025)
-- Built FastAPI microservices"""
-
-    choice_answer = ChoiceAnswer(
-        type="choice",
-        choice="EXTRACTED",
-        confidence=0.98,
-        probabilities={"EXTRACTED": 0.98, "NO_EXPERIENCE": 0.02},
-    )
-
-    system_one_response = SystemOneResponse(
-        answers={"experience_extraction": choice_answer},
-        usage=Usage(input_tokens=150, output_tokens=25),
-        model="jev-latest",
-    )
-
     mock_client = AsyncMock(spec=AsyncTypeSafeClient)
-    mock_client.system_one.return_value = system_one_response
+    mock_client.system_one.return_value = _noul_response(0.97)
 
     entities = await extract_work_experiences_jev(
-        text=cv_text,
+        text=CV_WITH_ONE_ENTRY,
         client=mock_client,
         candidate_id=candidate_id,
         run_id=run_id,
     )
 
-    # Verify mock_client called
-    assert mock_client.system_one.called
-    assert len(entities) >= 1
+    assert mock_client.system_one.call_count == 1
+    sent_state = mock_client.system_one.call_args.kwargs["state"]
+    assert sent_state["experiences"]["exp_0"]["title"] == "Software Engineer"
+
+    assert len(entities) == 1
     first = entities[0]
     assert first.title == "Software Engineer"
     assert first.company == "PT Solusi Awam"
     assert first.start == "2024-11"
     assert first.end == "2025-06"
+    assert first.jev_validity == pytest.approx(0.97)
+    assert first.flags == []
 
-    # Verify telemetry persisted to jev_calls
     async with get_connection() as conn, conn.cursor() as cur:
         await cur.execute(
             """
-            SELECT primitive_type, model, decision_value, confidence, grounding_valid
+            SELECT criterion_id, primitive_type, model, decision_value, confidence, grounding_valid
             FROM jev_calls
             WHERE candidate_id = %s
             ORDER BY created_at DESC
@@ -457,8 +459,73 @@ PT Solusi Awam
         )
         row = await cur.fetchone()
         assert row is not None
-        assert row["primitive_type"] == "CHOICE"
+        assert row["criterion_id"] == "EXPERIENCE_VALIDATION"
+        assert row["primitive_type"] == "NOUL"
         assert row["model"] == "jev-latest"
-        assert row["decision_value"] == "EXTRACTED"
-        assert row["confidence"] == pytest.approx(0.98, abs=0.01)
+        assert row["decision_value"] == "0.9700"
+        assert row["confidence"] == pytest.approx(0.97, abs=0.01)
         assert row["grounding_valid"] is True
+
+
+# =============================================================================
+# 8. Jev Validation of Regex-Extracted Entries
+# =============================================================================
+
+_ENTRIES = [
+    {"title": "Backend Engineer", "organization": "PT A", "start": "2021-01", "end": "2022-12", "bullets": []},
+    {"title": "Ketua Himpunan Mahasiswa", "organization": "Kampus", "start": "2019-01", "end": "2019-12"},
+    {"title": "Data Analyst", "organization": "PT B", "start": "2023-01", "end": "2023-06", "flags": ["X"]},
+]
+
+
+@pytest.mark.asyncio
+async def test_validate_flags_confident_rejection_without_dropping_entries():
+    """Confident rejection is flagged; uncertain answers are left untouched; nothing is dropped."""
+    mock_client = AsyncMock(spec=AsyncTypeSafeClient)
+    mock_client.system_one.return_value = _noul_response(0.95, 0.10, 0.50)
+
+    validated = await validate_work_experiences_jev(_ENTRIES, client=mock_client)
+
+    assert mock_client.system_one.call_count == 1
+    assert [e["title"] for e in validated] == [e["title"] for e in _ENTRIES]
+    assert validated[0]["flags"] == []
+    assert validated[1]["flags"] == ["JEV_NOT_WORK_EXPERIENCE"]
+    assert validated[2]["flags"] == ["X"]  # 0.50 is uncertain: existing flags kept, no rejection
+    assert validated[1]["jev_validity"] == pytest.approx(0.10)
+    assert "flags" not in _ENTRIES[0]  # inputs are not mutated
+
+
+@pytest.mark.asyncio
+async def test_validate_skips_jev_when_no_entries():
+    mock_client = AsyncMock(spec=AsyncTypeSafeClient)
+
+    assert await validate_work_experiences_jev([], client=mock_client) == []
+    mock_client.system_one.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_validate_fails_fast_on_missing_answer():
+    mock_client = AsyncMock(spec=AsyncTypeSafeClient)
+    mock_client.system_one.return_value = _noul_response(0.95)  # only exp_0 answered
+
+    with pytest.raises(ValueError, match="exp_1"):
+        await validate_work_experiences_jev(_ENTRIES[:2], client=mock_client)
+
+
+def test_duration_excludes_jev_rejected_entries():
+    """Rejected entries keep their place in the profile but do not count toward duration."""
+    profile = {
+        "experiences": [
+            {"title": "Backend Developer", "start": "2022-01", "end": "2023-12", "context": "experience",
+             "bullets": [{"text": "FastAPI REST API"}]},
+            {"title": "Backend Developer", "start": "2020-01", "end": "2021-12", "context": "experience",
+             "bullets": [{"text": "FastAPI REST API"}], "flags": ["JEV_NOT_WORK_EXPERIENCE"]},
+        ]
+    }
+    req = {"kind": "EXPERIENCE_DURATION", "params": {"min_months": 36, "accepted_role_families": ["backend"]}}
+
+    st, conf, metrics, evs, flgs = eval_experience_duration(profile, req, as_of="2026-01-01")
+
+    assert metrics["backend_months"] == 24.0
+    assert st == "PARTIAL"
+    assert "JEV_EXCLUDED_NON_WORK_ENTRY" in flgs

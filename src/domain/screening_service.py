@@ -439,24 +439,29 @@ async def _execute_screening_run_internal(
                                     candidate_id=str(cand_id),
                                     **prim_kwargs,
                                 )
-                                st = v_dec.state.value
                                 cand_flags.extend(v_dec.flags)
-                                eval_method = "verifier"
-                                conf = v_dec.confidence
+                                if v_dec.confidence < settings.VERIFIER_MIN_CONFIDENCE:
+                                    # Low-confidence answer: keep rule state and evidence, surface for review
+                                    if "GROUNDING_FAIL" not in v_dec.flags:
+                                        cand_flags.append("JEV_LOW_CONFIDENCE")
+                                else:
+                                    st = v_dec.state.value
+                                    eval_method = "verifier"
+                                    conf = v_dec.confidence
 
-                                # Synchronize evidence with verified grounded quote
-                                if st == "NOT_DEMONSTRATED":
-                                    evs = []
-                                elif v_dec.quote:
-                                    evs = [
-                                        {
-                                            "quote": v_dec.quote,
-                                            "context": str(v_dec.context_type.value if hasattr(v_dec.context_type, "value") else v_dec.context_type),
-                                            "verified": True,
-                                            "char_start": v_dec.char_start,
-                                            "char_end": v_dec.char_end,
-                                        }
-                                    ]
+                                    # Synchronize evidence with verified grounded quote
+                                    if st == "NOT_DEMONSTRATED":
+                                        evs = []
+                                    elif v_dec.quote:
+                                        evs = [
+                                            {
+                                                "quote": v_dec.quote,
+                                                "context": str(v_dec.context_type.value if hasattr(v_dec.context_type, "value") else v_dec.context_type),
+                                                "verified": True,
+                                                "char_start": v_dec.char_start,
+                                                "char_end": v_dec.char_end,
+                                            }
+                                        ]
                             else:
                                 v_st, v_quote, v_flgs = await verify_requirement_with_llm(
                                     full_text, r, st, [e.get("quote", "") for e in evs]

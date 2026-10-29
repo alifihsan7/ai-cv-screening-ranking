@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
 import re
 import uuid
 from datetime import date
@@ -11,6 +10,7 @@ from typing import Any
 
 from typesafe_sdk import AsyncTypeSafeClient
 
+from src.domain.retrieval import extract_granular_evidence_quote
 from src.domain.taxonomy import get_taxonomy
 from src.domain.text_match import match_skill
 from src.domain.verifier import (
@@ -21,6 +21,7 @@ from src.domain.verifier import (
     record_jev_call,
 )
 from src.infrastructure.config import settings
+from src.infrastructure.typesafe import load_typesafe_config
 
 
 def get_concept_aliases() -> dict[str, list[str]]:
@@ -118,6 +119,14 @@ def is_role_family_accepted(rf_str: str, accepted: list[str]) -> bool:
     return False
 
 
+def split_jev_rejected_experiences(
+    experiences: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """Drops entries Jev confidently rejected as non-work from duration scoring, returning a flag if any."""
+    kept = [e for e in experiences if "JEV_NOT_WORK_EXPERIENCE" not in (e.get("flags") or [])]
+    return kept, (["JEV_EXCLUDED_NON_WORK_ENTRY"] if len(kept) < len(experiences) else [])
+
+
 class DualEvaluationResult:
     """Hybrid outcome that is awaitable in async workflows and unpackable in legacy synchronous calls."""
 
@@ -186,9 +195,9 @@ async def eval_experience_duration_async(
     as_of_y, as_of_m = parse_ym("present", as_of)  # type: ignore[misc]
     as_of_total_m = as_of_y * 12 + as_of_m
 
-    experiences = profile.get("experiences", [])
+    experiences, excluded_flags = split_jev_rejected_experiences(profile.get("experiences", []))
     if not experiences:
-        return "NOT_DEMONSTRATED", 0.95, {"backend_months": 0.0}, [], []
+        return "NOT_DEMONSTRATED", 0.95, {"backend_months": 0.0}, [], excluded_flags
 
     req_id = str(req.get("requirement_id") or req.get("id") or "EXPERIENCE_DURATION")
 
@@ -214,15 +223,13 @@ async def eval_experience_duration_async(
                 conf = res.confidence
             return exp_item, rf, conf
 
-        env_key = os.environ.get("TYPESAFE_API_KEY")
-        raw_key = env_key if env_key is not None else (getattr(settings, "TYPESAFE_API_KEY", "") or "")
-        resolved_key = str(raw_key).strip()
-        if client is None and resolved_key:
+        cfg = load_typesafe_config()
+        if client is None and cfg.is_configured:
             async with AsyncTypeSafeClient(
-                api_key=resolved_key,
-                base_url=os.environ.get("TYPESAFE_BASE_URL") or getattr(settings, "TYPESAFE_BASE_URL", None) or None,
-                model=os.environ.get("TYPESAFE_MODEL") or getattr(settings, "TYPESAFE_MODEL", "jev-latest"),
-                timeout=getattr(settings, "TYPESAFE_TIMEOUT", 10.0),
+                api_key=cfg.api_key,
+                base_url=cfg.base_url,
+                model=cfg.model,
+                timeout=cfg.timeout,
             ) as session_client:
                 classified_experiences = await asyncio.gather(
                     *[_classify(e, session_client) for e in experiences]
@@ -241,8 +248,20 @@ async def eval_experience_duration_async(
 
     full_intervals: list[tuple[int, int]] = []
     intern_intervals: list[tuple[int, int]] = []
-    flags: list[str] = []
+    flags: list[str] = list(excluded_flags)
     evidence: list[dict[str, Any]] = []
+
+    # Low-confidence Jev role families fall back to the deterministic classifier, flagged for review
+    if use_jev:
+        reclassified: list[tuple[dict[str, Any], str, float]] = []
+        for exp, rf, conf in classified_experiences:
+            if conf < settings.VERIFIER_MIN_CONFIDENCE:
+                bullet_text = " ".join(b.get("text", "") for b in exp.get("bullets", []) if isinstance(b, dict))
+                rf = classify_role_family(exp.get("title", ""), bullet_text).upper()
+                if "JEV_ROLE_FAMILY_LOW_CONFIDENCE" not in flags:
+                    flags.append("JEV_ROLE_FAMILY_LOW_CONFIDENCE")
+            reclassified.append((exp, rf, conf))
+        classified_experiences = reclassified
 
     for exp, rf, conf in classified_experiences:
         if not is_role_family_accepted(rf, accepted_rfs):
@@ -336,12 +355,13 @@ def _eval_experience_duration_sync(
     as_of_y, as_of_m = parse_ym("present", as_of)  # type: ignore[misc]
     as_of_total_m = as_of_y * 12 + as_of_m
 
+    experiences, excluded_flags = split_jev_rejected_experiences(profile.get("experiences", []))
     full_intervals: list[tuple[int, int]] = []
     intern_intervals: list[tuple[int, int]] = []
-    flags: list[str] = []
+    flags: list[str] = list(excluded_flags)
     evidence: list[dict[str, Any]] = []
 
-    for exp in profile.get("experiences", []):
+    for exp in experiences:
         title = exp.get("title", "")
         bullet_text = " ".join(b.get("text", "") for b in exp.get("bullets", []) if isinstance(b, dict))
         rf = classify_role_family(title, bullet_text)
@@ -425,7 +445,7 @@ def eval_experience_duration(
     """
     effective_use_jev = (
         True
-        if (use_jev is True or (use_jev is None and (client is not None or bool(os.environ.get("TYPESAFE_API_KEY") or getattr(settings, "TYPESAFE_API_KEY", "")))))
+        if (use_jev is True or (use_jev is None and (client is not None or load_typesafe_config().is_configured)))
         else (False if use_jev is False else True)
     )
 
@@ -449,6 +469,16 @@ def eval_experience_duration(
         )
 
     return DualEvaluationResult(_coro, _sync)
+
+
+def _quote_around_keyword(text: str, keyword: str, max_chars: int = 120) -> str:
+    """Verbatim quote of at most `max_chars` that contains the keyword that matched.
+
+    Plain `text[:max_chars]` cuts the quote off before the keyword whenever the keyword sits later in
+    a long project, summary, or bullet, leaving the recruiter and the verifier with a quote that does
+    not show the evidence.
+    """
+    return extract_granular_evidence_quote(text, [keyword], max_chars=max_chars) or text[:max_chars].strip()
 
 
 def eval_skill(
@@ -489,7 +519,7 @@ def eval_skill(
                     if match_skill(b_txt, kw):
                         matched_quote = b_txt
                         break
-                evidence.append({"quote": matched_quote[:120], "context": "experience", "verified": True})
+                evidence.append({"quote": _quote_around_keyword(matched_quote, kw), "context": "experience", "verified": True})
                 return "STRONG", 0.95, {}, evidence, []
 
     # Context 2: Projects, Organizations, or only in skills list (PARTIAL)
@@ -497,7 +527,7 @@ def eval_skill(
         prj_text = prj.get("text", "") or prj.get("title", "")
         for kw in target_keywords:
             if match_skill(prj_text, kw):
-                evidence.append({"quote": prj_text[:120], "context": "project", "verified": True})
+                evidence.append({"quote": _quote_around_keyword(prj_text, kw), "context": "project", "verified": True})
                 return "PARTIAL", 0.85, {}, evidence, []
 
     for sk in profile.get("skills", []):
@@ -511,7 +541,7 @@ def eval_skill(
     summary_text = f"{profile.get('summary', '')} {profile.get('headline', '')}".strip()
     for kw in target_keywords:
         if match_skill(summary_text, kw):
-            evidence.append({"quote": summary_text[:120].strip(), "context": "summary", "verified": True})
+            evidence.append({"quote": _quote_around_keyword(summary_text, kw), "context": "summary", "verified": True})
             return "PARTIAL", 0.80, {}, evidence, []
 
     return "NOT_DEMONSTRATED", 0.95, {}, [], []
@@ -680,6 +710,9 @@ def eval_education(
             min_level = "S1"
 
     allow_related = any(r_term in desc_text for r_term in ["related", "terkait", "serumpun", "relevan", "sejenis"])
+    # Fields the recruiter lists explicitly as partial stay PARTIAL: "atau terkait" in the description only widens
+    # the fields inferred from the taxonomy, it does not override an explicit list (spec 4.2, EDUCATION).
+    promote_related = allow_related and not params.get("partial_fields")
 
     tax = get_taxonomy()
     strong_fields = [f.lower() for f in params.get("strong_fields", [])]
@@ -731,7 +764,7 @@ def eval_education(
         is_strong_f = any(f in comb for f in strong_fields)
         is_partial_f = any(f in comb for f in partial_fields)
 
-        if (is_strong_f or (is_partial_f and allow_related)) and lvl_r >= min_r:
+        if (is_strong_f or (is_partial_f and promote_related)) and lvl_r >= min_r:
             state = "STRONG"
             evidence.append({"quote": comb[:100], "context": "education", "verified": True})
             return state, 0.95, {}, evidence, []
@@ -810,6 +843,7 @@ def eval_achievement(
     has_tech_num = False
     has_hr_num = False
     has_biz_num = False
+    has_project_num = False
     has_comp_award = False
     has_unrelated_num = False
 
@@ -849,10 +883,10 @@ def eval_achievement(
             has_comp_award = True
             evidence.append({"quote": txt[:100], "context": "project", "verified": True})
         if num_pat.search(txt):
-            has_biz_num = True
+            has_project_num = True
             evidence.append({"quote": txt[:100], "context": "project", "verified": True})
 
-    if is_biz_comp and (has_comp_award or has_biz_num):
+    if is_biz_comp and (has_comp_award or has_biz_num or has_project_num):
         return "STRONG", 0.95, {}, evidence, []
     if has_comp_award:
         return "STRONG", 0.95, {}, evidence, []
@@ -860,8 +894,9 @@ def eval_achievement(
         return "STRONG", 0.95, {}, evidence, []
     if not is_hr_achievement and has_tech_num:
         return "STRONG", 0.95, {}, evidence, []
-    if has_biz_num:
-        return "STRONG", 0.95, {}, evidence, []
+    if has_biz_num or has_project_num:
+        # A number from a project, or from a job in an adjacent domain (e.g. a data analyst for a backend role)
+        return "PARTIAL", 0.85, {}, evidence, []
     if has_unrelated_num:
         has_tech_rf = any(
             classify_role_family(e.get("title", ""))

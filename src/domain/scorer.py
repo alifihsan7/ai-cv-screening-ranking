@@ -118,19 +118,26 @@ def score(states: dict[str, str], requirement_set: dict[str, Any]) -> ScoreResul
     return ScoreResult(raw, final, band, capped, rec, color, cats, must_not_strong, coverage, score_flags)
 
 
-def tie_break_key(candidate_id: str, run_id: str) -> str:
-    """Stable deterministic tie-breaker independent of candidate name or upload time."""
-    return hashlib.sha256(f"{run_id}:{candidate_id}".encode()).hexdigest()
+def tie_break_key(candidate_id: str) -> str:
+    """Deterministic tie-breaker independent of candidate name, upload time, and the screening run.
+
+    Depending only on `candidate_id` keeps the order of exactly tied candidates identical when the
+    same CVs are screened again under a new run id.
+    """
+    return hashlib.sha256(candidate_id.encode()).hexdigest()
 
 
-def rank(items: list[dict[str, Any]], run_id: str = "eval") -> list[dict[str, Any]]:
-    """items: [{'candidate_id': ..., 'result': ScoreResult, 'strong_count': int, ...}]"""
+def rank(items: list[dict[str, Any]], run_id: str | None = None) -> list[dict[str, Any]]:
+    """items: [{'candidate_id': ..., 'result': ScoreResult, 'strong_count': int, ...}]
+
+    `run_id` is accepted for call-site compatibility only; it no longer influences the order.
+    """
     return sorted(
         items,
         key=lambda x: (
             BAND_ORDER[x["result"].band],
             -x["result"].final_score,
             -x.get("strong_count", 0),
-            tie_break_key(str(x.get("candidate_id") or x.get("cv_id")), run_id),
+            tie_break_key(str(x.get("candidate_id") or x.get("cv_id"))),
         ),
     )

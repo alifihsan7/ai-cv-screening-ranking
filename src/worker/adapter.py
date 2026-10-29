@@ -24,9 +24,11 @@ except ImportError:
     PipelineConfig = None  # type: ignore[assignment, misc]
     build_service = None  # type: ignore[assignment]
 
+from src.infrastructure.logging import logger
 from src.worker.anchor import resolve_candidate_name_consensus
 from src.worker.boundary import isolate_document_boundaries
 from src.worker.docling_parser import parse_with_docling
+from src.worker.docx_text import extract_docx_text
 
 EMAIL_PATTERN = re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+")
 PHONE_PATTERN = re.compile(r"(?:\+62|62|08)[0-9\s\-]{8,15}")
@@ -149,11 +151,10 @@ class _FallbackExtractorResult:
 
 class _FallbackExtractorService:
     def extract(self, content: bytes, filename: str) -> _FallbackExtractorResult:
-        import io
-
         import pymupdf
 
         full_text = ""
+        extraction_warnings: list[str] = []
         fn_lower = filename.lower()
         if fn_lower.endswith(".pdf"):
             try:
@@ -178,16 +179,19 @@ class _FallbackExtractorService:
                 full_text = ""
         elif fn_lower.endswith((".docx", ".doc")):
             try:
-                import docx
-                docx_doc = docx.Document(io.BytesIO(content))
-                full_text = "\n".join(p.text for p in docx_doc.paragraphs)
-            except Exception:
+                full_text = extract_docx_text(content)
+            except Exception as err:
+                logger.warning(f"DOCX text extraction failed for {filename}: {err}")
                 full_text = ""
+                extraction_warnings.append("DOCX_TEXT_EXTRACTION_FAILED")
         else:
             full_text = content.decode("utf-8", errors="ignore")
 
         # Contact extraction
-        emails = re.findall(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", full_text)
+        emails = [
+            re.sub(r"\s+", "", e)
+            for e in re.findall(r"\b[A-Za-z0-9._%+-]+@[ \t]*[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", full_text)
+        ]
         phones = re.findall(r"(?:\+?62|08)[0-9\s-]{8,15}", full_text)
         urls = re.findall(r"(?:https?://[^\s]+|linkedin\.com/in/[a-zA-Z0-9_-]+)", full_text)
 
@@ -262,7 +266,7 @@ class _FallbackExtractorService:
             "sections": sections,
             "meta": {
                 "confidence": 0.95,
-                "warnings": [],
+                "warnings": extraction_warnings,
             },
         }
         return _FallbackExtractorResult(data)
@@ -1186,6 +1190,10 @@ def extract_candidate_profile(content: bytes, filename: str) -> dict[str, Any]:
 
     # Parse sections
     experiences = parse_experiences(exp_text, full_text)
+    quality_warnings = list(raw.get("meta", {}).get("warnings", []))
+    if not experiences and exp_text.strip():
+        # An experience section exists but yielded no entries: surface it instead of silently scoring 0 months
+        quality_warnings.append("EXPERIENCE_NOT_PARSED")
     education = parse_education(ed_text, full_text)
     certifications = parse_certifications(ce_text, ed_text)
     skills = parse_skills(sk_text)
@@ -1297,7 +1305,7 @@ def extract_candidate_profile(content: bytes, filename: str) -> dict[str, Any]:
         "cv_core_text": boundary.cv_core_text if boundary and getattr(boundary, "cv_core_text", None) else full_text,
         "quality": {
             "confidence": raw.get("meta", {}).get("confidence", 1.0),
-            "warnings": raw.get("meta", {}).get("warnings", []),
+            "warnings": quality_warnings,
         },
     }
     return profile

@@ -161,3 +161,41 @@ def test_anchor_consensus_prefers_filename_when_text_has_headline_bias():
         email="yadi@example.com",
     )
     assert resolved == "Yadi Apriyadi"
+
+
+def test_anchor_consensus_ignores_a_filename_that_shares_no_word_with_the_document_name():
+    """A descriptive file name must not override the candidate's own name (it would leave the real name unredacted)."""
+    resolved = resolve_candidate_name_consensus(
+        extracted_name="Arief Nugraha",
+        full_text="Arief Nugraha\nHead of Platform Engineering\nJakarta",
+        filename="K09_platform_head_docx_table2_en.docx",
+        email="arief.nugraha@example.com",
+    )
+    assert resolved == "Arief Nugraha"
+
+
+def test_anchor_consensus_still_completes_a_partial_name_from_an_ats_filename():
+    resolved = resolve_candidate_name_consensus(
+        extracted_name="Yadi",
+        full_text="Yadi\nBackend developer",
+        filename="3554_Yadi Apriyadi_Original.pdf",
+    )
+    assert resolved == "Yadi Apriyadi"
+
+
+def test_anchor_consensus_completes_an_abbreviated_name_from_the_filename():
+    resolved = resolve_candidate_name_consensus(
+        extracted_name="Aryo B",
+        full_text="Aryo B\nSoftware developer",
+        filename="CV_Aryo Budi Hutomo.pdf",
+    )
+    assert resolved == "Aryo Budi Hutomo"
+
+
+def test_anchor_consensus_uses_the_filename_when_the_document_has_no_usable_name():
+    resolved = resolve_candidate_name_consensus(
+        extracted_name="Curriculum Vitae",
+        full_text="Curriculum Vitae\nBackend developer",
+        filename="CV_Siti Rahmawati.pdf",
+    )
+    assert resolved == "Siti Rahmawati"

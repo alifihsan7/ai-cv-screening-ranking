@@ -71,29 +71,36 @@ class HybridRetrievalTool(BaseTool):
         raw_text = ctx.get("raw_cv_text") or ctx.get("full_text") or ""
         provided_chunks = ctx.get("chunks") or []
 
-        candidate_texts: list[tuple[str, ContextSectionType, str]] = []
+        candidate_texts: list[tuple[str, ContextSectionType, str, float]] = []
         if provided_chunks:
             for ch in provided_chunks:
                 txt = ch.get("text", "") if isinstance(ch, dict) else str(ch)
                 kind = ch.get("kind", "UNKNOWN") if isinstance(ch, dict) else "UNKNOWN"
-                ctx_type = ContextSectionType.WORK_EXPERIENCE if "EXP" in kind.upper() else ContextSectionType.UNKNOWN
-                candidate_texts.append((txt, ctx_type, kind))
+                explicit = ch.get("context_type") if isinstance(ch, dict) else None
+                if explicit:
+                    ctx_type = ContextSectionType(explicit)
+                else:
+                    ctx_type = (
+                        ContextSectionType.WORK_EXPERIENCE if "EXP" in kind.upper() else ContextSectionType.UNKNOWN
+                    )
+                boost = float(ch.get("boost", 0.0)) if isinstance(ch, dict) else 0.0
+                candidate_texts.append((txt, ctx_type, kind, boost))
         elif raw_text:
             sentences = split_sentences(raw_text)
             for s in sentences:
-                candidate_texts.append((s, ContextSectionType.UNKNOWN, "CV_TEXT"))
+                candidate_texts.append((s, ContextSectionType.UNKNOWN, "CV_TEXT", 0.0))
 
         if not candidate_texts:
             return []
 
-        # Token overlap ranking
+        # Token overlap ranking; a chunk's boost lifts evidence already found by the rules above plain matches
         q_tokens = set(re.findall(r"\w+", query.lower()))
         scored: list[tuple[float, str, ContextSectionType, str]] = []
 
-        for txt, ctype, sec in candidate_texts:
+        for txt, ctype, sec, boost in candidate_texts:
             t_tokens = set(re.findall(r"\w+", txt.lower()))
             overlap = len(q_tokens & t_tokens)
-            score = overlap / max(len(q_tokens), 1)
+            score = overlap / max(len(q_tokens), 1) + boost
             scored.append((score, txt, ctype, sec))
 
         scored.sort(key=lambda x: x[0], reverse=True)

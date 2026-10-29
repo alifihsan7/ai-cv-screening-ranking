@@ -61,6 +61,7 @@ class GroundedVerifierTool(BaseTool):
             rule_state=rule_state,
             kind=kind,
             context_type=context_type,
+            chunk_contexts=ctx.get("chunk_contexts"),
             run_id=ctx.get("run_id"),
             candidate_id=ctx.get("candidate_id"),
             **{k: v for k, v in ctx.items() if k in ("binary_gate", "use_noul", "primitive", "primitive_type", "hard_gate", "use_score")},

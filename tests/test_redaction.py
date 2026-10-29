@@ -75,3 +75,20 @@ def test_identity_redaction_counterfactual_e5():
         text = c["text_redacted"]
         for pii in forbidden_pii:
             assert pii.lower() not in text.lower(), f"PII '{pii}' leaked into profile chunk: {text}"
+
+
+def test_redact_text_removes_known_profile_links_before_name():
+    from src.worker.redaction import redact_text
+
+    text = "Budi Santoso\nhttps://linkedin.com/in/budi-santoso | budi@example.com\nBackend Engineer"
+    out = redact_text(
+        text,
+        name="Budi Santoso",
+        emails=["budi@example.com"],
+        links=["https://linkedin.com/in/budi-santoso"],
+    )
+
+    assert "linkedin.com/in/budi-santoso" not in out
+    assert "[TAUTAN]" in out
+    assert "budi" not in out.lower()
+    assert "Backend Engineer" in out
