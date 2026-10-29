@@ -28,6 +28,8 @@ export interface UploadStepProps {
   onLoadGoldenSample: () => void
   onClearFiles?: () => void
   onRefreshStatus?: () => void
+  onRefreshFile?: (file: UploadedCvFile) => void
+  onRemoveFile?: (fileName: string) => void
   isRefreshing?: boolean
   onStartScreening: () => void
   onBack: () => void
@@ -70,6 +72,8 @@ export const UploadStep: React.FC<UploadStepProps> = ({
   onLoadGoldenSample,
   onClearFiles,
   onRefreshStatus,
+  onRefreshFile,
+  onRemoveFile,
   isRefreshing = false,
   onStartScreening,
   onBack,
@@ -79,6 +83,27 @@ export const UploadStep: React.FC<UploadStepProps> = ({
   const [isDragging, setIsDragging] = useState(false)
   const [statusFilter, setStatusFilter] = useState<string>('ALL')
   const [searchQuery, setSearchQuery] = useState<string>('')
+  const [refreshingFiles, setRefreshingFiles] = useState<Record<string, boolean>>({})
+
+  const handleRefreshFile = async (file: UploadedCvFile) => {
+    const fileKey = file.id || file.name
+    setRefreshingFiles((prev) => ({ ...prev, [fileKey]: true }))
+    try {
+      if (onRefreshFile) {
+        await onRefreshFile(file)
+      } else if (onRefreshStatus) {
+        await onRefreshStatus()
+      }
+    } finally {
+      setTimeout(() => {
+        setRefreshingFiles((prev) => {
+          const next = { ...prev }
+          delete next[fileKey]
+          return next
+        })
+      }, 500)
+    }
+  }
 
   const readyFiles = uploadedFiles.filter((f) => normalizeStatus(f.status) === 'READY')
   const processingFiles = uploadedFiles.filter((f) => normalizeStatus(f.status) === 'PROCESSING')
@@ -374,19 +399,20 @@ export const UploadStep: React.FC<UploadStepProps> = ({
 
             {/* Files List Table */}
             <div className="mt-4 border border-[#D5DFD9] rounded-xl overflow-hidden overflow-x-auto">
-              <table className="w-full text-left text-xs min-w-[700px]">
+              <table className="w-full text-left text-xs min-w-[760px]">
                 <thead className="bg-[#EBF1EE] text-[#2D4439] font-bold uppercase tracking-wider border-b border-[#D5DFD9]">
                   <tr>
                     <th className="py-2.5 px-3">Nama Berkas</th>
                     <th className="py-2.5 px-3 w-28">Ukuran</th>
                     <th className="py-2.5 px-3 w-56">Status</th>
                     <th className="py-2.5 px-3">Catatan / Detail Ingestion</th>
+                    <th className="py-2.5 px-3 w-24 text-center">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E2E9E5] bg-[#FCFDFC]">
                   {filteredFiles.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="py-10 text-center text-[#2D4439]">
+                      <td colSpan={5} className="py-10 text-center text-[#2D4439]">
                         <FileText className="w-8 h-8 mx-auto mb-2 text-[#2D4439]/40" />
                         <p className="font-bold text-[#13221C]">
                           {uploadedFiles.length === 0
@@ -402,6 +428,11 @@ export const UploadStep: React.FC<UploadStepProps> = ({
                     filteredFiles.map((file, idx) => {
                       const normStatus = normalizeStatus(file.status)
                       const IconComponent = getFileIcon(file.name)
+                      const isFileProcessing = normStatus === 'PROCESSING'
+                      const isRowRefreshing =
+                        isRefreshing ||
+                        isFileProcessing ||
+                        !!refreshingFiles[file.id || file.name]
 
                       let badgeClass = 'bg-[#EBF1EE] text-[#13221C] border border-[#D5DFD9]'
                       let statusLabel = 'Diterima (Antrean)'
@@ -489,6 +520,37 @@ export const UploadStep: React.FC<UploadStepProps> = ({
                                   {file.flags.length} flag
                                 </span>
                               )}
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
+                            <div className="flex items-center justify-center space-x-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleRefreshFile(file)}
+                                disabled={isRowRefreshing}
+                                className={`p-1.5 rounded-lg border transition-all cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] disabled:cursor-not-allowed ${
+                                  isRowRefreshing
+                                    ? 'bg-[#EBF1EE] text-[#1B4938] border-[#BBE5CD]'
+                                    : 'bg-[#FCFDFC] hover:bg-[#EBF1EE] text-[#2D4439] hover:text-[#13221C] border-[#D5DFD9]'
+                                }`}
+                                title="Segarkan status berkas"
+                                aria-label={`Segarkan status berkas ${file.name}`}
+                              >
+                                <RotateCcw
+                                  className={`w-3.5 h-3.5 ${
+                                    isRowRefreshing ? 'animate-spin text-[#1B4938]' : ''
+                                  }`}
+                                />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => onRemoveFile?.(file.name || file.id || '')}
+                                className="p-1.5 rounded-lg border border-[#D5DFD9] bg-[#FCFDFC] text-[#2D4439] hover:text-[#8C1819] hover:bg-[#FCEBEB] hover:border-[#F6C1C1] transition-all cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8C1819]"
+                                title="Hapus dari daftar"
+                                aria-label={`Hapus ${file.name} dari daftar`}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </div>
                           </td>
                         </tr>

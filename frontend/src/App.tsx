@@ -1731,6 +1731,16 @@ export default function App() {
     showToast('Daftar berkas CV dan hasil evaluasi berhasil dikosongkan.', 'info')
   }, [currentJobId, getAuthHeaders, loginRecruiter, showToast, stopPollingJobCvs, uploadedFiles.length])
 
+  const handleRemoveUploadedFile = useCallback(
+    (fileIdentifier: string) => {
+      setUploadedFiles((prev) =>
+        prev.filter((f) => f.name !== fileIdentifier && (f.id ? f.id !== fileIdentifier : true))
+      )
+      showToast('Berkas berhasil dihapus dari daftar.', 'info')
+    },
+    [showToast]
+  )
+
   const handleCompileFromJd = async () => {
     if (debounceTitleTimerRef.current) {
       clearTimeout(debounceTitleTimerRef.current)
@@ -2056,6 +2066,7 @@ export default function App() {
             onLoadGoldenSample={handleLoadGoldenSample}
             onClearFiles={handleClearUploadedCvs}
             onRefreshStatus={handleManualRefresh}
+            onRemoveFile={handleRemoveUploadedFile}
             isRefreshing={isRefreshing}
             onStartScreening={handleStartScreening}
             onBack={() => setCurrentStep('criteria')}
