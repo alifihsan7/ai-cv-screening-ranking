@@ -230,10 +230,10 @@ export const UploadStep: React.FC<UploadStepProps> = ({
             </div>
           </div>
 
-          {/* Side-by-Side Ingestion Studio (40% : 60%) */}
+          {/* Side-by-Side Ingestion Studio (32% : 68%) */}
           <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
-            {/* Left Column (40% - Dropzone & Pipeline Telemetry) */}
-            <div className="w-full lg:w-[40%] xl:w-[38%] border-b lg:border-b-0 lg:border-r border-[#D5DFD9] flex flex-col overflow-y-auto p-4 sm:p-5 space-y-4 bg-[#FCFDFC] min-h-0">
+            {/* Left Column (32% - Dropzone & Pipeline Telemetry) */}
+            <div className="w-full lg:w-[32%] xl:w-[30%] shrink-0 border-b lg:border-b-0 lg:border-r border-[#D5DFD9] flex flex-col overflow-y-auto p-4 sm:p-5 space-y-4 bg-[#FCFDFC] min-h-0">
               {/* Compact Dropzone */}
               <input
                 type="file"
@@ -375,8 +375,8 @@ export const UploadStep: React.FC<UploadStepProps> = ({
               </div>
             </div>
 
-            {/* Right Column (60% - Roster Table & Direct Screening Launch) */}
-            <div className="flex-1 flex flex-col overflow-hidden min-h-0 bg-[#FCFDFC]">
+            {/* Right Column (68% - Roster Table & Direct Screening Launch) */}
+            <div className="w-full lg:w-[68%] xl:w-[70%] flex flex-col overflow-hidden min-h-0 bg-[#FCFDFC]">
               {/* Prominent Action Banner */}
               <div className="p-3.5 sm:p-4 bg-[#F5F8F6] border-b border-[#D5DFD9] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
                 <div className="flex items-center space-x-2.5">
@@ -472,9 +472,9 @@ export const UploadStep: React.FC<UploadStepProps> = ({
                 <table className="w-full text-left text-xs table-fixed">
                   <thead className="bg-[#EBF1EE] text-[#2D4439] font-bold uppercase tracking-wider border-b border-[#D5DFD9] sticky top-0 z-10 shadow-tactile-sm">
                     <tr>
-                      <th className="py-2.5 px-3 min-w-[220px]">Nama Berkas</th>
-                      <th className="py-2.5 px-2.5 w-16 text-xs shrink-0 text-right">Ukuran</th>
-                      <th className="py-2.5 px-2.5 w-36 shrink-0 text-left">Status</th>
+                      <th className="py-2.5 px-3 min-w-0">Nama Berkas</th>
+                      <th className="py-2.5 px-3 w-20 shrink-0 text-right">Ukuran</th>
+                      <th className="py-2.5 px-3 w-36 shrink-0 text-center">Status</th>
                       <th className="py-2.5 px-1 w-14 text-center shrink-0">Aksi</th>
                     </tr>
                   </thead>
@@ -564,36 +564,38 @@ export const UploadStep: React.FC<UploadStepProps> = ({
                             key={file.id || idx}
                             className="hover:bg-[#EBF1EE]/50 transition-colors"
                           >
-                            <td className="py-2 px-3 font-semibold text-[#13221C] min-w-0">
-                              <div className="flex items-center space-x-2 min-w-0">
-                                <IconComponent className="w-3.5 h-3.5 shrink-0 text-[#1B4938]" />
-                                <span className="truncate block font-semibold text-[#13221C]" title={file.name}>
-                                  {file.name}
-                                </span>
-                              </div>
-                              {noteText && (
-                                <div
-                                  className="flex items-center space-x-1.5 text-[10px] text-[#2D4439]/80 font-mono mt-0.5 min-w-0"
-                                  title={noteText}
-                                >
-                                  <span className="truncate">{noteText}</span>
-                                  {file.flags && file.flags.length > 0 && (
-                                    <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] bg-[#FEF6E8] text-[#7A3E02] border border-[#F8D8A7] shrink-0 font-sans">
-                                      {file.flags.length} flag
-                                    </span>
-                                  )}
+                            <td className="py-2.5 px-3 font-semibold text-[#13221C] min-w-0 overflow-hidden">
+                              <div className="flex flex-col min-w-0">
+                                <div className="flex items-center space-x-2 min-w-0">
+                                  <IconComponent className="w-3.5 h-3.5 shrink-0 text-[#1B4938]" />
+                                  <span className="truncate block font-semibold text-[#13221C]" title={file.name}>
+                                    {file.name}
+                                  </span>
                                 </div>
-                              )}
+                                {noteText && (
+                                  <div
+                                    className="flex items-center space-x-1.5 text-[10px] text-[#2D4439]/80 font-mono mt-0.5 min-w-0 overflow-hidden"
+                                    title={noteText}
+                                  >
+                                    <span className="truncate block">{noteText}</span>
+                                    {file.flags && file.flags.length > 0 && (
+                                      <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] bg-[#FEF6E8] text-[#7A3E02] border border-[#F8D8A7] shrink-0 font-sans">
+                                        {file.flags.length} flag
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             </td>
                             <td
-                              className="py-2 px-2.5 w-16 text-xs shrink-0 text-[#2D4439] font-mono tabular-nums whitespace-nowrap text-right"
+                              className="py-2.5 px-3 w-20 shrink-0 text-xs text-[#2D4439] font-mono tabular-nums whitespace-nowrap text-right"
                               title={file.size}
                             >
                               {file.size}
                             </td>
-                            <td className="py-2 px-2.5 w-36 shrink-0">
+                            <td className="py-2.5 px-3 w-36 shrink-0 text-center">
                               <span
-                                className={`px-2 py-0.5 rounded text-[11px] inline-flex items-center space-x-1.5 whitespace-nowrap ${badgeClass}`}
+                                className={`px-2 py-0.5 rounded text-[11px] inline-flex items-center justify-center space-x-1.5 whitespace-nowrap ${badgeClass}`}
                                 title={statusLabel}
                               >
                                 <StatusIcon
@@ -604,7 +606,7 @@ export const UploadStep: React.FC<UploadStepProps> = ({
                                 <span>{statusLabel}</span>
                               </span>
                             </td>
-                            <td className="py-2 px-1 w-14 text-center shrink-0">
+                            <td className="py-2.5 px-1 w-14 text-center shrink-0">
                               <div className="flex items-center justify-center space-x-1">
                                 <button
                                   type="button"

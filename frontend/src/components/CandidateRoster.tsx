@@ -16,7 +16,7 @@ import { CustomSelect, type SelectOption } from './CustomSelect'
 const DECISION_OPTIONS: SelectOption[] = [
   {
     value: '',
-    label: 'Belum Diputuskan',
+    label: 'Belum Ada',
     dotClassName: 'bg-[#8C9B93]',
     labelClassName: 'text-[#2D4439] font-medium',
     containerClassName: 'bg-[#FCFDFC] hover:bg-[#F2F5F3] border-[#D5DFD9] text-[#2D4439]',
@@ -37,7 +37,7 @@ const DECISION_OPTIONS: SelectOption[] = [
   },
   {
     value: 'TIDAK_LANJUT',
-    label: 'Tidak Lanjut',
+    label: 'Tolak',
     dotClassName: 'bg-[#8C1819]',
     labelClassName: 'text-[#8C1819] font-bold',
     containerClassName: 'bg-[#FCEBEB] hover:bg-[#F9DDDD] border-[#F6C1C1] text-[#8C1819]',
@@ -54,7 +54,7 @@ const DECISION_OPTIONS_COMPACT: SelectOption[] = [
   },
   {
     value: 'SHORTLIST',
-    label: 'Lolos',
+    label: 'Shortlist',
     dotClassName: 'bg-[#124B2E]',
     labelClassName: 'text-[#124B2E] font-bold',
     containerClassName: 'bg-[#EBF6EF] hover:bg-[#E2F1E7] border-[#BBE5CD] text-[#124B2E]',
@@ -68,7 +68,7 @@ const DECISION_OPTIONS_COMPACT: SelectOption[] = [
   },
   {
     value: 'TIDAK_LANJUT',
-    label: 'Gugur',
+    label: 'Tolak',
     dotClassName: 'bg-[#8C1819]',
     labelClassName: 'text-[#8C1819] font-bold',
     containerClassName: 'bg-[#FCEBEB] hover:bg-[#F9DDDD] border-[#F6C1C1] text-[#8C1819]',
@@ -234,13 +234,20 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
       )
     }
 
-    const deficitCount = mustHaveReqs.length - fulfilledCount
+    const deficitReqs = mustHaveReqs.filter(
+      (r) => c.requirement_states[r.requirement_id] !== 'STRONG'
+    )
+    const deficitCount = deficitReqs.length
+    const deficitTooltip = `Perlu dicek: ${deficitReqs
+      .map((r) => `${r.requirement_id} (${r.description})`)
+      .join(', ')}`
+
     return (
       <span
         className={`inline-flex items-center gap-1 rounded-md font-bold bg-[#FEF6E8] text-[#7A3E02] border border-[#F8D8A7] whitespace-nowrap ${
           compact ? 'px-1.5 py-0.2 text-[10px]' : 'px-2 py-0.5 text-[11px]'
         }`}
-        title={`${deficitCount} Kualifikasi Wajib Perlu Dicek`}
+        title={deficitTooltip}
       >
         <AlertTriangle className={`${compact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-[#7A3E02] shrink-0`} />
         <span>{deficitCount} Perlu Dicek</span>

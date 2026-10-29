@@ -84,6 +84,7 @@ export const CandidateInspector: React.FC<CandidateInspectorProps> = ({
   const [highlightedQuote, setHighlightedQuote] = useState<string | null>(null)
   const [selectedReqId, setSelectedReqId] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [highlightedReqId, setHighlightedReqId] = useState<string | null>(null)
 
   const [prevInitialTab, setPrevInitialTab] = useState(initialTab)
 
@@ -299,6 +300,12 @@ PENDIDIKAN & LATAR BELAKANG:
   )
   const allMustHavesMet = mustHavePartialOrUnproven.length === 0
 
+  // Nice-to-have / preference requirements check
+  const niceToHaveReqs = requirements.filter((r) => r.importance !== 'MUST_HAVE')
+  const niceToHaveFulfilled = niceToHaveReqs.filter(
+    (r) => candidate.requirement_states[r.requirement_id] === 'STRONG'
+  )
+
   const isAiVerified =
     candidate.verifier_provider === 'JEV_TYPESAFE' ||
     (candidate.reasoning_trajectory && candidate.reasoning_trajectory.length > 0)
@@ -309,6 +316,157 @@ PENDIDIKAN & LATAR BELAKANG:
     navigator.clipboard.writeText(defaultCvText)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleScrollToCriterion = (reqId: string) => {
+    setActiveTab('evaluation')
+    setHighlightedReqId(reqId)
+    setExpandedQuotes((prev) => ({ ...prev, [reqId]: true }))
+    setTimeout(() => {
+      const el = document.getElementById(`criterion-${reqId}`)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    }, 100)
+    setTimeout(() => {
+      setHighlightedReqId((prev) => (prev === reqId ? null : prev))
+    }, 4000)
+  }
+
+  const renderCriterionCard = (r: Requirement) => {
+    const state = candidate.requirement_states[r.requirement_id] || 'NOT_DEMONSTRATED'
+    const evList = candidate.evidence[r.requirement_id] || []
+    const evidenceQuote = evList[0]?.quote
+    const isExpanded = !!expandedQuotes[r.requirement_id]
+    const isHighlighted = highlightedReqId === r.requirement_id
+    const isMustHave = r.importance === 'MUST_HAVE'
+
+    return (
+      <div
+        key={r.requirement_id}
+        id={`criterion-${r.requirement_id}`}
+        className={`p-3 rounded-xl transition-all duration-300 shadow-tactile-sm space-y-2 ${
+          isHighlighted
+            ? 'ring-2 ring-[#7A3E02] bg-[#FEF6E8] scale-[1.01] border-[#F8D8A7]'
+            : 'bg-[#FCFDFC] hover:bg-[#F5F8F6] border border-[#D5DFD9] hover:border-[#1B4938]/40'
+        }`}
+      >
+        {/* Header Row Kriteria */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center space-x-2 min-w-0 flex-wrap">
+            <span className="font-mono font-bold text-xs text-[#1B4938] bg-[#EBF1EE] px-2 py-0.5 rounded border border-[#D5DFD9]">
+              {r.requirement_id}
+            </span>
+            <DualLayerCriterionBadge req={r} />
+            <span className="font-semibold text-xs text-[#13221C]">
+              {r.description}
+            </span>
+            {isMustHave ? (
+              <span className="font-mono text-[9px] px-1.5 py-0.2 rounded font-bold uppercase bg-[#FEF6E8] text-[#7A3E02] border border-[#F8D8A7]">
+                Wajib Mutlak
+              </span>
+            ) : (
+              <span className="font-mono text-[9px] px-1.5 py-0.2 rounded font-bold uppercase bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD]">
+                Nilai Tambah
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center space-x-2 shrink-0">
+            <span className="font-mono text-xs tabular-nums text-[#2D4439]">
+              Bobot: <strong>{r.weight}%</strong>
+            </span>
+            <span
+              className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold border ${
+                state === 'STRONG'
+                  ? 'bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD]'
+                  : state === 'PARTIAL'
+                  ? 'bg-[#FEF6E8] text-[#7A3E02] border-[#F8D8A7]'
+                  : 'bg-[#FCEBEB] text-[#8C1819] border-[#F6C1C1]'
+              }`}
+            >
+              {state === 'STRONG'
+                ? 'Terbukti'
+                : state === 'PARTIAL'
+                ? 'Sebagian'
+                : 'Tidak Tercantum'}
+            </span>
+          </div>
+        </div>
+
+        {/* Progressive Disclosure: Expandable Kutipan Bukti CV */}
+        {evidenceQuote ? (
+          <div className="pt-1 border-t border-[#E2E9E5]/60">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => toggleQuote(r.requirement_id)}
+                className="flex items-center gap-1.5 text-[11px] font-semibold text-[#1B4938] hover:text-[#124B2E] cursor-pointer transition-colors"
+              >
+                {isExpanded ? (
+                  <ChevronDown className="w-3.5 h-3.5 text-[#1B4938]" />
+                ) : (
+                  <ChevronRight className="w-3.5 h-3.5 text-[#1B4938]" />
+                )}
+                <span>{isExpanded ? 'Sembunyikan Kutipan CV' : 'Lihat Bukti Kutipan CV'}</span>
+                <VerbatimGroundingChip isGrounded={isVerbatimGrounded(evidenceQuote, candidate.full_text)} />
+                {!isExpanded && (
+                  <span className="text-[#2D4439]/60 font-mono text-[10px] truncate max-w-[220px]">
+                    — &ldquo;{evidenceQuote.slice(0, 40)}...&rdquo;
+                  </span>
+                )}
+              </button>
+
+              {isExpanded && (
+                <button
+                  type="button"
+                  onClick={() => handleJumpToGrounding(evidenceQuote, r.requirement_id)}
+                  className="text-[10px] font-bold text-[#1B4938] hover:underline cursor-pointer flex items-center gap-1"
+                  title="Lihat konteks penuh di berkas CV asli"
+                >
+                  <span>Buka di Berkas CV</span>
+                  <ChevronRight className="w-3 h-3 text-[#1B4938]" />
+                </button>
+              )}
+            </div>
+
+            {/* Expanded Kutipan Verbatim */}
+            {isExpanded && (
+              <div className="mt-2.5 p-3 rounded-xl bg-[#FEFCE8] border border-[#FEF08A] shadow-tactile-sm space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <VerbatimGroundingChip isGrounded={isVerbatimGrounded(evidenceQuote, candidate.full_text)} />
+                    <span className="font-mono text-[9px] text-[#713F12]">
+                      {evList[0]?.char_start !== undefined && evList[0]?.char_end !== undefined
+                        ? `Karakter ${evList[0].char_start}–${evList[0].char_end}`
+                        : 'Kutipan Bukti Terverifikasi'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleJumpToGrounding(evidenceQuote, r.requirement_id)}
+                    className="px-2.5 py-1 rounded-lg bg-[#1B4938] hover:bg-[#153A2D] text-white text-[10px] font-bold flex items-center gap-1 shadow-tactile-sm cursor-pointer transition-all active:scale-95"
+                    title="Lihat teks ini disorot di dokumen CV asli"
+                  >
+                    <span>Sorot di Teks CV</span>
+                    <ChevronRight className="w-3 h-3 text-white" />
+                  </button>
+                </div>
+                <div className="bg-white/90 p-2.5 rounded-lg border border-[#FDE047] shadow-inner">
+                  <p className="font-mono text-xs text-[#713F12] leading-relaxed select-text font-medium">
+                    &ldquo;{evidenceQuote}&rdquo;
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="pt-1 text-[10px] text-[#2D4439]/70 italic font-mono flex items-center gap-2">
+            <span>Tidak ditemukan kutipan eksplisit dalam berkas CV untuk kriteria ini.</span>
+          </div>
+        )}
+      </div>
+    )
   }
 
   return (
@@ -424,7 +582,7 @@ PENDIDIKAN & LATAR BELAKANG:
 
             {/* Segmented Decision Switch */}
             <div className="grid grid-cols-4 w-full sm:w-auto sm:flex sm:items-center bg-[#F2F5F3] p-0.5 rounded-xl border border-[#D5DFD9] shadow-tactile-sm shrink-0">
-              {/* Belum Diputuskan */}
+              {/* Belum Ada */}
               <button
                 type="button"
                 onClick={() => onDecision(candidate.cv_id, 'NONE')}
@@ -433,11 +591,10 @@ PENDIDIKAN & LATAR BELAKANG:
                     ? 'bg-[#EBF1EE] text-[#13221C] border border-[#D5DFD9] shadow-tactile-sm'
                     : 'text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE] border border-transparent'
                 }`}
-                title="Belum Diputuskan (Status Awal / Reset)"
+                title="Belum Ada"
               >
                 <CircleDot className="w-3.5 h-3.5 text-[#2D4439] shrink-0" />
-                <span className="hidden sm:inline">Belum Diputuskan</span>
-                <span className="sm:hidden">Belum</span>
+                <span>Belum Ada</span>
               </button>
 
               {/* Shortlist */}
@@ -479,7 +636,7 @@ PENDIDIKAN & LATAR BELAKANG:
                     ? 'bg-[#FCEBEB] text-[#8C1819] border border-[#F6C1C1] shadow-tactile-sm'
                     : 'text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE] border border-transparent'
                 }`}
-                title="Tidak Lanjut"
+                title="Tolak"
               >
                 <XCircle className="w-3.5 h-3.5 text-[#8C1819] shrink-0" />
                 <span>Tolak</span>
@@ -566,8 +723,89 @@ PENDIDIKAN & LATAR BELAKANG:
               {/* Screening Telemetry Avionics HUD */}
               <ScreeningTelemetryPanel telemetry={telemetry} />
 
+              {/* Highlight Banner: Syarat Wajib yang Belum Terpenuhi / Perlu Cek */}
+              {mustHavePartialOrUnproven.length > 0 && (
+                <section className="bg-[#FEF6E8] border-2 border-[#F8D8A7] rounded-2xl p-4 shadow-tactile space-y-3 animate-in fade-in duration-200">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#F8D8A7]/70 pb-2.5">
+                    <div className="flex items-center space-x-2">
+                      <AlertTriangle className="w-4 h-4 text-[#7A3E02] shrink-0" />
+                      <h3 className="text-xs font-bold text-[#7A3E02] uppercase tracking-wider">
+                        Syarat Wajib yang Belum Terpenuhi / Perlu Cek ({mustHavePartialOrUnproven.length} Kriteria)
+                      </h3>
+                    </div>
+                    <span className="font-mono text-[10px] font-bold bg-[#7A3E02] text-[#FCFDFC] px-2 py-0.5 rounded-full">
+                      Perlu Evaluasi Manual
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-[#7A3E02] leading-relaxed">
+                    Kandidat ini belum membuktikan secara penuh kualifikasi wajib mutlak berikut. Klik <strong>Lihat Kriteria Ini</strong> untuk memeriksa bukti dan catatan analisis pada kriteria terkait:
+                  </p>
+
+                  <div className="space-y-2">
+                    {mustHavePartialOrUnproven.map((r) => {
+                      const state = candidate.requirement_states[r.requirement_id] || 'NOT_DEMONSTRATED'
+                      const isPartial = state === 'PARTIAL'
+                      const evList = candidate.evidence[r.requirement_id] || []
+                      const firstQuote = evList[0]?.quote
+                      const unprovenItem = candidate.explanation.unproven?.find((u) => u.requirement_id === r.requirement_id)
+
+                      return (
+                        <div
+                          key={`deficit-${r.requirement_id}`}
+                          className="p-3 bg-[#FCFDFC] border border-[#F8D8A7] rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-tactile-sm"
+                        >
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-mono font-bold text-xs bg-[#FEF6E8] text-[#7A3E02] px-2 py-0.5 rounded border border-[#F8D8A7]">
+                                {r.requirement_id}
+                              </span>
+                              <span className="font-semibold text-xs text-[#13221C]">
+                                {r.description}
+                              </span>
+                              <span
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                                  isPartial
+                                    ? 'bg-[#FEF6E8] text-[#7A3E02] border-[#F8D8A7]'
+                                    : 'bg-[#FCEBEB] text-[#8C1819] border-[#F6C1C1]'
+                                }`}
+                              >
+                                {isPartial ? 'Sebagian (PARTIAL)' : 'Tidak Tercantum'}
+                              </span>
+                              <span className="font-mono text-[11px] text-[#2D4439]/80">
+                                Bobot: {r.weight}%
+                              </span>
+                            </div>
+
+                            {firstQuote ? (
+                              <p className="font-mono text-[10px] text-[#7A3E02] italic line-clamp-1">
+                                &ldquo;{firstQuote}&rdquo;
+                              </p>
+                            ) : unprovenItem?.note ? (
+                              <p className="text-[10px] text-[#7A3E02] italic line-clamp-1">
+                                Catatan AI: {unprovenItem.note}
+                              </p>
+                            ) : null}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleScrollToCriterion(r.requirement_id)}
+                            className="h-7 px-3 bg-[#FEF6E8] hover:bg-[#FBEED7] text-[#7A3E02] hover:text-[#5C2E01] border border-[#F8D8A7] rounded-lg text-xs font-bold transition-all flex items-center justify-center space-x-1.5 cursor-pointer active:scale-95 shrink-0 shadow-tactile-sm"
+                            title={`Lihat kriteria ${r.requirement_id} di matriks evaluasi`}
+                          >
+                            <Eye className="w-3.5 h-3.5 text-[#7A3E02]" />
+                            <span>Lihat Kriteria Ini</span>
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </section>
+              )}
+
               {/* Ringkasan Eksekutif */}
-              <section className="bg-[#FCFDFC] border border-[#D5DFD9] rounded-2xl p-4 shadow-tactile space-y-3">
+              <section className="bg-[#FCFDFC] border border-[#D5DFD9] rounded-2xl p-4 shadow-tactile space-y-3.5">
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E2E9E5] pb-2.5">
                   <div className="flex items-center space-x-2">
                     <Award className="w-4 h-4 text-[#1B4938]" />
@@ -583,12 +821,17 @@ PENDIDIKAN & LATAR BELAKANG:
                   </span>
                 </div>
 
-                {/* Must-Have Requirements Fulfilment Banner */}
-                <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-[#F5F8F6] border border-[#D5DFD9]">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xs font-bold text-[#13221C]">
-                      Kualifikasi Wajib (Must-Have):
-                    </span>
+                {/* BLOK 1: Kualifikasi Wajib (Must-Have) */}
+                <div className="space-y-2.5 bg-[#F5F8F6] p-3.5 rounded-xl border border-[#D5DFD9]">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center space-x-2">
+                      <span className="font-mono text-xs font-bold bg-[#1B4938] text-[#FCFDFC] px-2 py-0.5 rounded">
+                        Blok 1
+                      </span>
+                      <h4 className="text-xs font-bold text-[#13221C] uppercase tracking-wider">
+                        Kualifikasi Wajib (Must-Have)
+                      </h4>
+                    </div>
                     {allMustHavesMet ? (
                       <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD]">
                         <CheckCircle2 className="w-3.5 h-3.5 text-[#124B2E]" />
@@ -597,88 +840,173 @@ PENDIDIKAN & LATAR BELAKANG:
                     ) : (
                       <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold bg-[#FEF6E8] text-[#7A3E02] border border-[#F8D8A7]">
                         <AlertTriangle className="w-3.5 h-3.5 text-[#7A3E02]" />
-                        {mustHavePartialOrUnproven.length} Syarat Perlu Perhatian ({mustHaveFulfilled.length}/
-                        {mustHaveReqs.length})
+                        {mustHavePartialOrUnproven.length} Perlu Dicek ({mustHaveFulfilled.length}/{mustHaveReqs.length})
                       </span>
                     )}
                   </div>
-                  <span className="text-[10px] font-mono text-[#2D4439]">
-                    Evaluasi Forensik AI
-                  </span>
+                  <p className="text-[11px] text-[#2D4439]">
+                    Prasyarat mutlak lowongan. Seluruh syarat wajib harus terbukti secara verbatim dalam berkas CV kandidat.
+                  </p>
+
+                  <div className="space-y-2 pt-1">
+                    {mustHaveReqs.length === 0 ? (
+                      <p className="text-xs text-[#2D4439]/70 italic">Tidak ada syarat wajib yang ditentukan.</p>
+                    ) : (
+                      mustHaveReqs.map((r) => {
+                        const state = candidate.requirement_states[r.requirement_id] || 'NOT_DEMONSTRATED'
+                        const isStrong = state === 'STRONG'
+                        const isPartial = state === 'PARTIAL'
+                        const evList = candidate.evidence[r.requirement_id] || []
+                        const quote = evList[0]?.quote
+                        const unprovenItem = candidate.explanation.unproven?.find((u) => u.requirement_id === r.requirement_id)
+
+                        return (
+                          <div
+                            key={`exec-must-${r.requirement_id}`}
+                            className={`p-3 rounded-xl border text-xs space-y-1.5 transition-all shadow-tactile-sm ${
+                              isStrong
+                                ? 'bg-[#EBF6EF]/50 border-[#BBE5CD]'
+                                : isPartial
+                                ? 'bg-[#FEF6E8]/60 border-[#F8D8A7]'
+                                : 'bg-[#FCEBEB]/50 border-[#F6C1C1]'
+                            }`}
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-1.5">
+                              <div className="flex items-center space-x-2 min-w-0">
+                                <span className={`font-mono text-[10px] font-bold px-1.5 py-0.2 rounded border ${
+                                  isStrong
+                                    ? 'bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD]'
+                                    : isPartial
+                                    ? 'bg-[#FEF6E8] text-[#7A3E02] border-[#F8D8A7]'
+                                    : 'bg-[#FCEBEB] text-[#8C1819] border-[#F6C1C1]'
+                                }`}>
+                                  {r.requirement_id}
+                                </span>
+                                <span className="font-semibold text-[#13221C] text-[11px] truncate">
+                                  {r.description}
+                                </span>
+                              </div>
+                              <div className="flex items-center space-x-1.5 shrink-0">
+                                <span className="font-mono text-[10px] text-[#2D4439]">
+                                  Bobot {r.weight}%
+                                </span>
+                                <span className={`text-[10px] font-bold px-2 py-0.2 rounded border ${
+                                  isStrong
+                                    ? 'bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD]'
+                                    : isPartial
+                                    ? 'bg-[#FEF6E8] text-[#7A3E02] border-[#F8D8A7]'
+                                    : 'bg-[#FCEBEB] text-[#8C1819] border-[#F6C1C1]'
+                                }`}>
+                                  {isStrong ? 'Terbukti' : isPartial ? 'Perlu Dicek (Sebagian)' : 'Perlu Dicek (Tidak Ada)'}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Kutipan Bukti Langsung */}
+                            {quote ? (
+                              <div className="flex items-start gap-1.5 pt-1">
+                                <VerbatimGroundingChip isGrounded={isVerbatimGrounded(quote, candidate.full_text)} />
+                                <p className="font-mono text-[10px] text-[#124B2E] italic break-words flex-1 min-w-0" title={quote}>
+                                  &ldquo;{quote}&rdquo;
+                                </p>
+                              </div>
+                            ) : unprovenItem?.note ? (
+                              <p className="text-[10px] text-[#7A3E02] italic pt-0.5">
+                                Catatan AI: {unprovenItem.note}
+                              </p>
+                            ) : (
+                              <p className="text-[10px] text-[#8C1819] italic pt-0.5">
+                                Belum ada bukti verbatim yang terverifikasi dalam teks CV.
+                              </p>
+                            )}
+                          </div>
+                        )
+                      })
+                    )}
+                  </div>
                 </div>
 
-                {/* Top Strengths Grid */}
-                {candidate.explanation.strengths && candidate.explanation.strengths.length > 0 && (
-                  <div className="space-y-2 pt-1">
-                    <span className="text-[11px] font-bold text-[#13221C] uppercase tracking-wider block">
-                      Keunggulan Utama Terverifikasi
-                    </span>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      {candidate.explanation.strengths.slice(0, 4).map((s, idx) => (
-                        <div
-                          key={idx}
-                          className="p-2.5 rounded-xl bg-[#EBF6EF]/50 border border-[#BBE5CD] text-xs space-y-1 shadow-tactile-sm"
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="font-mono text-[10px] font-bold text-[#124B2E]">
-                              {s.requirement_id} • Bobot {s.weight}%
-                            </span>
-                          </div>
-                          <p className="font-semibold text-[#13221C] text-[11px]">{s.description}</p>
-                          {s.quote && (
-                            <div className="flex items-start gap-1.5 pt-0.5">
-                              <VerbatimGroundingChip isGrounded={true} />
-                              <p className="font-mono text-[10px] text-[#124B2E] italic break-words flex-1 min-w-0" title={s.quote}>
-                                &quot;{s.quote}&quot;
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                {/* BLOK 2: Kualifikasi Nilai Tambah / Diutamakan (Nice-to-Have) */}
+                <div className="space-y-2.5 bg-[#F5F8F6] p-3.5 rounded-xl border border-[#D5DFD9]">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center space-x-2">
+                      <span className="font-mono text-xs font-bold bg-[#2D4439] text-[#FCFDFC] px-2 py-0.5 rounded">
+                        Blok 2
+                      </span>
+                      <h4 className="text-xs font-bold text-[#13221C] uppercase tracking-wider">
+                        Kualifikasi Nilai Tambah / Diutamakan (Nice-to-Have)
+                      </h4>
                     </div>
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD]">
+                      <Sparkles className="w-3.5 h-3.5 text-[#124B2E]" />
+                      {niceToHaveFulfilled.length} dari {niceToHaveReqs.length} Terbukti sebagai Poin Pembeda
+                    </span>
                   </div>
-                )}
+                  <p className="text-[11px] text-[#2D4439]">
+                    Kualifikasi diutamakan yang dipenuhi kandidat untuk memberikan nilai tambah kompetitif dibanding kandidat lain.
+                  </p>
 
-                {/* Catatan Defisit / Flags */}
-                {((candidate.flags && candidate.flags.length > 0) ||
-                  (candidate.explanation.unproven && candidate.explanation.unproven.length > 0)) && (
-                  <div className="p-3 rounded-xl bg-[#FEF6E8] border border-[#F8D8A7] text-xs space-y-2 shadow-tactile-sm">
+                  <div className="space-y-2 pt-1">
+                    {niceToHaveFulfilled.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {niceToHaveFulfilled.map((r) => {
+                          const evList = candidate.evidence[r.requirement_id] || []
+                          const quote = evList[0]?.quote
+                          return (
+                            <div
+                              key={`exec-nice-${r.requirement_id}`}
+                              className="p-2.5 rounded-xl bg-[#EBF6EF]/50 border border-[#BBE5CD] text-xs space-y-1.5 shadow-tactile-sm"
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-mono text-[10px] font-bold text-[#124B2E]">
+                                  {r.requirement_id} • Bobot {r.weight}%
+                                </span>
+                                <span className="text-[9px] font-bold bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD] px-1.5 py-0.2 rounded">
+                                  Poin Plus
+                                </span>
+                              </div>
+                              <p className="font-semibold text-[#13221C] text-[11px]">{r.description}</p>
+                              {quote && (
+                                <div className="flex items-start gap-1.5 pt-0.5">
+                                  <VerbatimGroundingChip isGrounded={isVerbatimGrounded(quote, candidate.full_text)} />
+                                  <p className="font-mono text-[10px] text-[#124B2E] italic break-words flex-1 min-w-0" title={quote}>
+                                    &ldquo;{quote}&rdquo;
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <div className="p-3 rounded-xl bg-[#FCFDFC] border border-[#D5DFD9] text-xs text-[#2D4439] italic text-center">
+                        Belum ada kualifikasi nilai tambah / diutamakan yang terbukti pada kandidat ini.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Catatan Integritas / Flags */}
+                {candidate.flags && candidate.flags.length > 0 && (
+                  <div className="p-3 rounded-xl bg-[#FEF6E8] border border-[#F8D8A7] text-xs space-y-1.5 shadow-tactile-sm">
                     <div className="flex items-center space-x-1.5 text-[#7A3E02] font-bold">
                       <AlertTriangle className="w-3.5 h-3.5 text-[#7A3E02] shrink-0" />
-                      <span>Catatan Defisit & Indikasi Verifikasi:</span>
+                      <span>Catatan Integritas Dokumen:</span>
                     </div>
-                    <div className="space-y-1 text-[#13221C]">
-                      {candidate.flags &&
-                        candidate.flags.map((flag, idx) => (
-                          <div key={`flag-${idx}`} className="flex items-center gap-1.5 text-xs text-[#7A3E02]">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#7A3E02]" />
-                            <span>
-                              Flag Integritas: <strong>{flag}</strong>
-                            </span>
-                          </div>
-                        ))}
-                      {candidate.explanation.unproven &&
-                        candidate.explanation.unproven.map((u, idx) => (
-                          <div
-                            key={`unproven-${idx}`}
-                            className="flex items-start gap-1.5 text-xs text-[#7A3E02]"
-                          >
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#7A3E02] mt-1 shrink-0" />
-                            <span>
-                              <strong>
-                                [{u.requirement_id}] {u.description}
-                              </strong>
-                              : {u.note}
-                            </span>
-                          </div>
-                        ))}
+                    <div className="space-y-1 text-[#7A3E02]">
+                      {candidate.flags.map((flag, idx) => (
+                        <div key={`flag-${idx}`} className="flex items-center gap-1.5 text-xs">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#7A3E02]" />
+                          <span>Flag: <strong>{flag}</strong></span>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
               </section>
 
               {/* Matriks Kriteria & Bukti dengan Progressive Disclosure */}
-              <section className="bg-[#FCFDFC] border border-[#D5DFD9] rounded-2xl p-4 shadow-tactile space-y-3">
+              <section className="bg-[#FCFDFC] border border-[#D5DFD9] rounded-2xl p-4 shadow-tactile space-y-4">
                 <div className="flex items-center justify-between border-b border-[#E2E9E5] pb-2.5">
                   <div className="flex items-center space-x-2">
                     <Award className="w-4 h-4 text-[#1B4938]" />
@@ -705,133 +1033,55 @@ PENDIDIKAN & LATAR BELAKANG:
                   </button>
                 </div>
 
+                {/* Sub-Blok 1: Kualifikasi Wajib (Must-Have) */}
                 <div className="space-y-2.5">
-                  {requirements.map((r) => {
-                    const state =
-                      candidate.requirement_states[r.requirement_id] || 'NOT_DEMONSTRATED'
-                    const evList = candidate.evidence[r.requirement_id] || []
-                    const evidenceQuote = evList[0]?.quote
-                    const isExpanded = !!expandedQuotes[r.requirement_id]
+                  <div className="flex items-center justify-between px-1">
+                    <div className="flex items-center space-x-2">
+                      <span className="font-mono text-[10px] font-bold bg-[#7A3E02] text-[#FCFDFC] px-2 py-0.5 rounded">
+                        Kualifikasi Wajib (Must-Have)
+                      </span>
+                      <span className="text-xs font-bold text-[#13221C]">
+                        {mustHaveReqs.length} Kriteria Prasyarat
+                      </span>
+                    </div>
+                    {allMustHavesMet ? (
+                      <span className="text-[10px] font-bold text-[#124B2E]">
+                        ✓ Semua Terpenuhi
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold text-[#7A3E02]">
+                        ⚠ {mustHavePartialOrUnproven.length} Perlu Dicek
+                      </span>
+                    )}
+                  </div>
 
-                    return (
-                      <div
-                        key={r.requirement_id}
-                        className="p-3 rounded-xl bg-[#FCFDFC] hover:bg-[#F5F8F6] border border-[#D5DFD9] hover:border-[#1B4938]/40 space-y-2 transition-all shadow-tactile-sm"
-                      >
-                        {/* Header Row Kriteria */}
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div className="flex items-center space-x-2 min-w-0 flex-wrap">
-                            <span className="font-mono font-bold text-xs text-[#1B4938] bg-[#EBF1EE] px-2 py-0.5 rounded border border-[#D5DFD9]">
-                              {r.requirement_id}
-                            </span>
-                            <DualLayerCriterionBadge req={r} />
-                            <span className="font-semibold text-xs text-[#13221C]">
-                              {r.description}
-                            </span>
-                            {r.importance === 'MUST_HAVE' && (
-                              <span className="font-mono text-[9px] px-1.5 py-0.2 rounded font-bold uppercase bg-[#FEF6E8] text-[#7A3E02] border border-[#F8D8A7]">
-                                Wajib
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="flex items-center space-x-2 shrink-0">
-                            <span className="font-mono text-xs tabular-nums text-[#2D4439]">
-                              Bobot: <strong>{r.weight}%</strong>
-                            </span>
-                            <span
-                              className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold border ${
-                                state === 'STRONG'
-                                  ? 'bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD]'
-                                  : state === 'PARTIAL'
-                                  ? 'bg-[#FEF6E8] text-[#7A3E02] border-[#F8D8A7]'
-                                  : 'bg-[#FCEBEB] text-[#8C1819] border-[#F6C1C1]'
-                              }`}
-                            >
-                              {state === 'STRONG'
-                                ? 'Terbukti'
-                                : state === 'PARTIAL'
-                                ? 'Sebagian'
-                                : 'Tidak Tercantum'}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Progressive Disclosure: Expandable Kutipan Bukti CV */}
-                        {evidenceQuote ? (
-                          <div className="pt-1 border-t border-[#E2E9E5]/60">
-                            <div className="flex items-center justify-between gap-2 flex-wrap">
-                              <button
-                                type="button"
-                                onClick={() => toggleQuote(r.requirement_id)}
-                                className="flex items-center gap-1.5 text-[11px] font-semibold text-[#1B4938] hover:text-[#124B2E] cursor-pointer transition-colors"
-                              >
-                                {isExpanded ? (
-                                  <ChevronDown className="w-3.5 h-3.5 text-[#1B4938]" />
-                                ) : (
-                                  <ChevronRight className="w-3.5 h-3.5 text-[#1B4938]" />
-                                )}
-                                <span>{isExpanded ? 'Sembunyikan Kutipan CV' : 'Lihat Bukti Kutipan CV'}</span>
-                                <VerbatimGroundingChip isGrounded={isVerbatimGrounded(evidenceQuote, candidate.full_text)} />
-                                {!isExpanded && (
-                                  <span className="text-[#2D4439]/60 font-mono text-[10px] truncate max-w-[220px]">
-                                    — &ldquo;{evidenceQuote.slice(0, 40)}...&rdquo;
-                                  </span>
-                                )}
-                              </button>
-
-                              {isExpanded && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleJumpToGrounding(evidenceQuote, r.requirement_id)}
-                                  className="text-[10px] font-bold text-[#1B4938] hover:underline cursor-pointer flex items-center gap-1"
-                                  title="Lihat konteks penuh di berkas CV asli"
-                                >
-                                  <span>Buka di Berkas CV</span>
-                                  <ChevronRight className="w-3 h-3 text-[#1B4938]" />
-                                </button>
-                              )}
-                            </div>
-
-                            {/* Expanded Kutipan Verbatim */}
-                            {isExpanded && (
-                              <div className="mt-2.5 p-3 rounded-xl bg-[#FEFCE8] border border-[#FEF08A] shadow-tactile-sm space-y-2">
-                                <div className="flex items-center justify-between gap-2">
-                                  <div className="flex items-center gap-1.5">
-                                    <VerbatimGroundingChip isGrounded={isVerbatimGrounded(evidenceQuote, candidate.full_text)} />
-                                    <span className="font-mono text-[9px] text-[#713F12]">
-                                      {evList[0]?.char_start !== undefined && evList[0]?.char_end !== undefined
-                                        ? `Karakter ${evList[0].char_start}–${evList[0].char_end}`
-                                        : 'Kutipan Bukti Terverifikasi'}
-                                    </span>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleJumpToGrounding(evidenceQuote, r.requirement_id)}
-                                    className="px-2.5 py-1 rounded-lg bg-[#1B4938] hover:bg-[#153A2D] text-white text-[10px] font-bold flex items-center gap-1 shadow-tactile-sm cursor-pointer transition-all active:scale-95"
-                                    title="Lihat teks ini disorot di dokumen CV asli"
-                                  >
-                                    <span>Sorot di Teks CV</span>
-                                    <ChevronRight className="w-3 h-3 text-white" />
-                                  </button>
-                                </div>
-                                <div className="bg-white/90 p-2.5 rounded-lg border border-[#FDE047] shadow-inner">
-                                  <p className="font-mono text-xs text-[#713F12] leading-relaxed select-text font-medium">
-                                    &ldquo;{evidenceQuote}&rdquo;
-                                  </p>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="pt-1 text-[10px] text-[#2D4439]/70 italic font-mono flex items-center gap-2">
-                            <span>Tidak ditemukan kutipan eksplisit dalam berkas CV untuk kriteria ini.</span>
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
+                  <div className="space-y-2.5">
+                    {mustHaveReqs.map(renderCriterionCard)}
+                  </div>
                 </div>
+
+                {/* Sub-Blok 2: Kualifikasi Nilai Tambah / Diutamakan (Nice-to-Have) */}
+                {niceToHaveReqs.length > 0 && (
+                  <div className="space-y-2.5 pt-2 border-t border-[#E2E9E5]">
+                    <div className="flex items-center justify-between px-1">
+                      <div className="flex items-center space-x-2">
+                        <span className="font-mono text-[10px] font-bold bg-[#1B4938] text-[#FCFDFC] px-2 py-0.5 rounded">
+                          Nilai Tambah / Diutamakan
+                        </span>
+                        <span className="text-xs font-bold text-[#13221C]">
+                          {niceToHaveReqs.length} Kriteria Pembeda
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-bold text-[#124B2E]">
+                        {niceToHaveFulfilled.length}/{niceToHaveReqs.length} Terbukti
+                      </span>
+                    </div>
+
+                    <div className="space-y-2.5">
+                      {niceToHaveReqs.map(renderCriterionCard)}
+                    </div>
+                  </div>
+                )}
               </section>
 
               {/* Panduan Pertanyaan Wawancara Terarah */}

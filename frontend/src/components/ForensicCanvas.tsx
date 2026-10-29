@@ -173,10 +173,10 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
                   ? 'bg-[#EBF1EE] text-[#13221C] border border-[#D5DFD9] shadow-tactile-sm'
                   : 'text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE] border border-transparent'
               }`}
-              title="Belum Diputuskan (Status Awal / Reset)"
+              title="Belum Ada (Status Awal / Reset)"
             >
               <CircleDot className="w-3.5 h-3.5 text-[#2D4439] shrink-0" />
-              <span>Belum Diputuskan</span>
+              <span>Belum Ada</span>
             </button>
 
             <button
@@ -215,10 +215,10 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
                   ? 'bg-[#FCEBEB] text-[#8C1819] border border-[#F6C1C1] shadow-tactile-sm'
                   : 'text-[#2D4439] hover:text-[#13221C] hover:bg-[#EBF1EE] border border-transparent'
               }`}
-              title="Tidak lanjut ke tahap berikutnya"
+              title="Kandidat ditolak / tidak memenuhi syarat"
             >
               <XCircle className="w-3.5 h-3.5 text-[#8C1819] shrink-0" />
-              <span>Tidak Lanjut</span>
+              <span>Tolak</span>
             </button>
           </div>
         </div>

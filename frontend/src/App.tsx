@@ -1370,11 +1370,11 @@ export default function App() {
       const labelMap: Record<string, string> = {
         SHORTLIST: 'Shortlist',
         HOLD: 'Hold',
-        TIDAK_LANJUT: 'Tidak Lanjut',
+        TIDAK_LANJUT: 'Tolak',
       }
       const label = normalizedDecision
         ? labelMap[normalizedDecision] || normalizedDecision
-        : 'Belum Diputuskan'
+        : 'Belum Ada'
       showToast(`Status kandidat diperbarui -> ${label}`, 'success')
     },
     [showToast]
@@ -2012,7 +2012,7 @@ export default function App() {
       <main className="flex-1 overflow-hidden flex flex-col min-h-0">
         {currentStep === 'setup' && (
           <div className="flex-1 flex flex-col overflow-hidden relative bg-[#F2F5F3]">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 w-full flex-1 flex flex-col min-h-0">
+            <div className="max-w-[1400px] 2xl:max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 py-4 w-full flex-1 flex flex-col min-h-0">
               <JobSetupStep
                 jobTitle={jobTitle}
                 setJobTitle={setJobTitle}
@@ -2051,7 +2051,7 @@ export default function App() {
 
         {currentStep === 'criteria' && (
           <div className="flex-1 flex flex-col overflow-hidden relative bg-[#F2F5F3]">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 w-full flex-1 flex flex-col min-h-0">
+            <div className="max-w-[1400px] 2xl:max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 py-4 w-full flex-1 flex flex-col min-h-0">
               <CriteriaStudio
                 jobTitle={jobTitle}
                 setJobTitle={setJobTitle}
@@ -2083,7 +2083,7 @@ export default function App() {
 
         {currentStep === 'upload' && (
           <div className="flex-1 flex flex-col overflow-hidden relative bg-[#F2F5F3]">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 w-full flex-1 flex flex-col min-h-0">
+            <div className="max-w-[1400px] 2xl:max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 py-4 w-full flex-1 flex flex-col min-h-0">
               <UploadStep
                 uploadedFiles={uploadedFiles}
                 isUploading={isUploading}
@@ -2105,7 +2105,7 @@ export default function App() {
 
         {currentStep === 'workbench' && (
           <div className="flex-1 flex flex-col overflow-hidden relative bg-[#F2F5F3]">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 w-full flex-1 flex flex-col min-h-0">
+            <div className="max-w-[1400px] 2xl:max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 py-4 w-full flex-1 flex flex-col min-h-0">
               <div className="flex-1 flex flex-col lg:flex-row gap-4 overflow-hidden min-h-0 relative">
                 {/* Left Panel: Master Candidate Roster (40% width on lg when inspector open, 100% when closed) */}
                 <div
