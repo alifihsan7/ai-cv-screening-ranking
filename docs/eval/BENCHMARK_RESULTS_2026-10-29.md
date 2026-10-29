@@ -61,6 +61,22 @@ Per jenis kriteria (aturan murni → dengan Jev): RESPONSIBILITY 7/15 → 14/15,
 
 Kesimpulan: dengan bukti yang sampai kepadanya, Jev memulihkan sebagian besar kriteria yang meleset dari kosakata aturan. Hambatan berikutnya adalah pencarian bukti, bukan penilaian Jev.
 
+### Jumlah potongan bukti per siklus (`EVIDENCE_TOP_K`)
+
+Kesimpulan di atas mengarah ke pencarian bukti, jadi jumlah potongan yang dikirim ke Jev per siklus dibuat menjadi pengaturan `EVIDENCE_TOP_K` (default tetap 3) dan diuji dengan 8. Nilai 8 ditentukan sebelum pengukuran, satu nilai saja, bukan hasil menyisir beberapa angka.
+
+| | 3 potongan | 8 potongan |
+|---|---|---|
+| Golden | 143/150 (Jev memutuskan 5, mengubah 0) | **144/150** (Jev memutuskan 8; 1 diperbaiki, 0 dirusak) |
+| Set parafrase | 138/150 | **143/150** (17 diperbaiki, 1 dirusak) |
+| Token masuk, golden / parafrase | 170 ribu / 192 ribu | 266 ribu / 311 ribu (naik 56 sampai 62%) |
+| Biaya per 15 CV, golden / parafrase | $0,007 / $0,008 | $0,011 / $0,013 |
+| Waktu 15 CV | 60 / 67 detik | 59 / 68 detik |
+
+Tidak ada regresi pada golden. Perbaikan golden adalah M3.R10 (NOT_DEMONSTRATED menjadi PARTIAL, benar), kesalahan yang selama ini tidak terjangkau karena bukti kepemimpinan magang tidak masuk 3 teratas. Pada set parafrase, LEADERSHIP pulih penuh (15/15) dan ACHIEVEMENT naik ke 11/15. Jumlah panggilan hampir sama, jadi waktu tidak berubah; yang naik hanya token per panggilan.
+
+Tujuh kesalahan tersisa pada set parafrase: M2.R2 (Jev terlalu tinggi pada "API internal sederhana"), M2.R7 dan S4.R7 (EDUCATION, keputusan aturan), M3.R9 (aturan terlalu tinggi), serta M4.R9, S1.R9, S5.R9 (ACHIEVEMENT yang tetap dinilai NOT_DEMONSTRATED). Dugaan untuk yang terakhir: primitive Score untuk ACHIEVEMENT menilai "kedalaman keahlian", bukan "pencapaian terukur", sehingga tidak cocok; belum diuji. Nilai 8 hanyalah satu titik; optimum antara 5 dan 12 belum diukur.
+
 ### Keterbatasan pembaruan ini
 
 - Dataset kecil (15 CV) dan sudah berkali-kali diamati. Perbaikan di atas tidak boleh dibaca sebagai estimasi akurasi pada CV nyata.

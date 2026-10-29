@@ -525,7 +525,7 @@ class ScreeningAgent:
                 act_input: ActionInput = RetrievalActionInput(
                     action_type="HYBRID_RETRIEVAL",
                     query=current_query,
-                    top_k=3,
+                    top_k=settings.EVIDENCE_TOP_K,
                     candidate_id=self.candidate_id,
                     criterion_id=req_id,
                 )
@@ -553,7 +553,7 @@ class ScreeningAgent:
                 sub_retrieval = RetrievalActionInput(
                     action_type="HYBRID_RETRIEVAL",
                     query=current_query,
-                    top_k=3,
+                    top_k=settings.EVIDENCE_TOP_K,
                     candidate_id=self.candidate_id,
                     criterion_id=req_id,
                 )

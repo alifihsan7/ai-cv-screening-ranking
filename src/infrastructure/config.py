@@ -65,6 +65,8 @@ class Settings(BaseSettings):
     # Hybrid Retrieval & Scoring Mode (FX-32 / Mode 3 Jev Hybrid)
     SCORING_MODE: str = "rules"  # "rules" | "hybrid" | "jev_hybrid"
     SEMANTIC_THRESHOLD: float = 0.65
+    # How many evidence chunks the screening flow sends to the verifier per retrieval cycle
+    EVIDENCE_TOP_K: int = 3
     USE_SCREENING_AGENT: bool = True
     USE_JEV_EXTRACTION: bool = False
 

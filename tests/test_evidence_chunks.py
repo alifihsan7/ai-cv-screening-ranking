@@ -158,3 +158,58 @@ async def test_skill_shown_in_a_job_bullet_is_strong():
     result = await _screen(profile, f"Backend Developer di PT Contoh. {bullet}")
 
     assert result.state.value == "STRONG"
+
+
+def _many_bullets_profile(count: int) -> dict:
+    return {
+        "experiences": [
+            {
+                "title": "Backend Developer",
+                "start": "2022-01",
+                "end": "2024-12",
+                "bullets": [{"text": f"Menjaga keandalan layanan produksi nomor {i} pada jam sibuk."} for i in range(count)],
+            }
+        ],
+        "skills": [],
+    }
+
+
+@pytest.mark.parametrize("top_k", [2, 6])
+@pytest.mark.asyncio
+async def test_number_of_chunks_sent_to_jev_follows_the_setting(top_k):
+    """EVIDENCE_TOP_K bounds how many chunks the first verification cycle sends."""
+    from unittest.mock import patch
+
+    from src.domain.agent import ScreeningAgent
+    from src.domain.verifier import JevTypeSafeVerifierProvider
+    from src.infrastructure.config import settings
+    from tests.conftest import mock_jev_client
+
+    client = mock_jev_client(choice="NOT_DEMONSTRATED")
+    requirement = {
+        "requirement_id": "R_REL",
+        "description": "Menjaga keandalan layanan produksi",
+        "kind": "ACHIEVEMENT",
+        "category": "EXPERIENCE",
+        "importance": "NICE_TO_HAVE",
+        "weight": 5,
+        "concepts": [],
+        "params": {},
+    }
+    profile = _many_bullets_profile(10)
+    raw_text = " ".join(b["text"] for b in profile["experiences"][0]["bullets"])
+
+    with patch.object(settings, "EVIDENCE_TOP_K", top_k):
+        agent = ScreeningAgent(
+            job_id="JD-T",
+            candidate_id="C-T",
+            requirements=[requirement],
+            profile=profile,
+            raw_cv_text=raw_text,
+            verifier_provider=JevTypeSafeVerifierProvider(client=client),
+            as_of="2026-10-01",
+        )
+        await agent.run()
+
+    first_call_state = client.system_one.call_args_list[0].kwargs["state"]
+    assert len(first_call_state["evidence_chunks"]) == top_k
