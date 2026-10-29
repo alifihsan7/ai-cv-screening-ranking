@@ -1,0 +1,527 @@
+{
+  "job_id": "JD-01",
+  "as_of": "2026-10-01",
+  "requirement_set": "docs/spec/golden_dataset/job_descriptions/JD-01_requirements.approved.json",
+  "authoring": "Labels derived from docs/spec/02_SCORING_RUBRIC_SPEC.md section 4 before the system was run on these CVs. Written by the assistant that worked on the system; needs human review.",
+  "reference_ranking": [
+    "L01",
+    "L10",
+    "L08",
+    "L07",
+    "L12",
+    "L02",
+    "L03",
+    "L09",
+    "L06",
+    "L05",
+    "L11",
+    "L04"
+  ],
+  "candidates": [
+    {
+      "cv_id": "L01",
+      "file": "cvs/core/L01_docx_para_id.docx",
+      "group": "strong",
+      "format": "docx_para",
+      "language": "id",
+      "relevance_grade": 3,
+      "expected_states": {
+        "R1": [
+          "STRONG"
+        ],
+        "R2": [
+          "STRONG"
+        ],
+        "R3": [
+          "STRONG"
+        ],
+        "R4": [
+          "STRONG"
+        ],
+        "R5": [
+          "STRONG"
+        ],
+        "R6": [
+          "STRONG"
+        ],
+        "R7": [
+          "STRONG"
+        ],
+        "R8": [
+          "STRONG"
+        ],
+        "R9": [
+          "STRONG"
+        ],
+        "R10": [
+          "NOT_DEMONSTRATED"
+        ]
+      },
+      "expected_backend_months": 70,
+      "note": "Kontrol positif: angka hasil latensi di pekerjaan backend = STRONG. Tanpa peran memimpin."
+    },
+    {
+      "cv_id": "L02",
+      "file": "cvs/core/L02_pdf_single_en.pdf",
+      "group": "marginal",
+      "format": "pdf_single",
+      "language": "en",
+      "relevance_grade": 2,
+      "expected_states": {
+        "R1": [
+          "STRONG"
+        ],
+        "R2": [
+          "STRONG"
+        ],
+        "R3": [
+          "STRONG"
+        ],
+        "R4": [
+          "STRONG"
+        ],
+        "R5": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R6": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R7": [
+          "STRONG"
+        ],
+        "R8": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R9": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R10": [
+          "NOT_DEMONSTRATED"
+        ]
+      },
+      "expected_backend_months": 56,
+      "note": "Jebakan domain: angka hasil (120%) ada di pekerjaan LAIN dan berupa target penjualan; pekerjaan backend tidak punya angka hasil. R9 = NOT_DEMONSTRATED. Account Executive tidak dihitung untuk R1 (56 bulan backend)."
+    },
+    {
+      "cv_id": "L03",
+      "file": "cvs/core/L03_pdf_prose_id.pdf",
+      "group": "irrelevant",
+      "format": "pdf_prose",
+      "language": "id",
+      "relevance_grade": 1,
+      "expected_states": {
+        "R1": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R2": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R3": [
+          "STRONG"
+        ],
+        "R4": [
+          "STRONG"
+        ],
+        "R5": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R6": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R7": [
+          "PARTIAL"
+        ],
+        "R8": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R9": [
+          "PARTIAL"
+        ],
+        "R10": [
+          "NOT_DEMONSTRATED"
+        ]
+      },
+      "expected_backend_months": 0,
+      "note": "Domain berdekatan: angka hasil di pekerjaan data analyst untuk lowongan backend = PARTIAL (spec 4.2 ACHIEVEMENT). Role family data tidak diterima untuk R1. Statistika = partial_fields."
+    },
+    {
+      "cv_id": "L04",
+      "file": "cvs/core/L04_docx_para_en.docx",
+      "group": "irrelevant",
+      "format": "docx_para",
+      "language": "en",
+      "relevance_grade": 0,
+      "expected_states": {
+        "R1": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R2": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R3": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R4": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R5": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R6": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R7": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R8": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R9": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R10": [
+          "NOT_DEMONSTRATED"
+        ]
+      },
+      "expected_backend_months": 0,
+      "note": "Jebakan domain: angka hasil (150%) dan memimpin tim 7 orang, tetapi di pemasaran = NOT_DEMONSTRATED untuk R9 dan R10 (tim non-teknis)."
+    },
+    {
+      "cv_id": "L05",
+      "file": "cvs/core/L05_pdf_single_id.pdf",
+      "group": "irrelevant",
+      "format": "pdf_single",
+      "language": "id",
+      "relevance_grade": 0,
+      "expected_states": {
+        "R1": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R2": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R3": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R4": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R5": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R6": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R7": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R8": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R9": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R10": [
+          "NOT_DEMONSTRATED"
+        ]
+      },
+      "expected_backend_months": 0,
+      "note": "Jebakan domain: jabatan memuat 'Supervisor' dan memimpin tim 12 orang, tetapi tim penjualan (non-teknis) = NOT_DEMONSTRATED untuk R10. Target penjualan 135% bukan domain backend = NOT_DEMONSTRATED untuk R9 (contoh langsung dari spec)."
+    },
+    {
+      "cv_id": "L06",
+      "file": "cvs/core/L06_docx_para_id.docx",
+      "group": "irrelevant",
+      "format": "docx_para",
+      "language": "id",
+      "relevance_grade": 0,
+      "expected_states": {
+        "R1": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R2": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R3": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R4": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R5": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R6": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R7": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R8": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R9": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R10": [
+          "NOT_DEMONSTRATED"
+        ]
+      },
+      "expected_backend_months": 0,
+      "note": "Jebakan domain: jabatan 'Koordinator' dan angka hasil 25%, tetapi logistik/gudang = NOT_DEMONSTRATED untuk R9 dan R10 (tim non-teknis). Teknik Industri bukan jurusan komputasi."
+    },
+    {
+      "cv_id": "L07",
+      "file": "cvs/core/L07_pdf_inline_id.pdf",
+      "group": "strong",
+      "format": "pdf_inline",
+      "language": "id",
+      "relevance_grade": 2,
+      "expected_states": {
+        "R1": [
+          "STRONG"
+        ],
+        "R2": [
+          "STRONG"
+        ],
+        "R3": [
+          "STRONG"
+        ],
+        "R4": [
+          "STRONG"
+        ],
+        "R5": [
+          "STRONG"
+        ],
+        "R6": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R7": [
+          "STRONG"
+        ],
+        "R8": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R9": [
+          "PARTIAL"
+        ],
+        "R10": [
+          "PARTIAL"
+        ]
+      },
+      "expected_backend_months": 51,
+      "note": "Angka hasil dan kepemimpinan hanya di organisasi kampus = PARTIAL untuk R9 dan R10; pekerjaan backend tidak punya angka hasil maupun peran memimpin."
+    },
+    {
+      "cv_id": "L08",
+      "file": "cvs/core/L08_pdf_prose_en.pdf",
+      "group": "strong",
+      "format": "pdf_prose",
+      "language": "en",
+      "relevance_grade": 2,
+      "expected_states": {
+        "R1": [
+          "STRONG"
+        ],
+        "R2": [
+          "STRONG"
+        ],
+        "R3": [
+          "STRONG"
+        ],
+        "R4": [
+          "STRONG"
+        ],
+        "R5": [
+          "STRONG"
+        ],
+        "R6": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R7": [
+          "STRONG"
+        ],
+        "R8": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R9": [
+          "PARTIAL"
+        ],
+        "R10": [
+          "PARTIAL"
+        ]
+      },
+      "expected_backend_months": 43,
+      "note": "Angka hasil dan memimpin tim 4 orang hanya di proyek open source = PARTIAL untuk R9 dan R10; pekerjaan backend tidak punya keduanya."
+    },
+    {
+      "cv_id": "L09",
+      "file": "cvs/core/L09_pdf_single_en.pdf",
+      "group": "marginal",
+      "format": "pdf_single",
+      "language": "en",
+      "relevance_grade": 1,
+      "expected_states": {
+        "R1": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R2": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R3": [
+          "STRONG"
+        ],
+        "R4": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R5": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R6": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R7": [
+          "STRONG"
+        ],
+        "R8": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R9": [
+          "PARTIAL"
+        ],
+        "R10": [
+          "STRONG",
+          "PARTIAL"
+        ]
+      },
+      "expected_backend_months": 0,
+      "note": "Domain QA berdekatan: angka hasil di pekerjaan QA = PARTIAL untuk R9; tim QA untuk lowongan backend boleh STRONG atau PARTIAL untuk R10 (spec 4.2 LEADERSHIP). Role family qa tidak diterima untuk R1."
+    },
+    {
+      "cv_id": "L10",
+      "file": "cvs/core/L10_docx_table3_en.docx",
+      "group": "strong",
+      "format": "docx_table3",
+      "language": "en",
+      "relevance_grade": 3,
+      "expected_states": {
+        "R1": [
+          "STRONG"
+        ],
+        "R2": [
+          "STRONG"
+        ],
+        "R3": [
+          "STRONG"
+        ],
+        "R4": [
+          "STRONG"
+        ],
+        "R5": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R6": [
+          "STRONG"
+        ],
+        "R7": [
+          "STRONG"
+        ],
+        "R8": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R9": [
+          "STRONG"
+        ],
+        "R10": [
+          "STRONG"
+        ]
+      },
+      "expected_backend_months": 94,
+      "note": "Kontrol positif: jabatan Team Lead dan memimpin 9 engineer backend = STRONG untuk R10; penghematan biaya cloud 35% di pekerjaan backend = efisiensi = STRONG untuk R9. Docker tidak disebut."
+    },
+    {
+      "cv_id": "L11",
+      "file": "cvs/core/L11_docx_para_en.docx",
+      "group": "irrelevant",
+      "format": "docx_para",
+      "language": "en",
+      "relevance_grade": 0,
+      "expected_states": {
+        "R1": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R2": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R3": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R4": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R5": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R6": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R7": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R8": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R9": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R10": [
+          "NOT_DEMONSTRATED"
+        ]
+      },
+      "expected_backend_months": 0,
+      "note": "Jebakan domain: memimpin tim 6 orang dan angka konversi 18%, tetapi tim konten/pemasaran dan metrik bisnis = NOT_DEMONSTRATED untuk R10 dan R9."
+    },
+    {
+      "cv_id": "L12",
+      "file": "cvs/core/L12_docx_table3_id.docx",
+      "group": "strong",
+      "format": "docx_table3",
+      "language": "id",
+      "relevance_grade": 2,
+      "expected_states": {
+        "R1": [
+          "STRONG"
+        ],
+        "R2": [
+          "STRONG"
+        ],
+        "R3": [
+          "STRONG"
+        ],
+        "R4": [
+          "STRONG"
+        ],
+        "R5": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R6": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R7": [
+          "STRONG"
+        ],
+        "R8": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R9": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R10": [
+          "NOT_DEMONSTRATED"
+        ]
+      },
+      "expected_backend_months": 48,
+      "note": "Jebakan domain: memimpin tim 8 orang di dalam pekerjaan backend, tetapi timnya panitia relokasi kantor (non-teknis) = NOT_DEMONSTRATED untuk R10. Tidak ada angka hasil = NOT_DEMONSTRATED untuk R9."
+    }
+  ]
+}
