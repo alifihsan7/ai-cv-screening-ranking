@@ -184,6 +184,26 @@ NDCG@5 alur lengkap = 1,0. 145 panggilan, sekitar $0,0089, 49 detik.
 
 **Temuan:** pola positif palsu Jev dari dua hold-out sebelumnya terulang pada data baru (tim non-teknis dinilai memimpin tim teknis; kutipan tanpa angka dinilai ACHIEVEMENT), jadi itu bukan kebetulan satu set. Selain itu ada jenis kesalahan baru yang bukan milik Jev: aturan murni sendiri tidak memeriksa jenis tim pada LEADERSHIP dan menganggap setiap angka sebagai angka hasil. Flag baru `NO_EVIDENCE_FOUND` muncul pada 21 kriteria dan `LOW_CONFIDENCE` pada 23, jadi pemisahan keduanya memang membedakan dua kasus.
 
+### Perbaikan domain ACHIEVEMENT dan LEADERSHIP: hasil
+
+Rancangan dan kriteria penerimaan ditulis sebelum pengukuran (lihat [checkpoint](../plan/CHECKPOINT_2026-10-29.md)). Dua perubahan kode: (a) aturan murni tidak menghitung bullet memimpin tim non-teknis sebagai LEADERSHIP, dan tidak menghitung jumlah anggota tim sebagai angka hasil; (b) pengaman domain: untuk lowongan teknis, Jev tidak boleh menaikkan LEADERSHIP atau ACHIEVEMENT di atas status aturan memakai kutipan dari pekerjaan tanpa satu pun istilah teknis (flag `JEV_DOMAIN_GUARD`).
+
+| Set | Aturan murni (sebelum → sesudah) | Alur lengkap dengan Jev (sebelum → sesudah) |
+|---|---|---|
+| Golden | 149 → 149 | 150 → 150 |
+| Parafrase | 130 → 130 | 146 → 144, ulangan **146** |
+| Hold-out 1 | 114 → 114 | 115 → 115 |
+| Hold-out 2 | 110 → 110 | 116 → 117 |
+| Hold-out 3 (informasi) | 115 → 117 | 114 → 116 |
+
+**Kriteria 1 (tidak ada sel yang menjadi salah): terpenuhi.** Aturan murni identik di empat set pembanding, dan pengaman tidak aktif di golden, parafrase, maupun hold-out 1. Penurunan parafrase 146 → 144 pada run pertama hilang pada ulangan (146): variasi Jev antar run dengan input sama, bukan akibat perubahan ini.
+
+**Kriteria 2 (K05.R10 dan K11.R9 menjadi benar): terpenuhi sebagian.** K05.R10 benar (pengaman aktif). **K11.R9 tetap salah** dan dicatat sebagai kegagalan yang diketahui: Jev kini menjawab PARTIAL dari kutipan proyek bootcamp tanpa angka, bukan dari pekerjaan gudang, sehingga pengaman (yang hanya memeriksa kutipan dari pekerjaan) tidak aktif. Kasus serupa: L02.R9. Pengaman "harus ada angka" yang akan menjangkaunya tetap ditolak karena merusak K01 (hasil ditulis dengan kata) dan L07.R9.
+
+**Kriteria 3 (test baru lulus): terpenuhi** (10 test di `tests/test_domain_guard.py`).
+
+Hold-out 3 hanya informasi: L04.R10, L06.R10 (pengaman) dan L12.R9/R10 (aturan murni) ikut membentuk rancangan, sehingga set itu tidak lagi bersih untuk sel-sel tersebut. Di alur lengkap L12.R9 dan L12.R10 masih dijawab Jev, dari kutipan di pekerjaan backend, jadi di luar jangkauan pengaman.
+
 ### Nama kandidat: nama file dan kegagalan deteksi nama
 
 **Diperbaiki:** `resolve_candidate_name_consensus` ([anchor.py](../../src/worker/anchor.py)) mengizinkan nama dari nama file menimpa nama di dokumen walau keduanya tidak punya satu kata pun yang sama (klausa "nama di dokumen ≤ 2 kata, nama file lebih panjang"). Pada K09 (`K09_platform_head_…`) nama kandidat menjadi "K09 Platform Head Table2": kata "Head" dan "Platform" disensor dari seluruh CV, sedangkan nama asli ("Arief Nugraha") lolos. Kini nama file hanya boleh melengkapi nama di dokumen bila ada kata yang sama; kasus ATS yang sah ("Yadi" dengan "3554_Yadi Apriyadi_…", "Aryo B" dengan "CV_Aryo Budi Hutomo") tetap bekerja. Dicakup oleh 4 test unit dan 3 test dari ujung ke ujung (nama asli tidak boleh tersisa di teks yang disensor, judul pekerjaan tidak boleh ikut disensor).
