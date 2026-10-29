@@ -10,6 +10,7 @@ from typing import Any
 
 from typesafe_sdk import AsyncTypeSafeClient
 
+from src.domain.retrieval import extract_granular_evidence_quote
 from src.domain.taxonomy import get_taxonomy
 from src.domain.text_match import match_skill
 from src.domain.verifier import (
@@ -470,6 +471,16 @@ def eval_experience_duration(
     return DualEvaluationResult(_coro, _sync)
 
 
+def _quote_around_keyword(text: str, keyword: str, max_chars: int = 120) -> str:
+    """Verbatim quote of at most `max_chars` that contains the keyword that matched.
+
+    Plain `text[:max_chars]` cuts the quote off before the keyword whenever the keyword sits later in
+    a long project, summary, or bullet, leaving the recruiter and the verifier with a quote that does
+    not show the evidence.
+    """
+    return extract_granular_evidence_quote(text, [keyword], max_chars=max_chars) or text[:max_chars].strip()
+
+
 def eval_skill(
     profile: dict[str, Any],
     req: dict[str, Any],
@@ -508,7 +519,7 @@ def eval_skill(
                     if match_skill(b_txt, kw):
                         matched_quote = b_txt
                         break
-                evidence.append({"quote": matched_quote[:120], "context": "experience", "verified": True})
+                evidence.append({"quote": _quote_around_keyword(matched_quote, kw), "context": "experience", "verified": True})
                 return "STRONG", 0.95, {}, evidence, []
 
     # Context 2: Projects, Organizations, or only in skills list (PARTIAL)
@@ -516,7 +527,7 @@ def eval_skill(
         prj_text = prj.get("text", "") or prj.get("title", "")
         for kw in target_keywords:
             if match_skill(prj_text, kw):
-                evidence.append({"quote": prj_text[:120], "context": "project", "verified": True})
+                evidence.append({"quote": _quote_around_keyword(prj_text, kw), "context": "project", "verified": True})
                 return "PARTIAL", 0.85, {}, evidence, []
 
     for sk in profile.get("skills", []):
@@ -530,7 +541,7 @@ def eval_skill(
     summary_text = f"{profile.get('summary', '')} {profile.get('headline', '')}".strip()
     for kw in target_keywords:
         if match_skill(summary_text, kw):
-            evidence.append({"quote": summary_text[:120].strip(), "context": "summary", "verified": True})
+            evidence.append({"quote": _quote_around_keyword(summary_text, kw), "context": "summary", "verified": True})
             return "PARTIAL", 0.80, {}, evidence, []
 
     return "NOT_DEMONSTRATED", 0.95, {}, [], []
