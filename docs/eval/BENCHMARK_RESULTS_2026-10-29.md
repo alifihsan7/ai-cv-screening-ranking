@@ -89,6 +89,30 @@ Tiga kriteria ACHIEVEMENT tetap salah pada set parafrase. Dua varian pertanyaan 
 
 Kedua varian ditolak dan produksi tidak diubah. Telemetri menjelaskan sisa kesalahan: M4.R9 dan S5.R9 dijawab Jev dengan skor 0,01 dan confidence 1,00 ("tidak ada pencapaian di bidang backend"), padahal ada angka hasil di luar backend yang menurut label seharusnya PARTIAL; Jev membaca kriteria secara harfiah. S1.R9 mendapat skor 1,67 dengan confidence 0,58 sampai 0,59, tepat di bawah ambang 0,60. Kasus yang berbeda antar varian semuanya berada di confidence 0,61 sampai 0,64, di dekat ambang, sehingga selisih ±1 ini tidak dapat dibedakan dari variasi Jev. Opsi `--achievement-primitive choice` di `scripts/eval_agent_path.py` menyimpan percobaan pertama agar dapat diulang.
 
+### Set hold-out: 12 CV baru dengan tata letak yang belum pernah dilihat
+
+`scripts/build_holdout_set.py` membangun `docs/eval/holdout_set/`: 12 CV fiktif baru, bukan variasi dari yang lama. Tata letaknya: DOCX hanya paragraf, DOCX dengan tabel tiga kolom (tanggal | judul | bullet), PDF dengan kalimat mengalir tanpa bullet, serta PDF satu dan dua kolom dengan format tanggal `03/2021 - 02/2024`. Kasus aturannya: durasi tepat 36 bulan, alias ("Postgres", "k8s", "Amazon Web Services"), sertifikat kedaluwarsa, jurusan terkait, pindah karier, serta peran QA, DevOps, data, frontend, dan Java tanpa Python.
+
+**Aturan pakai:** set ini hanya untuk mengukur. Jangan menyetel aturan, prompt, ambang, atau pengaturan terhadapnya. Label ditulis dari spec (bagian 4) sebelum sistem pernah dijalankan pada CV ini, tetapi oleh asisten yang mengerjakan sistemnya, jadi **bukan wasit independen** seperti golden dataset dan perlu ditinjau manusia.
+
+| Hold-out, 12 CV × 10 kriteria | Akurasi |
+|---|---|
+| Aturan murni | 112/120 (93,3%) |
+| Jalur produksi dengan Jev (8 potongan) | **114/120 (95,0%)**: 4 diperbaiki, 2 dirusak, 1 netral |
+
+Sebagai pembanding, golden: 143/150 (95,3%) dan 144/150 (96,0%). Angkanya sebanding, sehingga hasil golden tidak tampak menggelembung, walau dengan set sekecil ini selisih beberapa poin belum bermakna. 118 panggilan, sekitar $0,008, 36 detik.
+
+**Jev membantu** pada klasifikasi peran ("Web Developer" dihitung sebagai backend, H03.R1), kepemimpinan ("Engineering Manager", H10.R10), tanggung jawab (H05.R2), dan pencapaian di proyek (H08.R9). **Jev merugikan** pada ACHIEVEMENT: H04.R9 dan H09.R9 dinilai PARTIAL padahal CV tidak memuat satu angka hasil pun. Primitive Score membaca pencapaian sebagai kedalaman keahlian umum, sehingga pekerjaan backend biasa pun dianggap "pencapaian". Spec mensyaratkan angka hasil untuk STRONG dan PARTIAL.
+
+**Kesalahan yang tidak melibatkan Jev, dan sudah terlihat di golden juga:**
+- EDUCATION: "S1 Statistika" dinilai STRONG padahal `partial_fields` pada kriteria menyebutnya PARTIAL (H06.R7). Ini kejadian ketiga setelah M2.R7 dan S4.R7 di golden.
+- ACHIEVEMENT: angka hasil di domain berbeda (pipeline data) dinilai STRONG, bukan PARTIAL (H06.R9). Pola sama dengan M2, M3, S3, S5 di golden.
+- CERTIFICATION: sertifikat bertulisan "2021 (expired 2023)" tetap dinilai STRONG (H10.R8). Spec menyatakan sertifikat kedaluwarsa yang tertulis menjadi PARTIAL; format penulisan ini tidak dikenali.
+
+**Cacat ekstraksi baru:** pada tata letak "tanggal dulu, baru judul" (H02), judul pekerjaan terbaca salah ("Backend" dan "Containerized services with Docker.", yang sebenarnya bullet pekerjaan pertama), tanpa peringatan. Akurasi H02 tetap benar karena bullet-nya cukup, tetapi datanya keliru.
+
+**Perlu ditinjau manusia:** H05.R9 (peningkatan kecepatan muat halaman 35 persen oleh frontend developer untuk lowongan backend). Saya beri PARTIAL karena domainnya berdekatan; bisa juga dibaca NOT_DEMONSTRATED. Sisa ketidaksesuaian lainnya jelas menurut spec dan parameter kriteria.
+
 ### Keterbatasan pembaruan ini
 
 - Dataset kecil (15 CV) dan sudah berkali-kali diamati. Perbaikan di atas tidak boleh dibaca sebagai estimasi akurasi pada CV nyata.

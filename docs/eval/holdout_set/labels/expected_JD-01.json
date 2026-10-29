@@ -1,0 +1,528 @@
+{
+  "job_id": "JD-01",
+  "as_of": "2026-10-01",
+  "requirement_set": "docs/spec/golden_dataset/job_descriptions/JD-01_requirements.approved.json",
+  "authoring": "Labels derived from docs/spec/02_SCORING_RUBRIC_SPEC.md section 4 before the system was run on these CVs. Written by the assistant that worked on the system; needs human review.",
+  "reference_ranking": [
+    "H02",
+    "H10",
+    "H01",
+    "H04",
+    "H12",
+    "H08",
+    "H06",
+    "H03",
+    "H11",
+    "H07",
+    "H05",
+    "H09"
+  ],
+  "candidates": [
+    {
+      "cv_id": "H01",
+      "file": "cvs/core/H01_backend_docx_paragraphs_id.docx",
+      "group": "strong",
+      "format": "docx_para",
+      "language": "id",
+      "relevance_grade": 3,
+      "expected_states": {
+        "R1": [
+          "STRONG"
+        ],
+        "R2": [
+          "STRONG"
+        ],
+        "R3": [
+          "STRONG"
+        ],
+        "R4": [
+          "STRONG"
+        ],
+        "R5": [
+          "STRONG"
+        ],
+        "R6": [
+          "STRONG"
+        ],
+        "R7": [
+          "STRONG"
+        ],
+        "R8": [
+          "STRONG"
+        ],
+        "R9": [
+          "STRONG"
+        ],
+        "R10": [
+          "NOT_DEMONSTRATED"
+        ]
+      },
+      "expected_backend_months": 80,
+      "note": "Alias di teks: 'Postgres' (R4), 'k8s' dan 'Amazon Web Services' (R6). 58 + 22 bulan tanpa tumpang tindih."
+    },
+    {
+      "cv_id": "H02",
+      "file": "cvs/core/H02_tech_lead_docx_table_en.docx",
+      "group": "strong",
+      "format": "docx_table3",
+      "language": "en",
+      "relevance_grade": 3,
+      "expected_states": {
+        "R1": [
+          "STRONG"
+        ],
+        "R2": [
+          "STRONG"
+        ],
+        "R3": [
+          "STRONG"
+        ],
+        "R4": [
+          "STRONG"
+        ],
+        "R5": [
+          "STRONG"
+        ],
+        "R6": [
+          "STRONG"
+        ],
+        "R7": [
+          "STRONG"
+        ],
+        "R8": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R9": [
+          "STRONG"
+        ],
+        "R10": [
+          "STRONG"
+        ]
+      },
+      "expected_backend_months": 101,
+      "note": "Job header and dates sit in a three-column table. 69 + 32 months. Title 'Tech Lead' plus 'led a team of 5'."
+    },
+    {
+      "cv_id": "H03",
+      "file": "cvs/core/H03_web_developer_prose_id.pdf",
+      "group": "marginal",
+      "format": "pdf_prose",
+      "language": "id",
+      "relevance_grade": 1,
+      "expected_states": {
+        "R1": [
+          "PARTIAL"
+        ],
+        "R2": [
+          "STRONG"
+        ],
+        "R3": [
+          "STRONG"
+        ],
+        "R4": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R5": [
+          "PARTIAL"
+        ],
+        "R6": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R7": [
+          "STRONG"
+        ],
+        "R8": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R9": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R10": [
+          "NOT_DEMONSTRATED"
+        ]
+      },
+      "expected_backend_months": 32,
+      "note": "Heading 'Riwayat Karir' sengaja tidak umum. MySQL bukan alternatif PostgreSQL (spec 4.2). 32 bulan < 36."
+    },
+    {
+      "cv_id": "H04",
+      "file": "cvs/core/H04_fullstack_numeric_dates_en.pdf",
+      "group": "strong",
+      "format": "pdf_single",
+      "language": "en",
+      "relevance_grade": 2,
+      "expected_states": {
+        "R1": [
+          "STRONG"
+        ],
+        "R2": [
+          "STRONG"
+        ],
+        "R3": [
+          "STRONG"
+        ],
+        "R4": [
+          "STRONG"
+        ],
+        "R5": [
+          "STRONG"
+        ],
+        "R6": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R7": [
+          "STRONG"
+        ],
+        "R8": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R9": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R10": [
+          "NOT_DEMONSTRATED"
+        ]
+      },
+      "expected_backend_months": 36,
+      "note": "Tanggal MM/YYYY. Fullstack diterima; 03/2021-02/2024 = tepat 36 bulan = batas STRONG. Frontend tidak dihitung."
+    },
+    {
+      "cv_id": "H05",
+      "file": "cvs/core/H05_frontend_two_column_id.pdf",
+      "group": "irrelevant",
+      "format": "pdf_two_col",
+      "language": "id",
+      "relevance_grade": 0,
+      "expected_states": {
+        "R1": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R2": [
+          "PARTIAL"
+        ],
+        "R3": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R4": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R5": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R6": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R7": [
+          "STRONG"
+        ],
+        "R8": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R9": [
+          "PARTIAL"
+        ],
+        "R10": [
+          "NOT_DEMONSTRATED"
+        ]
+      },
+      "expected_backend_months": 0,
+      "note": "R2: hanya menyebut REST API tanpa membangun = PARTIAL (spec 4.2). R9: angka di pekerjaan tapi domain frontend = PARTIAL."
+    },
+    {
+      "cv_id": "H06",
+      "file": "cvs/core/H06_data_engineer_docx_en.docx",
+      "group": "marginal",
+      "format": "docx_para",
+      "language": "en",
+      "relevance_grade": 1,
+      "expected_states": {
+        "R1": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R2": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R3": [
+          "STRONG"
+        ],
+        "R4": [
+          "STRONG"
+        ],
+        "R5": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R6": [
+          "STRONG"
+        ],
+        "R7": [
+          "PARTIAL"
+        ],
+        "R8": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R9": [
+          "PARTIAL"
+        ],
+        "R10": [
+          "NOT_DEMONSTRATED"
+        ]
+      },
+      "expected_backend_months": 0,
+      "note": "Role family data tidak diterima untuk R1. Statistika = partial_fields. R9: angka di pekerjaan, domain data = PARTIAL."
+    },
+    {
+      "cv_id": "H07",
+      "file": "cvs/core/H07_devops_prose_en.pdf",
+      "group": "marginal",
+      "format": "pdf_prose",
+      "language": "en",
+      "relevance_grade": 1,
+      "expected_states": {
+        "R1": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R2": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R3": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R4": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R5": [
+          "STRONG"
+        ],
+        "R6": [
+          "STRONG"
+        ],
+        "R7": [
+          "PARTIAL"
+        ],
+        "R8": [
+          "STRONG"
+        ],
+        "R9": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R10": [
+          "NOT_DEMONSTRATED"
+        ]
+      },
+      "expected_backend_months": 0,
+      "note": "Role family devops tidak diterima. D3 di bawah S1 tapi jurusan cocok = PARTIAL (spec 4.2). Sertifikat Google Cloud = STRONG."
+    },
+    {
+      "cv_id": "H08",
+      "file": "cvs/core/H08_fresh_graduate_docx_table_id.docx",
+      "group": "marginal",
+      "format": "docx_table3",
+      "language": "id",
+      "relevance_grade": 1,
+      "expected_states": {
+        "R1": [
+          "PARTIAL"
+        ],
+        "R2": [
+          "PARTIAL"
+        ],
+        "R3": [
+          "STRONG"
+        ],
+        "R4": [
+          "STRONG"
+        ],
+        "R5": [
+          "PARTIAL"
+        ],
+        "R6": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R7": [
+          "STRONG"
+        ],
+        "R8": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R9": [
+          "PARTIAL"
+        ],
+        "R10": [
+          "PARTIAL"
+        ]
+      },
+      "expected_backend_months": 3,
+      "note": "Magang 6 bulan x 50% = 3. R2: hanya magang = PARTIAL. R3/R4: pekerjaan bertanggal termasuk magang = STRONG. R5 hanya di proyek."
+    },
+    {
+      "cv_id": "H09",
+      "file": "cvs/core/H09_career_switcher_id.pdf",
+      "group": "irrelevant",
+      "format": "pdf_single",
+      "language": "id",
+      "relevance_grade": 0,
+      "expected_states": {
+        "R1": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R2": [
+          "PARTIAL"
+        ],
+        "R3": [
+          "PARTIAL"
+        ],
+        "R4": [
+          "PARTIAL"
+        ],
+        "R5": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R6": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R7": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R8": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R9": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R10": [
+          "NOT_DEMONSTRATED"
+        ]
+      },
+      "expected_backend_months": 0,
+      "note": "Semua bukti teknis hanya di proyek (PARTIAL). Akuntansi bukan jurusan komputasi. Sertifikat bootcamp bukan sertifikasi cloud."
+    },
+    {
+      "cv_id": "H10",
+      "file": "cvs/core/H10_engineering_manager_two_column_en.pdf",
+      "group": "strong",
+      "format": "pdf_two_col",
+      "language": "en",
+      "relevance_grade": 3,
+      "expected_states": {
+        "R1": [
+          "STRONG"
+        ],
+        "R2": [
+          "STRONG"
+        ],
+        "R3": [
+          "STRONG"
+        ],
+        "R4": [
+          "STRONG"
+        ],
+        "R5": [
+          "PARTIAL"
+        ],
+        "R6": [
+          "STRONG"
+        ],
+        "R7": [
+          "STRONG"
+        ],
+        "R8": [
+          "PARTIAL"
+        ],
+        "R9": [
+          "STRONG"
+        ],
+        "R10": [
+          "STRONG"
+        ]
+      },
+      "expected_backend_months": 53,
+      "note": "53 bulan sebagai Senior Backend Engineer (99 jika masa manajer dihitung; STRONG di keduanya). Docker hanya di daftar skill = PARTIAL. Sertifikat kedaluwarsa tertulis = PARTIAL."
+    },
+    {
+      "cv_id": "H11",
+      "file": "cvs/core/H11_qa_lead_docx_id.docx",
+      "group": "marginal",
+      "format": "docx_para",
+      "language": "id",
+      "relevance_grade": 1,
+      "expected_states": {
+        "R1": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R2": [
+          "NOT_DEMONSTRATED",
+          "PARTIAL"
+        ],
+        "R3": [
+          "STRONG"
+        ],
+        "R4": [
+          "PARTIAL"
+        ],
+        "R5": [
+          "STRONG"
+        ],
+        "R6": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R7": [
+          "STRONG"
+        ],
+        "R8": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R9": [
+          "PARTIAL"
+        ],
+        "R10": [
+          "STRONG",
+          "PARTIAL"
+        ]
+      },
+      "expected_backend_months": 0,
+      "note": "Mengikuti konvensi golden M4: menguji API bukan membangun (NOT_DEMONSTRATED atau PARTIAL); tim QA untuk lowongan backend boleh STRONG atau PARTIAL. PostgreSQL hanya di daftar skill."
+    },
+    {
+      "cv_id": "H12",
+      "file": "cvs/core/H12_java_backend_prose_id.pdf",
+      "group": "strong",
+      "format": "pdf_prose",
+      "language": "id",
+      "relevance_grade": 2,
+      "expected_states": {
+        "R1": [
+          "STRONG"
+        ],
+        "R2": [
+          "STRONG"
+        ],
+        "R3": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R4": [
+          "STRONG"
+        ],
+        "R5": [
+          "STRONG"
+        ],
+        "R6": [
+          "STRONG"
+        ],
+        "R7": [
+          "STRONG"
+        ],
+        "R8": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R9": [
+          "STRONG"
+        ],
+        "R10": [
+          "NOT_DEMONSTRATED"
+        ]
+      },
+      "expected_backend_months": 99,
+      "note": "Tanpa Python (Java bukan alternatif, spec 4.2 butir 5). Azure di pekerjaan = STRONG untuk R6."
+    }
+  ]
+}
