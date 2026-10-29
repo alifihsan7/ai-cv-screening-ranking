@@ -639,6 +639,18 @@ def has_job_like_date_ranges(text: str) -> bool:
     return job_like >= 2
 
 
+def is_fragmented_text(text: str) -> bool:
+    """True for text that came out as a column-scrambled or one-word-per-line read order.
+
+    Such text cannot be parsed by any line heuristic. Most lines of a normal CV hold three or more words.
+    """
+    lines = [ln for ln in text.splitlines() if ln.strip()]
+    if len(lines) < 40:
+        return False
+    short = sum(1 for ln in lines if len(ln.split()) <= 2)
+    return short / len(lines) >= 0.5
+
+
 def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None = None) -> list[dict[str, Any]]:
     valid_lines = []
     for l in [line.strip() for line in section_text.splitlines() if line.strip()]:
@@ -1347,9 +1359,13 @@ def extract_candidate_profile(content: bytes, filename: str) -> dict[str, Any]:
     # Parse sections
     experiences = parse_experiences(exp_text, full_text)
     quality_warnings = list(raw.get("meta", {}).get("warnings", []))
-    if not experiences and (exp_text.strip() or has_job_like_date_ranges(full_text)):
-        # Nothing was parsed although the CV has an experience section, or dates that look like jobs (a scrambled
-        # two-column read order, one word per line): surface it instead of silently scoring 0 months
+    # The text as the extractor read it, line by line (sections are re-joined and lose the line structure)
+    read_order_text = boundary.cv_core_text if boundary and getattr(boundary, "cv_core_text", None) else full_text
+    if not experiences and (
+        exp_text.strip() or has_job_like_date_ranges(full_text) or is_fragmented_text(read_order_text)
+    ):
+        # Nothing was parsed although the CV has an experience section, dates that look like jobs, or text that is
+        # scrambled (two-column read order, one word per line): surface it instead of silently scoring 0 months
         quality_warnings.append("EXPERIENCE_NOT_PARSED")
     education = parse_education(ed_text, full_text)
     certifications = parse_certifications(ce_text, ed_text)

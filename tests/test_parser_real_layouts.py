@@ -204,3 +204,13 @@ def test_company_and_city_then_dates_then_title():
         ("Software Engineer (Intern)", "PT. Nusa Karya", "2024-07", "2024-08"),
         ("Backend Developer (Intern)", "PT. Mitra Data", "2023-11", "2024-01"),
     ]
+
+
+def test_one_word_per_line_text_is_fragmented_and_normal_text_is_not():
+    from src.worker.adapter import is_fragmented_text
+
+    scattered = "\n".join(["Backend", "Developer", "PT", "Contoh", "2023", "Python", "Go", "Docker"] * 8)
+    assert is_fragmented_text(scattered)
+    normal = "\n".join(["Built REST APIs with Python and PostgreSQL for billing."] * 30 + ["Python", "Docker"] * 5)
+    assert not is_fragmented_text(normal)
+    assert not is_fragmented_text("Python\nGo\nDocker")  # too short to judge
