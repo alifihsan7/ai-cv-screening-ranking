@@ -1,7 +1,8 @@
 # ARSITEKTUR SISTEM PENYARINGAN BERKAS LAMARAN KERJA BERBASIS AGEN OTONOM DENGAN VERIFIKASI BUKTI DETERMINISTIK DAN RETRIEVAL HIBRIDA
 
-> **Catatan status (2026-10-29):** dokumen ini ditulis sebelum integrasi Jev diukur dan sebelum uji dengan CV nyata. Sebagian klaimnya berbeda dari implementasi dan hasil ukur: alurnya **bertahap tetap, bukan agent otonom**; hasil Jev **tidak sepenuhnya deterministik** (cache hasil Jev belum ada); dan angka kinerja apa pun di sini harus dibaca bersama hasil ukur yang sebenarnya. Yang berlaku: [`CLAUDE.md`](../../CLAUDE.md), [`DECISIONS.md`](../spec/DECISIONS.md), dan [hasil ukur](../eval/BENCHMARK_RESULTS_2026-10-29.md). Dokumen ini disimpan sebagai riset dan latar belakang.
 ## Whitepaper Riset Sistem & Cetak Biru Rekayasa Perangkat Lunak (`agentic-cv-screener`)
+
+**Catatan status (2026-10-29):** dokumen ini ditulis sebelum integrasi Jev diukur dan sebelum uji dengan CV nyata. Sebagian klaimnya berbeda dari implementasi dan hasil ukur: alurnya **bertahap tetap, bukan agent otonom**; hasil Jev **tidak sepenuhnya deterministik** (cache hasil Jev belum ada); dan angka kinerja apa pun di sini harus dibaca bersama hasil ukur yang sebenarnya. Yang berlaku: [`CLAUDE.md`](../../CLAUDE.md), [`DECISIONS.md`](../spec/DECISIONS.md), dan [hasil ukur](../eval/BENCHMARK_RESULTS_2026-10-29.md). Dokumen ini disimpan sebagai riset dan latar belakang.
 
 **Penulis:** Alif Ihsan  
 **Afiliasi:** AI7 Solaris Research & Engineering Ecosystem  

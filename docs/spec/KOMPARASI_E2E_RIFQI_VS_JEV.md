@@ -1,6 +1,6 @@
 # Analisis Komparatif End-to-End Arsitektur Sistem: Prototipe Awal Upstream (`Rifqi-Setiawan`) vs Arsitektur Target (`TypeSafe Jev System One Baseline`)
 
-> **Catatan status (2026-10-29):** dokumen ini ditulis sebelum integrasi Jev diukur dan sebelum uji dengan CV nyata. Sebagian klaimnya berbeda dari implementasi dan hasil ukur: alurnya **bertahap tetap, bukan agent otonom**; hasil Jev **tidak sepenuhnya deterministik** (cache hasil Jev belum ada); dan angka kinerja apa pun di sini harus dibaca bersama hasil ukur yang sebenarnya. Yang berlaku: [`CLAUDE.md`](../../CLAUDE.md), [`DECISIONS.md`](DECISIONS.md), dan [hasil ukur](../eval/BENCHMARK_RESULTS_2026-10-29.md). Dokumen ini disimpan sebagai riset dan latar belakang.
+**Catatan status (2026-10-29):** dokumen ini ditulis sebelum integrasi Jev diukur dan sebelum uji dengan CV nyata. Sebagian klaimnya berbeda dari implementasi dan hasil ukur: alurnya **bertahap tetap, bukan agent otonom**; hasil Jev **tidak sepenuhnya deterministik** (cache hasil Jev belum ada); dan angka kinerja apa pun di sini harus dibaca bersama hasil ukur yang sebenarnya. Yang berlaku: [`CLAUDE.md`](../../CLAUDE.md), [`DECISIONS.md`](DECISIONS.md), dan [hasil ukur](../eval/BENCHMARK_RESULTS_2026-10-29.md). Dokumen ini disimpan sebagai riset dan latar belakang.
 
 > **Klasifikasi Dokumen:** RFC Teknis Komparatif (TIG Review Ready)  
 > **Nomor Dokumen:** RFC-ARCH-2026-E2E-04 · Rev 2.3 (Audited & Rigorous)  
