@@ -1,3 +1,5 @@
+> **Status (diperbarui 2026-10-29):** dokumen perencanaan perbaikan audit yang lama. Disimpan untuk riwayat dan tidak lagi diperbarui. Posisi pekerjaan terkini ada di [`docs/plan/CHECKPOINT_2026-10-29.md`](docs/plan/CHECKPOINT_2026-10-29.md) dan [`docs/plan/JEV_REMEDIATION_PLAN.md`](docs/plan/JEV_REMEDIATION_PLAN.md). Path `/srv/hermes-control` di bawah adalah path server lama.
+
 # FIX_PLAN — Remediasi Hasil Audit `ai-cv-screening-ranking`
 
 > **Jenis dokumen:** Technical Remediation Spec (rencana perbaikan teknis).

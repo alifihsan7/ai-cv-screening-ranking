@@ -72,7 +72,7 @@ agentic-cv-screener/
 |   |   |-- explainer.py          # Pembuat resume dossier penalaran untuk recruiter
 |   |   |-- taxonomy.py           # Loader YAML taksonomi ke memori & regex compiler
 |   |   |-- policy_linter.py      # Pencegah kriteria diskriminatif / SARA
-|   |   `-- models.py             # Domain models (SEKARANG MASIH SANGAT MINIM)
+|   |   `-- models.py             # Domain models Pydantic v2 (~530 baris)
 |   |-- infrastructure/           # Drivers & Technical Adapters
 |   |   |-- config.py             # Pydantic BaseSettings
 |   |   |-- database.py           # Connection pool PostgreSQL via psycopg 3
@@ -86,7 +86,7 @@ agentic-cv-screener/
 |       |-- docling_parser.py     # IBM Docling TableFormer parser
 |       |-- redaction.py          # Ekstraksi dan enkripsi PII
 |       `-- embedding.py          # Batch embedding generator (Harrier-270M, 640-dim)
-`-- tests/                        # 45+ suite pengujian pytest
+`-- tests/                        # 69 berkas, 424 tes pytest (3 dilewati)
 ```
 
 ---
@@ -102,7 +102,9 @@ Berdasarkan audit teknis komprehensif oleh AI7 Zephyr, berikut adalah daftar mas
 - **API Response Skema Lepas:** Rute FastAPI kritis (`/screenings`, `/cvs`, `/reveal-identity`) mengembalikan `dict[str, Any]` atau `JSONResponse` tanpa deklarasi `response_model`, menyebabkan Swagger OpenAPI tidak memiliki kontrak typesafe.
 - **MyPy Terlalu Longgar:** `pyproject.toml` mematikan strict typing (`disallow_untyped_defs = false`).
 
-### B. Path Hardcoding (Pelanggaran Portabilitas)
+### B. Path Hardcoding (Pelanggaran Portabilitas) — SUDAH DIPERBAIKI di `src/`
+> Status 2026-10-29: tidak ada lagi path `/srv/hermes-control` di `src/`. Sisa satu di `tests/conftest.py:15` dan beberapa di skrip deploy/dokumen. Deskripsi di bawah dipertahankan sebagai riwayat temuan audit.
+
 - **Problem:** Terdapat path server absolut `/srv/hermes-control/services/cv-screening/...` yang tertanam di:
   - `src/infrastructure/config.py` (`STORAGE_VAULT_PATH`)
   - `src/domain/taxonomy.py`
@@ -198,6 +200,13 @@ Sesuai dokumen spesifikasi `docs/spec/02_SCORING_RUBRIC_SPEC.md` dan `07_IMPLEME
 ---
 
 ## 6. ROADMAP PENGERJAAN UNTUK CLAUDE CODE
+
+> **Status terkini (2026-10-29)**: rincian dan angka ada di `docs/plan/CHECKPOINT_2026-10-29.md` dan `docs/eval/BENCHMARK_RESULTS_2026-10-29.md`.
+> - **Phase 1** selesai di `src/` (lihat 4.B).
+> - **Phase 2** sebagian: model Pydantic ada (`EvaluationResult`, `CandidateProfileDomain`, dan lainnya) dan `response_model` terpasang di sebagian route; **belum** strict: `disallow_untyped_defs = false`, 9 error mypy, dan sekitar 105 temuan ruff tersisa.
+> - **Phase 3** ada: `ScreeningAgentState`, `ReasoningStep`, registry tool (`src/domain/tools/`), dan provider verifier. Nama kelas sebenarnya `JevTypeSafeVerifierProvider` dan `LLMGatewayVerifierProvider` (bukan `JevTypeSafeVerifier`/`LLMVerifier`). `ScreeningAgent` adalah alur bertahap tetap, bukan agent otonom; penggantian nama kode ditunda.
+> - **Phase 4** berjalan: evaluasi golden di `docs/spec/golden_dataset/evaluate.py`, pengukuran alur produksi dengan `scripts/eval_agent_path.py`, serta tiga set hold-out (`docs/eval/holdout_set*/`) yang **hanya untuk mengukur, tidak untuk menyetel**. Cache hasil Jev (Tahap 4 di `docs/plan/JEV_REMEDIATION_PLAN.md`) belum dikerjakan.
+> - Aturan emas di bagian 2 tidak berubah.
 
 Claude Code disarankan mengeksekusi refactoring dengan tahapan berikut:
 

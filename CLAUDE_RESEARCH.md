@@ -1,3 +1,5 @@
+> **Status (diperbarui 2026-10-29):** catatan riset awal untuk arsitektur agent. Sebagian isinya (misalnya `ScreeningAgent` sebagai agent otonom) tidak sama dengan implementasi: alur saat ini bertahap tetap, bukan agent otonom. Panduan yang berlaku ada di [`CLAUDE.md`](CLAUDE.md).
+
 # CLAUDE_RESEARCH.md — Deep Research & Architectural Specification: Typesafe Autonomous AI Agent & Jev (TypeSafe) Verifier
 
 > **Dokumen Riset Mendalam & Panduan Eksekusi untuk Claude Code / Anthropic Claude**  
