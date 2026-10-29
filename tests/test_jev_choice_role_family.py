@@ -502,7 +502,7 @@ async def test_screening_agent_evaluates_experience_duration_with_jev():
                 confidence=0.95,
                 probabilities={"BACKEND": 0.95},
             ),
-            "criterion_evaluation": ChoiceAnswer(
+            "chunk_0": ChoiceAnswer(
                 type="choice",
                 choice="STRONG",
                 confidence=0.95,

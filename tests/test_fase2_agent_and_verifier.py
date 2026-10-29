@@ -33,6 +33,7 @@ from src.domain.verifier import (
     normalize_text_nfkc,
     verify_grounding,
 )
+from tests.conftest import RUN_LIVE_JEV, mock_jev_client
 
 # ===========================================================================
 # 1. Guardrail verify_grounding Tests
@@ -159,29 +160,49 @@ class TestContextElevationInvariant:
 # ===========================================================================
 
 
+def _mock_jev_client(choice: str, confidence: float) -> AsyncMock:
+    """Mocked TypeSafe client answering every per-chunk question with the same Choice."""
+    answer = ChoiceAnswer(type="choice", choice=choice, confidence=confidence, probabilities={choice: confidence})
+
+    async def _system_one(state, questions, **kwargs):
+        return SystemOneResponse(model="jev-latest", usage=Usage(), answers={k: answer for k in questions})
+
+    client = AsyncMock()
+    client.system_one.side_effect = _system_one
+    return client
+
+
+_PY_CV_TEXT = (
+    "Professional Experience:\n"
+    "Senior Backend Engineer at TechCorp (2020 - 2024).\n"
+    "Built distributed microservices architecture using Python, FastAPI, and PostgreSQL."
+)
+_PY_SNIPPETS = ["Built distributed microservices architecture using Python, FastAPI, and PostgreSQL."]
+
+
 class TestVerifierProviders:
     @pytest.mark.asyncio
     async def test_jev_typesafe_verifier_strong_decision(self):
-        provider = JevTypeSafeVerifierProvider()
-        cv_text = (
-            "Professional Experience:\n"
-            "Senior Backend Engineer at TechCorp (2020 - 2024).\n"
-            "Built distributed microservices architecture using Python, FastAPI, and PostgreSQL."
-        )
-        snippets = ["Built distributed microservices architecture using Python, FastAPI, and PostgreSQL."]
+        mock_client = _mock_jev_client("STRONG", 0.91)
+        provider = JevTypeSafeVerifierProvider(client=mock_client)
 
         decision = await provider.verify(
             criterion_id="R_PYTHON",
             criterion_description="Python microservices architecture",
-            candidate_chunks=snippets,
-            cv_full_text=cv_text,
+            candidate_chunks=_PY_SNIPPETS,
+            cv_full_text=_PY_CV_TEXT,
             kind=CriterionKind.SKILL,
             context_type=ContextSectionType.WORK_EXPERIENCE,
         )
 
+        sent_state = mock_client.system_one.call_args.kwargs["state"]
+        assert sent_state["evidence_section"] == "WORK_EXPERIENCE"
+        assert sent_state["evidence_chunks"] == {"chunk_0": _PY_SNIPPETS[0]}
+        assert "Professional Experience" not in str(sent_state)  # full CV text never sent
+
         assert isinstance(decision, VerifierDecision)
         assert decision.state == EvaluationStatus.STRONG
-        assert decision.confidence >= 0.80
+        assert decision.confidence == pytest.approx(0.91)
         assert decision.provider_name == "JEV_TYPESAFE"
         assert decision.quote is not None
         assert "Python" in decision.quote
@@ -190,8 +211,60 @@ class TestVerifierProviders:
         assert decision.char_end > decision.char_start
 
     @pytest.mark.asyncio
-    async def test_jev_typesafe_grounding_failure_annulment(self):
+    async def test_jev_quote_comes_from_the_chunk_jev_judged_strong(self):
+        """With several chunks, the decision and its quote rest on the same chunk."""
+        weak = "Attended a Python microservices webinar in 2021."
+        strong = "Led the migration of 14 Python microservices to Kubernetes at TechCorp."
+        verdicts = {"chunk_0": ("NOT_DEMONSTRATED", 0.88), "chunk_1": ("STRONG", 0.93)}
+
+        async def _system_one(state, questions, **kwargs):
+            answers = {
+                k: ChoiceAnswer(type="choice", choice=c, confidence=p, probabilities={c: p})
+                for k, (c, p) in verdicts.items()
+            }
+            return SystemOneResponse(model="jev-latest", usage=Usage(), answers=answers)
+
+        mock_client = AsyncMock()
+        mock_client.system_one.side_effect = _system_one
+        provider = JevTypeSafeVerifierProvider(client=mock_client)
+
+        decision = await provider.verify(
+            criterion_id="R_MS",
+            criterion_description="Python microservices",
+            candidate_chunks=[weak, strong],
+            cv_full_text=f"{weak}\n{strong}",
+            kind=CriterionKind.SKILL,
+            context_type=ContextSectionType.WORK_EXPERIENCE,
+        )
+
+        assert decision.state == EvaluationStatus.STRONG
+        assert decision.confidence == pytest.approx(0.93)
+        assert decision.quote is not None
+        assert decision.quote in strong
+        assert "webinar" not in decision.quote
+
+    @pytest.mark.asyncio
+    @pytest.mark.skipif(not RUN_LIVE_JEV, reason="Live TypeSafe API test; set RUN_LIVE_JEV=1 to run")
+    async def test_jev_typesafe_live_api_strong_decision(self):
+        """Opt-in smoke test against the real TypeSafe API using the key from .env."""
         provider = JevTypeSafeVerifierProvider()
+
+        decision = await provider.verify(
+            criterion_id="R_PYTHON",
+            criterion_description="Python microservices architecture",
+            candidate_chunks=_PY_SNIPPETS,
+            cv_full_text=_PY_CV_TEXT,
+            kind=CriterionKind.SKILL,
+            context_type=ContextSectionType.WORK_EXPERIENCE,
+        )
+
+        assert decision.state == EvaluationStatus.STRONG
+        assert decision.confidence >= 0.60
+        assert decision.quote is not None and "Python" in decision.quote
+
+    @pytest.mark.asyncio
+    async def test_jev_typesafe_grounding_failure_annulment(self):
+        provider = JevTypeSafeVerifierProvider(client=_mock_jev_client("STRONG", 0.9))
         cv_text = "Experienced in Java Spring Boot development."
         # Snippets has a hallucinated or external quote
         snippets = ["Spearheaded Kubernetes architecture on Google Cloud Platform."]
@@ -221,7 +294,7 @@ class TestVerifierProviders:
         mock_response = SystemOneResponse(
             model="jev-latest",
             usage=Usage(),
-            answers={"criterion_evaluation": choice_ans},
+            answers={"chunk_0": choice_ans},
         )
         mock_client = AsyncMock()
         mock_client.system_one.return_value = mock_response
@@ -376,7 +449,7 @@ class TestDomainTools:
         mock_response = SystemOneResponse(
             model="jev-latest",
             usage=Usage(),
-            answers={"criterion_evaluation": choice_ans},
+            answers={"chunk_0": choice_ans},
         )
         mock_client = AsyncMock()
         mock_client.system_one.return_value = mock_response
@@ -455,6 +528,7 @@ class TestReActStateMachineAndBudget:
             requirements=requirements,
             profile=profile,
             raw_cv_text="S1 Ilmu Komputer UI. Backend Engineer at Tech Corp 2020-01 to 2023-12.",
+            verifier_provider=JevTypeSafeVerifierProvider(client=mock_jev_client()),
         )
         state = await agent.run()
 

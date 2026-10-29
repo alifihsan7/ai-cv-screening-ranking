@@ -16,7 +16,9 @@ from src.domain.agent import run_screening_agent
 from src.domain.auth import create_access_token
 from src.domain.models import UserRole
 from src.domain.screening_service import execute_screening_run
+from src.domain.verifier import JevTypeSafeVerifierProvider
 from src.infrastructure.database import get_connection
+from tests.conftest import mock_jev_client
 
 TEST_TENANT = uuid.uuid4()
 ADMIN_USER = uuid.uuid4()
@@ -160,7 +162,9 @@ async def test_full_screening_execution_with_agent_persists_trajectory_and_metri
         await conn.commit()
 
     # Execute screening run with use_agent=True
-    exec_res = await execute_screening_run(run_id, use_agent=True)
+    exec_res = await execute_screening_run(
+        run_id, use_agent=True, verifier_provider=JevTypeSafeVerifierProvider(client=mock_jev_client())
+    )
     assert exec_res["status"] == "COMPLETED"
     assert exec_res["total_candidates"] == 1
 

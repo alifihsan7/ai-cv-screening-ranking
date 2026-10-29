@@ -74,7 +74,7 @@ class TestLiveSystemOneMode:
         mock_response = SystemOneResponse(
             model="jev-latest",
             usage=Usage(input_tokens=25, output_tokens=1),
-            answers={"criterion_evaluation": choice_ans},
+            answers={"chunk_0": choice_ans},
         )
         mock_client.system_one.return_value = mock_response
 
@@ -105,12 +105,14 @@ class TestLiveSystemOneMode:
         state_sent = kwargs["state"]
         assert isinstance(state_sent, dict)
         assert state_sent["criterion"] == "FastAPI microservices experience"
-        assert state_sent["candidate_evidence"] == snippets
-        assert state_sent["cv_text"] == cv_text
+        assert state_sent["evidence_chunks"] == {"chunk_0": snippets[0]}
+        # The full CV text must never be sent to the external API
+        assert "cv_text" not in state_sent
+        assert cv_text not in str(state_sent)
 
         questions_sent = kwargs["questions"]
-        assert "criterion_evaluation" in questions_sent
-        q = questions_sent["criterion_evaluation"]
+        assert "chunk_0" in questions_sent
+        q = questions_sent["chunk_0"]
         assert isinstance(q, Choice)
         assert "STRONG" in q.criteria
         assert "PARTIAL" in q.criteria
@@ -136,7 +138,7 @@ class TestLiveSystemOneMode:
         mock_response = SystemOneResponse(
             model="jev-latest",
             usage=Usage(input_tokens=20, output_tokens=1),
-            answers={"criterion_evaluation": choice_ans},
+            answers={"chunk_0": choice_ans},
         )
         mock_client.system_one.return_value = mock_response
 
@@ -169,7 +171,7 @@ class TestLiveSystemOneMode:
         mock_response = SystemOneResponse(
             model="jev-latest",
             usage=Usage(input_tokens=20, output_tokens=1),
-            answers={"criterion_evaluation": choice_ans},
+            answers={"chunk_0": choice_ans},
         )
         mock_client.system_one.return_value = mock_response
 
@@ -199,7 +201,7 @@ class TestLiveSystemOneMode:
         mock_response = SystemOneResponse(
             model="jev-latest",
             usage=Usage(input_tokens=18, output_tokens=1),
-            answers={"criterion_evaluation": noul_ans},
+            answers={"chunk_0": noul_ans},
         )
         mock_client.system_one.return_value = mock_response
 
@@ -219,7 +221,7 @@ class TestLiveSystemOneMode:
 
         mock_client.system_one.assert_awaited_once()
         _, kwargs = mock_client.system_one.call_args
-        q = kwargs["questions"]["criterion_evaluation"]
+        q = kwargs["questions"]["chunk_0"]
         assert isinstance(q, Noul)
 
         assert decision.state == EvaluationStatus.STRONG
@@ -235,7 +237,7 @@ class TestLiveSystemOneMode:
         mock_response = SystemOneResponse(
             model="jev-latest",
             usage=Usage(input_tokens=18, output_tokens=1),
-            answers={"criterion_evaluation": noul_ans},
+            answers={"chunk_0": noul_ans},
         )
         mock_client.system_one.return_value = mock_response
 
@@ -268,7 +270,7 @@ class TestLiveSystemOneMode:
         mock_response = SystemOneResponse(
             model="jev-latest",
             usage=Usage(),
-            answers={"criterion_evaluation": choice_ans},
+            answers={"chunk_0": choice_ans},
         )
         mock_client.system_one.return_value = mock_response
 
@@ -301,7 +303,7 @@ class TestLiveSystemOneMode:
         mock_response = SystemOneResponse(
             model="jev-latest",
             usage=Usage(),
-            answers={"criterion_evaluation": choice_ans},
+            answers={"chunk_0": choice_ans},
         )
         mock_client.system_one.return_value = mock_response
 
@@ -355,7 +357,7 @@ class TestLiveSystemOneMode:
         mock_response = SystemOneResponse(
             model="jev-latest",
             usage=Usage(),
-            answers={"criterion_evaluation": choice_ans},
+            answers={"chunk_0": choice_ans},
         )
 
         mock_inst = AsyncMock(spec=AsyncTypeSafeClient)

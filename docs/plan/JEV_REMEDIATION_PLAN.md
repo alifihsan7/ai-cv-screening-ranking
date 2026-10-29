@@ -6,7 +6,7 @@ Dokumen ini berisi langkah perbaikan integrasi Jev di pipeline CV screening, ber
 |---|-------|--------|--------|
 | 1 | Sensor teks sebelum dikirim ke Jev | Kecil | Selesai (disempurnakan di Tahap 2) |
 | 2 | Perbaiki ekstraksi pengalaman | Sedang | Selesai (Opsi A) |
-| 3 | Hubungkan kutipan dengan keputusan Jev | Sedang | Belum |
+| 3 | Hubungkan kutipan dengan keputusan Jev | Sedang | Selesai |
 | 4 | Cache hasil Jev | Kecil | Belum (dikerjakan terakhir) |
 | 5 | Ambang batas confidence | Kecil | Selesai |
 | 6 | Bersih-bersih kode | Kecil | Belum |
@@ -88,14 +88,25 @@ cv_core_text = redact_text(
 
 Akibatnya, kutipan yang ditampilkan ke recruiter belum tentu menjadi dasar keputusan Jev.
 
-**Perubahan.**
-1. Hapus `cv_text` dari `state`, lalu kirim `candidate_chunks` saja.
-2. Nilai tiap potongan sebagai pertanyaan terpisah dalam satu panggilan `system_one` (`questions={"chunk_0": ..., "chunk_1": ...}`).
-3. Status akhir diambil dari potongan dengan nilai tertinggi. Kutipan diekstrak dari potongan yang sama itu.
-4. `verify_grounding` tetap dijalankan sebagai pengaman.
+**Yang dikerjakan** ([verifier.py](../../src/domain/verifier.py), `JevTypeSafeVerifierProvider`):
+1. `cv_text` dihapus dari `state`. Yang dikirim hanya kriteria, nama bagian CV asal potongan (`evidence_section`, misalnya `WORK_EXPERIENCE`), dan potongan bukti (`evidence_chunks`).
+   - Nama bagian ditambahkan karena tanpa teks CV lengkap, Jev kehilangan konteks bahwa potongan berasal dari pengalaman kerja. Pada uji coba dengan API asli, confidence turun dari ≥ 0.80 ke 0.69 sebelum nama bagian ditambahkan.
+2. Setiap potongan dinilai sebagai pertanyaan terpisah dalam satu panggilan `system_one` (`chunk_0`, `chunk_1`, …). Potongan kosong dibuang lebih dulu.
+3. Pemilihan potongan penentu: di antara jawaban dengan confidence ≥ `VERIFIER_MIN_CONFIDENCE`, ambil status terkuat, lalu confidence tertinggi, lalu indeks terkecil agar deterministik. Kalau tidak ada yang memenuhi ambang, ambil jawaban dengan confidence tertinggi. Jawaban itu lalu diperlakukan sebagai confidence rendah oleh jalur di Tahap 5.
+4. Kutipan diambil dari potongan penentu itu (`_quote_from_chunk`). Kalau tidak ada kata kunci yang cocok, dipakai awal potongan itu sendiri (≤ 119 karakter, dipotong di batas kata), supaya keputusan positif selalu punya kutipan.
+5. `verify_grounding` tetap dijalankan sebagai pengaman.
+6. Pembangunan pertanyaan dan penafsiran jawaban dipisah ke `_build_question` dan `_interpret_answer`.
 
-**Selesai jika.**
-- Ada test dengan dua potongan: satu relevan, satu tidak. Kutipan yang dihasilkan harus berasal dari potongan yang dinilai tinggi oleh Jev.
+**Test tidak lagi memanggil API sungguhan.**
+- Ditemukan bahwa `.env` berisi `TYPESAFE_API_KEY` asli, dan beberapa test (verifier di `test_fase2_agent_and_verifier.py`, serta alur agent di `test_fase2…` dan `test_fase3_worker_and_persistence.py`) diam-diam memanggil API TypeSafe asli setiap kali suite dijalankan.
+- [conftest.py](../../tests/conftest.py) sekarang mengosongkan `TYPESAFE_API_KEY` saat test berjalan, kecuali `RUN_LIVE_JEV=1`. Jalur Jev yang tidak di-mock akan langsung gagal, bukan memanggil API berbayar.
+- Helper `mock_jev_client()` di `conftest.py` menjawab pertanyaan role family dan penilaian potongan.
+- Satu test live opsional, `test_jev_typesafe_live_api_strong_decision`, hanya jalan dengan `RUN_LIVE_JEV=1`.
+
+**Test.**
+- Dua potongan (webinar dan pengalaman kerja nyata), keduanya cocok dengan kata kunci. Kutipan harus dari potongan yang dinilai STRONG oleh Jev. Dengan cara lama, kutipan yang terambil adalah webinar.
+- Payload ke Jev tidak memuat teks CV lengkap dan memuat `evidence_section`.
+- Seluruh suite: 303 passed, 3 skipped, tanpa panggilan ke API asli.
 
 ---
 

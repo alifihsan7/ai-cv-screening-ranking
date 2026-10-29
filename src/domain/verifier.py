@@ -749,94 +749,145 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
         else:
             return EvaluationStatus.NOT_DEMONSTRATED, 0.92, None
 
+    @staticmethod
+    def _build_question(criterion_description: str, chunk_key: str, primitive: str) -> Question:
+        """Builds one closed question scoped to a single evidence chunk carried in the state."""
+        scope = (
+            f"Judge only evidence chunk '{chunk_key}' in the state; "
+            "'evidence_section' names the CV section the chunks were taken from. "
+        )
+        if primitive == "noul":
+            return Noul(
+                instructions=scope + f"Does this evidence satisfy the criterion: '{criterion_description}'?",
+                criteria=NoulCriteria(
+                    true="The evidence clearly demonstrates or satisfies the criterion.",
+                    false="The evidence does not satisfy or demonstrate the criterion.",
+                ),
+            )
+        if primitive == "score":
+            return Score(
+                instructions=scope
+                + (
+                    f"Evaluate the candidate's proficiency depth for criterion: '{criterion_description}'. "
+                    "0: Unmentioned or no relevant evidence. "
+                    "1: Basic, theoretical, academic, or introductory. "
+                    "2: Proficient practitioner with direct production experience. "
+                    "3: Advanced expert, lead, or architect."
+                ),
+                criteria=[
+                    "No evidence or unmentioned.",
+                    "Basic or introductory familiarity.",
+                    "Proficient professional practitioner in production.",
+                    "Advanced expert, architect, or leadership level.",
+                ],
+            )
+        if primitive == "polarity":
+            return Choice(
+                instructions=scope
+                + (
+                    f"Determine candidate role polarity for criterion: '{criterion_description}'. "
+                    "CANDIDATE_DID_IT: Candidate directly performed, led, or architected this work. "
+                    "OTHERS_DID_IT: Performed by team/external party; candidate only assisted. "
+                    "NOT_STATED: Evidence does not mention or establish this criterion. "
+                    "NEGATED: Explicitly denies experience in this area. "
+                    "ASPIRATIONAL: Theoretical interest or future aspiration without execution."
+                ),
+                criteria={
+                    "CANDIDATE_DID_IT": "Candidate directly executed or led the work.",
+                    "OTHERS_DID_IT": "Collaborated or external party led the work.",
+                    "NOT_STATED": "No mention or unstated in evidence.",
+                    "NEGATED": "Explicitly lacks or denies this experience.",
+                    "ASPIRATIONAL": "Interest without production execution.",
+                },
+            )
+        return Choice(
+            instructions=scope
+            + (
+                f"Evaluate the candidate's evidence for criterion: '{criterion_description}'. "
+                "Choose STRONG if evidence clearly and directly demonstrates the requirement in professional experience. "
+                "Choose PARTIAL if evidence is partial, basic, academic/project, or related without full context. "
+                "Choose NOT_DEMONSTRATED if evidence is absent or unaddressed."
+            ),
+            criteria={
+                "STRONG": "Clear, direct, and substantial evidence in professional experience.",
+                "PARTIAL": "Partial, academic, introductory, or indirect evidence.",
+                "NOT_DEMONSTRATED": "No evidence or not demonstrated.",
+            },
+        )
+
+    @staticmethod
+    def _interpret_answer(primitive: str, chunk_key: str, ans: Any) -> tuple[EvaluationStatus, float, str]:
+        """Maps one closed Jev answer to (state, confidence, decision_value)."""
+        if primitive == "noul":
+            if not isinstance(ans, NoulAnswer):
+                raise ValueError(f"Missing noul answer for key '{chunk_key}'")
+            prob = float(ans.noul)
+            if prob >= 0.70:
+                return EvaluationStatus.STRONG, prob, f"{prob:.4f}"
+            if prob >= 0.35:
+                return EvaluationStatus.PARTIAL, max(0.5, 1.0 - abs(prob - 0.5) * 2), f"{prob:.4f}"
+            return EvaluationStatus.NOT_DEMONSTRATED, 1.0 - prob, f"{prob:.4f}"
+
+        if primitive == "score":
+            if not isinstance(ans, ScoreAnswer):
+                raise ValueError(f"Missing score answer for key '{chunk_key}'")
+            score_val = float(ans.score)
+            if score_val >= 2.0:
+                st = EvaluationStatus.STRONG
+            elif score_val >= 0.8:
+                st = EvaluationStatus.PARTIAL
+            else:
+                st = EvaluationStatus.NOT_DEMONSTRATED
+            return st, float(ans.confidence), f"{score_val:.2f}"
+
+        if not isinstance(ans, ChoiceAnswer):
+            raise ValueError(f"Missing choice answer for key '{chunk_key}'")
+        raw_choice = ans.choice.upper()
+        if raw_choice == "CANDIDATE_DID_IT":
+            st = EvaluationStatus.STRONG
+        elif raw_choice in ("OTHERS_DID_IT", "ASPIRATIONAL"):
+            st = EvaluationStatus.PARTIAL
+        elif raw_choice in ("NEGATED", "NOT_STATED"):
+            st = EvaluationStatus.NOT_DEMONSTRATED
+        else:
+            try:
+                st = EvaluationStatus(raw_choice)
+            except ValueError:
+                st = EvaluationStatus.PARTIAL
+        return st, float(ans.confidence), raw_choice
+
     async def _call_system_one_live(
         self,
         criterion_description: str,
         candidate_chunks: list[str],
-        cv_full_text: str,
+        section: ContextSectionType = ContextSectionType.UNKNOWN,
         use_noul: bool = False,
         use_score: bool = False,
         primitive: str | None = None,
-    ) -> tuple[EvaluationStatus, float, list[str], dict[str, Any]]:
-        """Executes live asynchronous call to TypeSafe System One."""
-        state: dict[str, Any] = {
-            "criterion": criterion_description,
-            "candidate_evidence": candidate_chunks,
-            "cv_text": cv_full_text,
-        }
+    ) -> tuple[EvaluationStatus, float, list[str], dict[str, Any], int]:
+        """Judges every evidence chunk separately in one System One call and selects the decisive chunk.
 
-        q_key = "criterion_evaluation"
-        questions: dict[str, Question]
-
+        Only the criterion, the source CV section name, and the evidence chunks are sent; the full CV
+        text never leaves the system.
+        Returns (state, confidence, flags, telemetry, index of the chunk the decision rests on).
+        """
         prim_req = (primitive or "").lower()
         if prim_req == "noul" or use_noul:
-            primitive_type = "NOUL"
-            questions = {
-                q_key: Noul(
-                    instructions=f"Does the candidate's evidence satisfy this criterion: '{criterion_description}'?",
-                    criteria=NoulCriteria(
-                        true="The candidate's evidence clearly demonstrates or satisfies the criterion.",
-                        false="The candidate's evidence does not satisfy or demonstrate the criterion.",
-                    ),
-                )
-            }
+            prim, primitive_type = "noul", "NOUL"
         elif prim_req == "score" or use_score:
-            primitive_type = "SCORE"
-            questions = {
-                q_key: Score(
-                    instructions=(
-                        f"Evaluate the candidate's proficiency depth for criterion: '{criterion_description}'. "
-                        "0: Unmentioned or no relevant evidence. "
-                        "1: Basic, theoretical, academic, or introductory. "
-                        "2: Proficient practitioner with direct production experience. "
-                        "3: Advanced expert, lead, or architect."
-                    ),
-                    criteria=[
-                        "No evidence or unmentioned.",
-                        "Basic or introductory familiarity.",
-                        "Proficient professional practitioner in production.",
-                        "Advanced expert, architect, or leadership level.",
-                    ],
-                )
-            }
+            prim, primitive_type = "score", "SCORE"
         elif prim_req == "polarity":
-            primitive_type = "CHOICE"
-            questions = {
-                q_key: Choice(
-                    instructions=(
-                        f"Determine candidate role polarity for criterion: '{criterion_description}'. "
-                        "CANDIDATE_DID_IT: Candidate directly performed, led, or architected this work. "
-                        "OTHERS_DID_IT: Performed by team/external party; candidate only assisted. "
-                        "NOT_STATED: Evidence does not mention or establish this criterion. "
-                        "NEGATED: Explicitly denies experience in this area. "
-                        "ASPIRATIONAL: Theoretical interest or future aspiration without execution."
-                    ),
-                    criteria={
-                        "CANDIDATE_DID_IT": "Candidate directly executed or led the work.",
-                        "OTHERS_DID_IT": "Collaborated or external party led the work.",
-                        "NOT_STATED": "No mention or unstated in evidence.",
-                        "NEGATED": "Explicitly lacks or denies this experience.",
-                        "ASPIRATIONAL": "Interest without production execution.",
-                    },
-                )
-            }
+            prim, primitive_type = "polarity", "CHOICE"
         else:
-            primitive_type = "CHOICE"
-            questions = {
-                q_key: Choice(
-                    instructions=(
-                        f"Evaluate the candidate's evidence for criterion: '{criterion_description}'. "
-                        "Choose STRONG if evidence clearly and directly demonstrates the requirement in professional experience. "
-                        "Choose PARTIAL if evidence is partial, basic, academic/project, or related without full context. "
-                        "Choose NOT_DEMONSTRATED if evidence is absent or unaddressed."
-                    ),
-                    criteria={
-                        "STRONG": "Clear, direct, and substantial evidence in professional experience.",
-                        "PARTIAL": "Partial, academic, introductory, or indirect evidence.",
-                        "NOT_DEMONSTRATED": "No evidence or not demonstrated.",
-                    },
-                )
-            }
+            prim, primitive_type = "choice", "CHOICE"
+
+        keys = [f"chunk_{i}" for i in range(len(candidate_chunks))]
+        state: dict[str, Any] = {
+            "criterion": criterion_description,
+            "evidence_section": section.value,
+            "evidence_chunks": dict(zip(keys, candidate_chunks, strict=True)),
+        }
+        questions: dict[str, Question] = {k: self._build_question(criterion_description, k, prim) for k in keys}
 
         start_time = time.perf_counter()
         if self._client is not None:
@@ -861,81 +912,25 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
                 )
         latency_ms = (time.perf_counter() - start_time) * 1000.0
 
-        flags: list[str] = ["TYPESAFE_LIVE"]
+        judged = [
+            (*self._interpret_answer(prim, k, response.answers.get(k)), idx) for idx, k in enumerate(keys)
+        ]
 
-        # Parse usage safely
+        # Strongest state among confident judgements (ties: higher confidence, then earlier chunk);
+        # if none is confident, the most confident one, which callers then treat as low confidence.
+        state_rank = {EvaluationStatus.STRONG: 2, EvaluationStatus.PARTIAL: 1}
+        confident = [j for j in judged if j[1] >= settings.VERIFIER_MIN_CONFIDENCE]
+        if confident:
+            eval_st, conf, decision_value, best_idx = max(confident, key=lambda j: (state_rank.get(j[0], 0), j[1], -j[3]))
+        else:
+            eval_st, conf, decision_value, best_idx = max(judged, key=lambda j: (j[1], -j[3]))
+
         in_tokens = int(response.usage.input_tokens) if response.usage and response.usage.input_tokens is not None else 0
         out_tokens = int(response.usage.output_tokens) if response.usage and response.usage.output_tokens is not None else 0
-        model_used = response.model or self.model
-
-        if primitive_type == "NOUL":
-            noul_ans = response.nouls.get(q_key)
-            if noul_ans is None and q_key in response.answers:
-                raw_ans = response.answers[q_key]
-                if isinstance(raw_ans, NoulAnswer):
-                    noul_ans = raw_ans
-
-            if noul_ans is None:
-                raise ValueError(f"Missing noul answer for key '{q_key}'")
-
-            prob = float(noul_ans.noul)
-            decision_value = f"{prob:.4f}"
-            if prob >= 0.70:
-                eval_st = EvaluationStatus.STRONG
-                conf = prob
-            elif prob >= 0.35:
-                eval_st = EvaluationStatus.PARTIAL
-                conf = max(0.5, 1.0 - abs(prob - 0.5) * 2)
-            else:
-                eval_st = EvaluationStatus.NOT_DEMONSTRATED
-                conf = 1.0 - prob
-        elif primitive_type == "SCORE":
-            score_ans = response.scores.get(q_key)
-            if score_ans is None and q_key in response.answers:
-                raw_ans = response.answers[q_key]
-                if isinstance(raw_ans, ScoreAnswer):
-                    score_ans = raw_ans
-
-            if score_ans is None:
-                raise ValueError(f"Missing score answer for key '{q_key}'")
-
-            score_val = float(score_ans.score)
-            conf = float(score_ans.confidence)
-            decision_value = f"{score_val:.2f}"
-            if score_val >= 2.0:
-                eval_st = EvaluationStatus.STRONG
-            elif score_val >= 0.8:
-                eval_st = EvaluationStatus.PARTIAL
-            else:
-                eval_st = EvaluationStatus.NOT_DEMONSTRATED
-        else:
-            choice_ans = response.choices.get(q_key)
-            if choice_ans is None and q_key in response.answers:
-                raw_ans = response.answers[q_key]
-                if isinstance(raw_ans, ChoiceAnswer):
-                    choice_ans = raw_ans
-
-            if choice_ans is None:
-                raise ValueError(f"Missing choice answer for key '{q_key}'")
-
-            raw_choice = choice_ans.choice.upper()
-            decision_value = raw_choice
-            conf = float(choice_ans.confidence)
-            if raw_choice == "CANDIDATE_DID_IT":
-                eval_st = EvaluationStatus.STRONG
-            elif raw_choice in ("OTHERS_DID_IT", "ASPIRATIONAL"):
-                eval_st = EvaluationStatus.PARTIAL
-            elif raw_choice in ("NEGATED", "NOT_STATED"):
-                eval_st = EvaluationStatus.NOT_DEMONSTRATED
-            else:
-                try:
-                    eval_st = EvaluationStatus(raw_choice)
-                except ValueError:
-                    eval_st = EvaluationStatus.PARTIAL
 
         telemetry = {
             "primitive_type": primitive_type,
-            "model": model_used,
+            "model": response.model or self.model,
             "latency_ms": latency_ms,
             "input_tokens": in_tokens,
             "output_tokens": out_tokens,
@@ -943,7 +938,18 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
             "confidence": conf,
         }
 
-        return eval_st, conf, flags, telemetry
+        return eval_st, conf, ["TYPESAFE_LIVE"], telemetry, best_idx
+
+    def _quote_from_chunk(self, criterion_description: str, chunk: str) -> str | None:
+        """Verbatim quote taken from the chunk Jev's decision rests on."""
+        quote, _ = self._extract_verbatim_quote(criterion_description, [chunk])
+        if quote:
+            return quote
+        clean = normalize_text_nfkc(chunk)
+        if len(clean) <= 119:
+            return clean or None
+        cut = clean.rfind(" ", 0, 119)
+        return clean[: cut if cut > 0 else 119]
 
     async def verify(
         self,
@@ -959,7 +965,8 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
         rule_st = EvaluationStatus(rule_state) if isinstance(rule_state, str) else rule_state
         ctx_t = ContextSectionType(context_type) if isinstance(context_type, str) else context_type
 
-        if not candidate_chunks or not cv_full_text:
+        chunks = [c for c in candidate_chunks if c and c.strip()]
+        if not chunks or not cv_full_text:
             return VerifierDecision(
                 state=rule_st,
                 confidence=0.5,
@@ -996,19 +1003,22 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
                 "Provide a valid API key from https://console.typesafe.ai to execute evaluations."
             )
 
-        eval_state, confidence, live_flags, telemetry = await self._call_system_one_live(
+        eval_state, confidence, live_flags, telemetry, decisive_idx = await self._call_system_one_live(
             criterion_description=criterion_description,
-            candidate_chunks=candidate_chunks,
-            cv_full_text=cv_full_text,
+            candidate_chunks=chunks,
+            section=ctx_t,
             use_noul=use_noul,
             use_score=use_score,
             primitive=prim,
         )
         flags.extend(live_flags)
 
-        # 2. Extract verbatim quote from candidate chunks
-        best_quote, _ = self._extract_verbatim_quote(criterion_description, candidate_chunks)
-        selected_quote: str | None = None if eval_state == EvaluationStatus.NOT_DEMONSTRATED else best_quote
+        # 2. Quote comes from the chunk Jev's decision rests on, never from a separate keyword pass
+        selected_quote: str | None = (
+            None
+            if eval_state == EvaluationStatus.NOT_DEMONSTRATED
+            else self._quote_from_chunk(criterion_description, chunks[decisive_idx])
+        )
 
         # 3. Strict Grounding Verification on verbatim quote
         char_start: int | None = None
@@ -1020,7 +1030,7 @@ class JevTypeSafeVerifierProvider(BaseVerifierProvider):
         quote_spans: list[str] = []
         if selected_quote:
             quote_spans = split_quote_spans(selected_quote)
-            is_grounded, g_reason = verify_grounding(selected_quote, cv_full_text, candidate_chunks)
+            is_grounded, g_reason = verify_grounding(selected_quote, cv_full_text, chunks)
             if not is_grounded:
                 # Telemetry record even if grounding fails, with grounding_valid=False
                 await record_jev_call(
