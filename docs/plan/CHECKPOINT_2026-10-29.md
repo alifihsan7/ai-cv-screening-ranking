@@ -1,109 +1,93 @@
-# Checkpoint 29 Oktober 2026: perbaikan integrasi Jev dan pengukuran
+# Checkpoint 29 Oktober 2026: Jev, CV nyata, dan keadaan akhir
 
-Ringkasan keadaan pekerjaan di branch `fix/jev-remediation` supaya bisa dilanjutkan dari titik ini tanpa riwayat percakapan. Rencana awalnya ada di [JEV_REMEDIATION_PLAN.md](JEV_REMEDIATION_PLAN.md), dan angka lengkapnya di [BENCHMARK_RESULTS_2026-10-29.md](../eval/BENCHMARK_RESULTS_2026-10-29.md).
-
-## 0. Pembaruan sesudah versi pertama dokumen ini
-
-Bagian di bawah ini ditulis sebelum langkah-langkah berikut; bila ada yang bertentangan, bagian 0 ini yang berlaku.
-
-- **Hold-out kedua** dibangun dan diukur sebagai baseline (`ccb101d`): aturan murni 109/120, alur lengkap dengan Jev **116/120**. Lihat dokumen hasil. Pengaman "harus ada angka" untuk Jev (masalah terbuka nomor 1 di bawah) **dinilai berdampak kecil**: dari enam positif palsu ACHIEVEMENT dan LEADERSHIP di dua hold-out, ia hanya menangkap dua; penyebab dominan adalah domain yang salah (data, gudang, pemasaran, penjualan).
-- **Nama dari nama file** diperbaiki (`e8ed52f`): nama file hanya boleh melengkapi nama dokumen bila ada kata yang sama.
-- **Kebocoran nama kandidat** ditemukan dan diperbaiki dua lapis (belum di-commit saat catatan ini ditulis): sebelumnya 15 dari 54 CV membawa nama asli di teks "tersensor" dan 62 dari 63 verifikasi untuk CV itu akan mengirimnya ke Jev. Kini 0 dari 54 dan 0 dari 378. Akurasi netral. Penyebabnya: kotak "FOTO" di PDF dua kolom terbaca sebagai nama, serta email dan URL yang terpecah OCR pada PDF scan. Pengaman: sensor token email di seluruh teks, nama dicari lewat jangkar email, dan header dipotong dari bukti.
-- **Koreksi atas klaim lama:** jaminan Tahap 1 ("hanya teks tersensor sampai ke Jev") tidak berlaku untuk dua kolom dan scan sampai perbaikan di atas; test sensor lama hanya memeriksa email dan telepon.
-- **Nama file deskriptif** (`K09_platform_head_…`) pada set uji ternyata ikut memengaruhi deteksi nama; set uji kini diberi catatan itu.
-- **Daftar pilihan berikutnya yang diperbarui:** (1) fitur spec yang belum ada: mahasiswa aktif maksimal PARTIAL (K08.R7) dan kedaluwarsa sertifikat (H10.R8); (2) ~~ekstraksi: header sebaris K10 dan "tanggal dulu" H02~~ **selesai** (lihat butir berikutnya); (3) kesadaran domain untuk Jev pada ACHIEVEMENT dan LEADERSHIP (empat positif palsu lintas set), idealnya dengan hold-out ketiga yang memuat jebakan domain; (4) Tahap 4, cache hasil Jev.
-
-- **Parser pengalaman diperbaiki:** "Judul di Perusahaan, Kota (tanggal)" (K10) kini terbaca benar (pemisah "di"), dan tata letak "tanggal dulu" dengan banyak pekerjaan (H02) memakai baris setelah tanggal sebagai judul dan organisasi; baris header tidak lagi bocor ke bullet. Aturan murni: golden 149, parafrase 130, hold-out 1 114, hold-out 2 109 → 110. Alur lengkap dengan Jev asli belum diukur ulang. Test: 374 passed, 3 skipped.
-- **Perbaikan domain ACHIEVEMENT/LEADERSHIP: rancangan dan kriteria penerimaan (ditulis sebelum pengukuran).** Dua perubahan kode, bukan prompt: (a) aturan murni: bullet yang menyebut tim non-teknis (panitia, gudang, pemasaran, dan sejenisnya, tanpa istilah teknis di bullet yang sama) tidak dihitung sebagai LEADERSHIP, dan angka yang hanya jumlah anggota tim pada bullet memimpin tidak dihitung sebagai angka hasil ACHIEVEMENT; (b) pengaman domain untuk Jev: bila lowongan menerima keluarga peran teknis, Jev tidak boleh menaikkan LEADERSHIP atau ACHIEVEMENT di atas status aturan dengan kutipan dari pekerjaan yang judul dan bullet-nya tidak memuat satu pun istilah teknis; diberi flag `JEV_DOMAIN_GUARD`. Pengaman angka ("harus ada angka") **tidak** dipakai: akan merusak K01 (hasil ditulis kata) dan L07.R9. **Diterima bila:** (1) pada golden, parafrase, hold-out 1 dan hold-out 2 tidak ada sel yang menjadi salah akibat perubahan ini (setiap sel yang berubah ditinjau satu per satu); (2) K05.R10 dan K11.R9 (bukti independen dari hold-out kedua) menjadi benar; (3) test baru lulus. **Hold-out 3 tidak dipakai untuk menerima:** L04, L06, dan L12 ikut membentuk rancangan, jadi set itu tidak lagi bersih untuk sel-sel tersebut; hasilnya hanya informasi, dan bila perlu pengukuran bersih dibuat hold-out keempat.
-- **Hasil perbaikan domain: diterima oleh Anda**, dengan K11.R9 dicatat sebagai kegagalan yang diketahui (kriteria 2 hanya terpenuhi sebagian). Angka di [dokumen hasil](../eval/BENCHMARK_RESULTS_2026-10-29.md). Sisa: Jev menaikkan ACHIEVEMENT dari kutipan tanpa angka (K11.R9, L02.R9) dan L09.R7 ("Bachelor of Informatics Engineering" tidak dikenali taksonomi jurusan). Flag `LOW_CONFIDENCE` sudah dipisah dari `NO_EVIDENCE_FOUND`.
-- **ACHIEVEMENT tanpa angka: rancangan dan kriteria penerimaan (ditulis sebelum pengukuran).** Dulu pengaman "harus ada angka" ditolak karena merusak K01 (hasil ditulis "tiga kali lipat") dan L07.R9. Rancangan ulang: pengaman kode di `domain_guard.py`: bila Jev menaikkan ACHIEVEMENT di atas status aturan, **kutipan pendukungnya sendiri harus memuat besaran**: angka, atau kata bilangan/kelipatan (daftar tertutup: "kali lipat", "ribu", "juta", "doubled", dan seterusnya). Bila tidak, status aturan dipertahankan dengan flag `JEV_ACHIEVEMENT_NO_FIGURE`. Ini penerapan aturan emas #2 (klaim harus didukung kutipan verbatim) pada klaim "ada hasil terukur". Biaya yang sudah diketahui: L07.R9 benar karena kebetulan (kutipan Jev tanpa angka, padahal angkanya ada di organisasi) dan akan hilang. **Diterima bila:** (1) golden tetap 150 dan parafrase tidak turun di luar variasi Jev (≥ 144), dan setiap sel yang diubah pengaman ditinjau satu per satu; (2) K01.R9 tetap benar; (3) H04.R9, H09.R9, K11.R9 menjadi benar; (4) test baru lulus. Hold-out 1 sampai 3 sudah pernah dilihat, jadi (3) adalah bukti terbatas, bukan bukti generalisasi. **Hasil: DITOLAK** (kriteria 1 gagal: parafrase 143; kriteria 3 sebagian: tahun dihitung sebagai angka; pengaman merusak M2.R9, K08.R9, L07.R9). Rincian dan syarat percobaan berikutnya di dokumen hasil.
-- **Urutan baca PDF (kolom ganda dan urutan objek acak): rancangan dan kriteria penerimaan (ditulis sebelum pengukuran).** Temuan dari geometri 19 CV nyata: banyak PDF (Canva dan sejenisnya) menulis blok teks dalam urutan acak (C-0036: 4 dari 11 pasangan blok berurutan melompat ke atas), dan sebagian punya sidebar. Rancangan: modul `src/worker/pdf_reading_order.py` mengurutkan blok halaman menurut posisi: (a) bila ada celah kolom (celah ≥ 8 pt yang dilintasi blok yang tingginya ≤ 25% isi halaman, dengan masing-masing sisi ≥ 20% isi), baca kolom kiri lalu kanan, dengan blok selebar halaman (kepala, kaki) sebagai pemisah zona; (b) bila tidak, urut per baris visual (y, lalu x), sehingga judul kiri dan tanggal rata kanan tetap sebaris. Dipakai di tiga tempat yang kini memanggil `page.get_text()`. **Diterima bila:** (1) ekstraksi 66 CV sintetis identik dengan sebelumnya, dan setiap selisih ditinjau satu per satu; rules-only di lima set tidak ada sel yang menjadi salah; (2) pada 19 CV nyata tidak ada CV yang kehilangan jumlah entri atau judul yang benar, dan jumlah CV non-scan dengan 0 pengalaman berkurang; (3) test baru lulus. CV hasil scan (C-0090, halaman gambar) di luar cakupan selain pemakaian urutan yang sama pada teks OCR. **Hasil: DITERIMA** setelah tiga perbaikan (percobaan pertama gagal kriteria 2); rincian di dokumen hasil.
-- **Dua fitur spec (mahasiswa aktif, sertifikat kedaluwarsa): rancangan dan kriteria penerimaan (ditulis sebelum pengukuran).** EDUCATION: bila entri pendidikan menyebut masih menempuh studi ("mahasiswa aktif", "semester N", "sedang menempuh", rentang yang berakhir "sekarang/present" atau setelah tahun `as_of`), STRONG dibatasi PARTIAL, flag `STUDENT_NOT_GRADUATED`. CERTIFICATION: bila satu-satunya sertifikat yang cocok punya tanggal kedaluwarsa tertulis yang sudah lewat terhadap `as_of` ("expired 2023", "kedaluwarsa Maret 2024", "valid until"), status PARTIAL, flag `CERTIFICATION_EXPIRED`; sertifikat cocok yang masih berlaku tetap STRONG. Keduanya aturan murni (bukan Jev), `as_of` diteruskan dari agent dan screening_service. **Diterima bila:** (1) K08.R7 dan H10.R8 menjadi benar; (2) pada rules-only di lima set tidak ada sel lain yang berubah, dan setiap sel yang berubah ditinjau satu per satu; (3) test baru lulus.
-- **Ditunda atas keputusan Anda:** pgvector di alur screening (cabang vektor belum dipakai). Bila dikerjakan, pakai mode tambahan (hasil vektor digabung ke bukti per bagian CV, bukan menggantikan) dan ukur dengan `profile_chunks` terisi di database tes.
-- **Status terbaru (menggantikan baris "belum di-push" di bagian 1):** branch sudah di-push ke `origin` (`alifihsan7/ai-cv-screening-ranking`, privat) dan dibuka sebagai **PR #1** ke `main`: https://github.com/alifihsan7/ai-cv-screening-ranking/pull/1. Jumlah commit sekarang 25 (head `4b8af56`), test terakhir 372 passed, 3 skipped. Perbaikan nama kandidat sudah di-commit. Saat membuat PR dengan `gh`, selalu pakai `--repo alifihsan7/ai-cv-screening-ranking` karena `gh` tidak punya repo default dan bisa menunjuk ke upstream publik. `gh pr edit` gagal karena error GraphQL Projects classic; ubah isi PR lewat `gh api -X PATCH repos/alifihsan7/ai-cv-screening-ranking/pulls/1 -F body=@file`.
-- **Menunggu keputusan Anda:** tinjau label hold-out 1 dan 2 secara manual (ditulis dari spec oleh asisten, bukan wasit independen; perhatikan H05.R9); putuskan apakah PR dipecah per tema; nama `ScreeningAgent` (alur tetap, bukan agent otonom) ditunda.
-- **Preferensi kerja yang berlaku:** commit hanya bila diminta, tanpa trailer Co-Authored-By; hold-out hanya untuk mengukur, tidak untuk menyetel; percobaan diterima hanya bila memenuhi kriteria yang dideklarasikan sebelum diukur; tes otomatis tidak memanggil API sungguhan (`RUN_LIVE_JEV=1` untuk opt-in); `TEST_DATABASE_URL` harus di-export dari `.env`.
+Keadaan pekerjaan di akhir hari, supaya bisa dilanjutkan tanpa riwayat percakapan. Rencana awalnya ada di [JEV_REMEDIATION_PLAN.md](JEV_REMEDIATION_PLAN.md), angka lengkap di [BENCHMARK_RESULTS_2026-10-29.md](../eval/BENCHMARK_RESULTS_2026-10-29.md), dan keputusan desain di [DECISIONS.md](../spec/DECISIONS.md) (D16 sampai D22). Dokumen ini menggantikan versi sebelumnya yang berisi tambalan "bagian 0".
 
 ## 1. Status
 
-- **Branch:** `fix/jev-remediation`, 21 commit di atas `main` (`639df75`) saat bagian ini ditulis; lihat bagian 0 untuk status PR.
-- **Working tree:** bersih (hanya folder `.claude/` yang tidak dilacak).
-- **Test terakhir:** 348 passed, 3 skipped. Lint dan mypy tidak bertambah dibanding awal (mypy: 9 error lama di 3 file).
-- **Rencana awal:** Tahap 1, 2, 3, 5, 6 selesai. Tahap 7 (pengukuran) sebagian besar selesai. **Tahap 4 (cache hasil Jev) belum dikerjakan.**
+- **`main` (GitHub)** sudah memuat seluruh pekerjaan: branch `fix/jev-remediation` (44 commit) di-merge bertahap lewat PR #1 sampai #4; merge terakhir `a474905` (PR #4) sudah memuat commit terakhir `5ec3bbf`.
+- **Branch `chore/repo-cleanup`** (lokal, belum di-push): bersih-bersih dokumen dan skrip, tanpa perubahan kode.
+- **Test:** 424 lulus, 3 dilewati. Ruff dan mypy tidak bertambah dibanding awal (sekitar 105 temuan ruff dan 9 error mypy yang lama masih ada).
+- **Rencana awal:** Tahap 1, 2, 3, 5, 6, 7 selesai. **Tahap 4 (cache hasil Jev) belum dikerjakan**, sengaja diletakkan paling akhir.
 
 ## 2. Yang sudah dikerjakan
 
 | Tema | Commit | Isi singkat |
 |---|---|---|
-| Privasi | `9131e03`, `21d756d` | Teks CV disensor sebelum ke Jev; kemudian Jev hanya menerima entri pengalaman yang sudah disensor |
-| Ambang confidence | `b444a05` | `VERIFIER_MIN_CONFIDENCE` (0,60): jawaban Jev yang ragu tidak menimpa status aturan |
-| Validasi pengalaman | `21d756d` | Jev menilai tiap entri pengalaman (ya/tidak pengalaman kerja); entri ditolak diberi flag, tidak dihapus |
-| Kutipan terhubung ke Jev | `2aee0fe` | Jev menilai tiap potongan bukti terpisah; kutipan diambil dari potongan penentu; teks CV lengkap tidak lagi dikirim |
-| Pembersihan | `d283da1` | Hapus mock dari kode produksi dan monkeypatch SDK; satu pembaca konfigurasi TypeSafe |
-| Urutan seri | `ba816ae` | Pembeda terakhir ranking memakai `candidate_id` saja, tidak lagi `run_id` |
-| Token terukur | `48d96c9` | Token Jev diambil dari `Usage` API, bukan konstanta |
-| Kutipan skill | `5a6528e` | Kutipan skill selalu memuat kata kunci yang cocok (sebelumnya dipotong 120 karakter pertama) |
-| Bukti terstruktur | `9a60d04` | Bukti membawa jenis bagian CV (pekerjaan, proyek, daftar keahlian); skill dari proyek atau daftar keahlian maksimal PARTIAL |
-| **Pembaca DOCX** | `8d96ad1` | Isi tabel DOCX kini terbaca; sebelumnya judul, perusahaan, dan tanggal di tabel hilang. Flag `EXPERIENCE_NOT_PARSED` dan `DOCX_TEXT_EXTRACTION_FAILED` |
-| Jumlah bukti | `0935078`, `2814ce9` | `EVIDENCE_TOP_K` jadi pengaturan; default 3 diubah ke **8** |
-| Aturan sesuai spec | `9a29a07` | EDUCATION `partial_fields` tidak dinaikkan oleh kata "terkait"; ACHIEVEMENT dari proyek atau domain berdekatan = PARTIAL |
-| Alat ukur | `a029ceb`, `959fa1a`, `495a2f1`, `72a0184` | Skrip pengukur jalur produksi, percobaan pendapat kedua, set parafrase, set hold-out |
-| Dokumen | `8b8cf13`, `1b8141e`, `71800ae`, `a08d4e1` | Dokumen benchmark lama ditandai usang; hasil terukur dicatat |
+| Privasi ke Jev | `9131e03`, `21d756d`, `2aee0fe` | Teks CV disensor sebelum ke Jev; Jev hanya menerima entri pengalaman tersensor dan potongan bukti, tidak seluruh CV |
+| Nama kandidat | `e8ed52f`, `4b8af56` | Nama file tidak menimpa nama di dokumen; kotak "FOTO" bukan nama; nama dicari lewat token email; header dipotong dari bukti |
+| **Data pribadi di basis data** | `521d6b6` | `candidate_profiles.profile` menyimpan profil mentah (nama, email, telepon, teks CV) tanpa enkripsi; kini tampilan tersensor. Sampel teks pada temuan teks tersembunyi disensor. `scripts/scrub_stored_pii.py` membersihkan baris lama (D21) |
+| Verifier Jev | `b444a05`, `2aee0fe`, `9a60d04`, `48d96c9`, `5a6528e`, `d283da1` | Ambang confidence 0,60; Jev menilai tiap potongan bukti; bukti membawa jenis bagian CV; token terukur dari `Usage`; mock dihapus dari kode produksi |
+| Pembaca DOCX | `8d96ad1` | Isi tabel DOCX terbaca (sebelumnya judul, perusahaan, tanggal di tabel hilang) |
+| **Parser CV nyata** | `1ff13ba`, `14f0188`, `a314fae`, `3e71c43` | Tata letak LinkedIn, `Judul, Perusahaan` + `tanggal \| Kota`, pipa, koma setelah bulan, tanggal dulu dengan bullet berglyph, `Perusahaan / tanggal / Judul`, `Perusahaan / Kota, / tanggal / Judul`; peringatan `EXPERIENCE_NOT_PARSED` untuk teks terpecah |
+| **Urutan baca PDF** | `437a150`, `5ec3bbf` | Blok teks halaman diurutkan menurut posisi (kolom, baris visual), bukan urutan file; pengaman agar tidak ada teks hilang, dengan tes permanen |
+| Teks tersembunyi | `c9bad1f`, `2d4a524`, `43cbc64`, `b52dd2a` | Latar nyata, span satu karakter, zero-width hanya bila mencurigakan; satu detektor kasar kedua di sanitizer disamakan (D22) |
+| Domain LEADERSHIP/ACHIEVEMENT | `eaab45f` | Tim non-teknis dan jumlah anggota tim tidak dihitung; pengaman `JEV_DOMAIN_GUARD` (D17, D18) |
+| Aturan sesuai spec | `9a29a07`, `e1a3fd2` | EDUCATION `partial_fields`; ACHIEVEMENT dari proyek = PARTIAL; alias bidang untuk daftar jurusan recruiter (D16) |
+| Flag | `c05f576`, `a3ffa4a` | `NO_EVIDENCE_FOUND` dipisah dari `LOW_CONFIDENCE` (D19); `HYBRID_PORTFOLIO_CV` hanya untuk dokumen dengan lampiran |
+| Urutan seri | `ba816ae` | Pembeda terakhir ranking memakai `candidate_id` saja |
+| Alat ukur | `a029ceb` dan seterusnya, `ccb101d`, `51e2c87` | `scripts/eval_agent_path.py`, set parafrase, tiga set hold-out |
 
 ## 3. Angka kunci
 
 Akurasi status per kriteria. "Alur lengkap" adalah jalur produksi dengan Jev asli (8 potongan bukti).
 
-| Set | Aturan murni | Alur lengkap | Catatan |
-|---|---|---|---|
-| Golden, 15 CV × 10 | 132 → 143 → **149**/150 | 134 → 143 → 144 → **150**/150 | Alur lengkap: 135 setelah bukti terstruktur, 143 setelah perbaikan DOCX, 144 dengan 8 potongan, 150 setelah perbaikan aturan |
-| Parafrase, 15 CV × 10 | 127 → **130**/150 | 138 → 143 → **146**/150 | Uji stres recall: 31 bullet ditulis ulang dengan kata lain |
-| Hold-out, 12 CV × 10 | 112 → 114/120 | 114 → **115**/120 | Hanya informasi; sebagian tidak lagi bersih |
+| Set | Aturan murni | Alur lengkap |
+|---|---|---|
+| Golden, 15 CV × 10 | 132 → **149**/150 | 134 → **150**/150 |
+| Parafrase, 15 CV × 10 | 127 → **130**/150 | 138 → **146**/150 (run lain: 143 sampai 144) |
+| Hold-out 1, 12 CV × 10 | 112 → 114/120 | 114 → 115/120 |
+| Hold-out 2, 12 CV × 10 | 109 → 110/120 | 116 → 117/120 |
+| Hold-out 3, 12 CV × 10 (informasi) | 115 → 118/120 | 114 → 116/120 |
+
+**19 CV nyata** (uji manual; tidak masuk repo karena berisi data pribadi): awalnya 12 tersimpan dengan 0 pengalaman tanpa peringatan. Sekarang 91 entri di 16 CV, 3 CV tanpa pengalaman semuanya ditandai `EXPERIENCE_NOT_PARSED`, `HIDDEN_TEXT` turun dari 10 menjadi 0 CV, dan `HYBRID_PORTFOLIO_CV` dari 19 menjadi 3.
 
 **Cara membacanya dengan jujur:**
-- Perbaikan terbesar berasal dari **ekstraksi DOCX** (132 → 143), bukan dari Jev. Setelah itu, Jev di golden hampir tidak mengubah apa pun.
-- Nilai Jev terlihat jelas di **set parafrase** (aturan murni 130 → alur lengkap 146): saat kata di CV tidak cocok dengan kamus aturan, Jev memulihkan sebagian besar.
-- **150/150 di golden bukan bukti kualitas umum.** Set itu diamati berkali-kali dan perbaikannya dirancang dari kegagalannya. Hold-out lebih mendekati kenyataan: 115/120.
-- Biaya satu pengukuran penuh sekitar $0,007 sampai $0,013 (sekitar 200 panggilan, 60 detik untuk 15 CV). Aturan murni 0,1 detik.
+- Kenaikan terbesar di golden berasal dari **ekstraksi** (DOCX, lalu parser dan urutan baca), bukan dari Jev. Nilai Jev terlihat di parafrase dan hold-out, ketika kata di CV tidak cocok dengan kamus aturan.
+- **150/150 di golden bukan bukti kualitas umum**: set itu diamati berkali-kali dan perbaikannya dirancang dari kegagalannya. Set sintetis juga tidak mewakili CV nyata; 19 CV nyata menemukan kegagalan yang tidak terlihat di semua set sintetis.
+- **Jev tidak deterministik**: parafrase 143 sampai 146 pada kode yang sama. Itulah alasan Tahap 4.
+- Hold-out 3 hanya informasi: sebagian sel ikut membentuk rancangan perbaikan domain.
+- Biaya satu pengukuran penuh dengan Jev sekitar $0,007 sampai $0,013 (sekitar 200 panggilan, 60 detik untuk 15 CV). Aturan murni 0,1 detik.
 
 ## 4. Eksperimen yang ditolak (jangan diulang tanpa alasan baru)
 
-- **Pendapat kedua Jev pada klaim STRONG dari aturan:** bersih −10 (primitive produksi) dan −3 (Choice generik) pada 57 klaim. Jev menurunkan STRONG skill yang benar karena rubriknya menilai kedalaman keahlian. Skrip: `scripts/eval_second_opinion.py`.
-- **Primitive ACHIEVEMENT lain** (Choice generik, dan pertanyaan sesuai definisi spec): masing-masing bersih −1, di bawah syarat +2. Sisa kesalahan ada di confidence 0,58 sampai 0,64 (dekat ambang) dan pembacaan harfiah "di bidang backend".
-- **Batas syarat penerimaan:** perubahan diterima hanya bila lebih banyak memperbaiki daripada merusak pada pengukuran, dengan syarat ditetapkan sebelum melihat hasil.
+- **Pendapat kedua Jev pada klaim STRONG dari aturan:** bersih −10 (primitive produksi) dan −3 (Choice generik) pada 57 klaim. Jev menurunkan STRONG skill yang benar karena rubriknya menilai kedalaman keahlian.
+- **Primitive ACHIEVEMENT lain** (Choice generik, dan pertanyaan sesuai definisi spec): masing-masing bersih −1.
+- **Pengaman "harus ada angka" untuk ACHIEVEMENT:** merusak K01 (hasil ditulis dengan kata) dan L07.R9.
+- **Pengaman "kutipan harus memuat besaran":** parafrase 143 (kriteria ≥ 144), tahun dihitung sebagai angka, dan merusak M2.R9, K08.R9, L07.R9 karena kutipan hanya sebagian dari bukti yang dinilai Jev. Bila dicoba lagi: kecualikan tahun dan tanggal, uji seluruh potongan bukti (bukan kutipan), pada set yang belum pernah dilihat, dengan kriteria baru. Rincian di dokumen hasil.
+- **Aturan penerimaan:** perubahan diterima hanya bila memenuhi kriteria yang ditulis sebelum pengukuran. Satu kali kriteria itu lolos tetapi terlalu sempit (urutan baca menghilangkan blok kontak, yang tidak terukur oleh jumlah entri); sejak itu pengukuran urutan baca menyertakan tes "tidak ada kata yang hilang".
 
 ## 5. Masalah yang masih terbuka
 
-1. **Jev menaikkan ACHIEVEMENT tanpa dasar.** Di hold-out, H04.R9 dan H09.R9 dinilai PARTIAL padahal CV tidak memuat satu angka hasil pun; H06.R9 dinaikkan dari PARTIAL (benar) ke STRONG. Calon perbaikan: pengaman kode, "Jev tidak boleh menaikkan ACHIEVEMENT dari NOT_DEMONSTRATED kecuali kutipan memuat angka". Tidak menutup kasus H06.R9.
-2. **Parser pengalaman gagal pada tata letak "tanggal dulu, baru judul"** (umum pada CV bertabel): judul pekerjaan terbaca salah tanpa peringatan (H02). Akurasi tidak terganggu pada kasus itu, datanya keliru.
-3. **Sertifikat kedaluwarsa tidak ditangani** (`eval_certification` tidak punya logika kedaluwarsa, padahal spec mensyaratkan PARTIAL). Dampak kecil: R8 berbobot 5 dari 100, setara sekitar 2,5 poin skor. Ditunda; Anda bertanya manfaatnya dan belum memutuskan.
-4. **Jev tidak sepenuhnya deterministik.** Jawaban di sekitar confidence 0,6 berubah antar run pada input yang sama. Inilah alasan **Tahap 4 (cache)**, dengan ambang simpan lebih tinggi dari ambang keputusan (misalnya 0,80), opsi `refresh`, flag `JEV_CACHED`, dan versi prompt dan model di kunci cache. Belum dikerjakan.
-5. **Pencarian bukti di alur screening** hanya mencocokkan kata dengan deskripsi kriteria; cabang pgvector (embedding multibahasa) tidak pernah dipakai karena konteksnya tidak membawa `profile_id` dan `tenant_id`.
-6. **Flag `LOW_CONFIDENCE` menyesatkan:** sebenarnya berarti "Jev yakin tidak ada bukti" (confidence Jev tinggi). Usul nama: `NO_EVIDENCE_FOUND`.
-7. **DOCX yang belum ditangani:** kotak teks, header/footer, `.doc` lama. Teks DOCX di sanitizer (untuk `full_text_redacted`) masih satu baris panjang.
-8. **Label hold-out belum ditinjau manusia.** Ditulis dari spec oleh asisten yang juga mengerjakan sistemnya, jadi bukan wasit independen. Kasus yang perlu perhatian: H05.R9.
-9. **Sisa kesalahan aturan murni di golden:** hanya M3.R10 (LEADERSHIP di organisasi); Jev memperbaikinya, sehingga alur lengkap 150/150.
+1. **Jev tidak deterministik** di sekitar confidence 0,6 (Tahap 4, cache; D14 sudah menyebutnya tetapi belum berlaku untuk Jev). Rancangan: ambang simpan lebih tinggi dari ambang keputusan (mis. 0,80), opsi `refresh`, flag `JEV_CACHED`, versi prompt dan model di kunci cache, kolom `cached` di `jev_calls`.
+2. **Jev menaikkan ACHIEVEMENT dari kutipan tanpa angka** (K11.R9, L02.R9; sebagian H09.R9). Pengaman domain tidak menjangkaunya.
+3. **Teks yang tidak bisa dibaca parser:** C-0037, C-0038, C-0046 (teks terpecah per kata, ditandai) dan C-0090 (hasil scan, dua judul salah). C-0035 punya entri dari sidebar. Perbaikan urutan baca diukur pada 19 CV yang sama dengan yang membentuk rancangannya, jadi itu bukan bukti bahwa tata letak lain akan terbaca.
+4. **Label ketiga hold-out ditulis dari spec oleh asisten yang juga mengerjakan sistemnya,** bukan wasit independen. Perlu ditinjau manusia (perhatikan H05.R9).
+5. **Cabang pgvector di alur screening tidak pernah terpakai** (konteks tidak membawa `profile_id` dan `tenant_id`). Ditunda; bila dikerjakan, sebagai tambahan bukti per bagian CV, diukur dengan `profile_chunks` terisi, dan dengan bukti determinisme (D13).
+6. **Dua fitur spec 4.2 tidak diimplementasikan** (mahasiswa aktif, sertifikat kedaluwarsa): keputusan pemilik, D20.
+7. **Sisa kualitas kode (pilihan "kode" di bersih-bersih, belum dikerjakan):** sekitar 105 temuan ruff, 9 error mypy, `disallow_untyped_defs = false`, path `/srv/hermes-control` di `tests/conftest.py:15`, dan impor melingkar antara `processor`, `experience_extractor`, `verifier`.
+8. **Nama `ScreeningAgent`** (alur bertahap tetap, bukan agent otonom) belum diganti. Cakupan: internal saja (nilai DB `react_agent` dan field API `use_agent` dipertahankan), hanya istilah di dokumen, atau penuh termasuk DB dan API (butuh migrasi). Calon nama: `ScreeningWorkflow`, `EvidencePipeline`, `CandidateEvaluator`.
 
 ## 6. Kesepakatan kerja
 
-- **Set hold-out hanya untuk mengukur.** Jangan menyetel aturan, prompt, ambang, atau pengaturan terhadapnya. Bila sistem tidak setuju dengan label, tinjau kasusnya; keduanya bisa salah. Bila hold-out pernah dipakai menyetel, buat yang baru (rencana: hold-out kedua).
+- **Set hold-out hanya untuk mengukur.** Jangan menyetel aturan, prompt, ambang, atau pengaturan terhadapnya. Bila sistem tidak setuju dengan label, tinjau kasusnya; keduanya bisa salah. Bila hold-out pernah dipakai menyetel, buat yang baru.
 - **Golden dataset adalah wasit:** label tidak boleh diubah agar test lulus (aturan #8 di `CLAUDE.md`).
 - **Terima perubahan hanya dengan bukti** dari pengukuran, dengan syarat penerimaan ditulis lebih dulu.
-- **Commit tanpa baris `Co-Authored-By`.**
-- **Panggilan ke API Jev berbayar:** jalankan hanya bila bagian dari tugas yang disetujui; test otomatis tidak memanggil API sungguhan (kunci dikosongkan oleh `tests/conftest.py` kecuali `RUN_LIVE_JEV=1`).
-- **Nama "agent":** `ScreeningAgent` sebenarnya alur bertahap tetap, bukan agent otonom (hanya Jev yang memakai model). Penggantian nama kode **ditunda dan belum diputuskan**. Pilihan cakupan: internal saja (nilai DB `react_agent` dan field API `use_agent` dipertahankan), hanya istilah di dokumen, atau penuh termasuk DB dan API (butuh migrasi). Calon nama: `ScreeningWorkflow`, `EvidencePipeline`, `CandidateEvaluator`.
+- **Commit tanpa baris `Co-Authored-By`.** Commit atau push hanya bila diminta.
+- **Panggilan ke API Jev berbayar:** hanya bila bagian dari tugas yang disetujui; test otomatis tidak memanggil API sungguhan (`RUN_LIVE_JEV=1` untuk opt-in).
+- **Bersih-bersih:** hapus yang jelas tidak terpakai, tetapi dokumen yang penting (terutama `.md`) diperbarui, bukan dihapus. Jangan menyentuh `data/` (berisi CV nyata) tanpa perintah eksplisit.
+- **`gh` tanpa repo default:** selalu pakai `--repo alifihsan7/ai-cv-screening-ranking` (bisa menunjuk ke upstream publik). `gh pr edit` gagal karena error GraphQL Projects classic; ubah isi PR lewat `gh api -X PATCH repos/alifihsan7/ai-cv-screening-ranking/pulls/<n> -F body=@file`.
+- **Worker dan taksonomi dimuat sekali saat mulai:** restart setelah kode atau YAML berubah (lihat bagian 7 di [runbook](../DEPLOYMENT_AND_RUNBOOK.md)).
 
-## 7. Langkah berikutnya (menunggu keputusan)
+## 7. Langkah berikutnya
 
-1. **Hold-out kedua** (12 CV baru, tata letak dan kasus berbeda, termasuk CV tanpa angka hasil dan angka di domain berbeda). Prasyarat bagi pengukuran bersih berikutnya. Label perlu ditinjau manusia.
-2. **Pengaman angka hasil untuk Jev pada ACHIEVEMENT** (masalah terbuka nomor 1), diukur pada hold-out kedua serta golden dan parafrase untuk memeriksa regresi.
-3. **Tahap 4, cache hasil Jev** (masalah terbuka nomor 4).
-4. Opsional: parser "tanggal dulu" (nomor 2), sertifikat kedaluwarsa (nomor 3), ganti nama flag `LOW_CONFIDENCE` (nomor 6), keputusan penggantian nama "agent".
-5. **Push dan PR:** ringkasan 21 commit untuk deskripsi PR bisa disiapkan; tidak ada yang dikirim tanpa instruksi.
+1. **Push `chore/repo-cleanup` dan buka PR** (draf deskripsi perlu disesuaikan dengan commit terbaru); hapus branch `fix/jev-remediation` yang sudah merged setelah pemilik setuju.
+2. **Tahap 4, cache hasil Jev:** tulis rancangan dan kriteria penerimaan lebih dulu; alat ukur harus punya mode tanpa cache atau `refresh`, supaya yang diukur bukan cache.
+3. **Sisa kualitas kode** (butir 5.7), bila pemilik mau.
+4. **Peninjauan label hold-out oleh manusia;** hold-out keempat bila perlu pengukuran bersih untuk perbaikan domain.
 
 ## 8. Cara mengulang pengukuran
 
-Semua perintah dijalankan dari root repo. Database tes sudah ada di `.env` tetapi tidak dimuat otomatis, jadi diekspor dulu:
+Semua perintah dari root repo. Database tes ada di `.env` tetapi tidak dimuat otomatis, jadi diekspor dulu:
 
 ```bash
 export TEST_DATABASE_URL="$(grep '^TEST_DATABASE_URL=' .env | cut -d= -f2-)"
@@ -111,12 +95,12 @@ pytest -q                                   # test otomatis, tanpa API sungguhan
 
 export DATABASE_URL="$TEST_DATABASE_URL"    # telemetri jev_calls ke database tes, bukan database aplikasi
 
-# Alur produksi dengan Jev asli (live, sekitar $0,01)
+# Alur produksi dengan Jev asli (live, sekitar $0,01 per set)
 python scripts/eval_agent_path.py --output-json out/golden.json
-python scripts/eval_agent_path.py --cvs-dir docs/eval/paraphrase_set/cvs/core \
-  --labels docs/eval/paraphrase_set/labels/expected_JD-01.json --output-json out/para.json
-python scripts/eval_agent_path.py --cvs-dir docs/eval/holdout_set/cvs/core \
-  --labels docs/eval/holdout_set/labels/expected_JD-01.json --output-json out/hold.json
+for set in paraphrase_set holdout_set holdout_set_2 holdout_set_3; do
+  python scripts/eval_agent_path.py --cvs-dir docs/eval/$set/cvs/core \
+    --labels docs/eval/$set/labels/expected_JD-01.json --output-json out/$set.json
+done
 
 python scripts/eval_agent_path.py --mock-jev --output-json out/rules.json   # hanya aturan murni, gratis; BUKAN pengukuran Jev
 ```
@@ -125,22 +109,25 @@ CV set parafrase dan hold-out (PDF dan DOCX diabaikan git) dibangun ulang dengan
 
 ```bash
 python scripts/build_paraphrase_set.py
-python scripts/build_holdout_set.py
+python scripts/build_holdout_set.py && python scripts/build_holdout2_set.py && python scripts/build_holdout3_set.py
 ```
 
-Pengaturan yang relevan di `.env`: `VERIFIER_MIN_CONFIDENCE` (0,60), `EVIDENCE_TOP_K` (8), `TYPESAFE_API_KEY`, `SCORING_MODE=jev_hybrid`.
+Pengaturan yang relevan di `.env`: `VERIFIER_MIN_CONFIDENCE` (0,60), `EVIDENCE_TOP_K` (8), `TYPESAFE_API_KEY`, `SCORING_MODE=jev_hybrid`. Untuk memproses ulang dokumen di basis data (status `READY` dilewati) dan membersihkan data pribadi lama, lihat bagian 7 di [runbook](../DEPLOYMENT_AND_RUNBOOK.md).
 
 ## 9. Peta file baru
 
 | File | Fungsi |
 |---|---|
 | `src/domain/evidence_chunks.py` | Menyusun bukti per bagian CV untuk pencarian |
+| `src/domain/domain_guard.py` | Aturan domain: tim non-teknis, pengaman `JEV_DOMAIN_GUARD` |
 | `src/worker/docx_text.py` | Membaca isi DOCX berurutan, termasuk tabel |
+| `src/worker/pdf_reading_order.py` | Urutan baca halaman PDF (kolom, baris visual) |
+| `src/worker/pii_scrub.py` | Apa yang boleh disimpan di kolom JSON biasa |
 | `src/infrastructure/typesafe.py` | Satu sumber konfigurasi koneksi TypeSafe |
 | `scripts/eval_agent_path.py` | Mengukur alur produksi pada satu set CV |
 | `scripts/eval_second_opinion.py` | Percobaan pendapat kedua Jev (ditolak) |
-| `scripts/build_paraphrase_set.py`, `docs/eval/paraphrase_set/` | Set uji stres recall |
-| `scripts/build_holdout_set.py`, `docs/eval/holdout_set/` | Set hold-out |
-| `tests/test_evidence_chunks.py`, `test_docx_text.py`, `test_rules_spec_alignment.py`, `test_typesafe_config.py` | Test untuk perubahan di atas |
+| `scripts/scrub_stored_pii.py` | Membersihkan data pribadi di baris lama (dry run secara bawaan) |
+| `scripts/build_paraphrase_set.py`, `build_holdout_set.py`, `build_holdout2_set.py`, `build_holdout3_set.py` | Membangun set uji di `docs/eval/` |
+| `tests/test_domain_guard.py`, `test_parser_real_layouts.py`, `test_pdf_reading_order.py`, `test_hidden_text_background.py`, `test_pii_scrub.py` | Test untuk perubahan di atas |
 
-File hasil mentah pengukuran (JSON) ada di folder sementara sesi dan tidak masuk repo; angka yang penting sudah tercatat di dokumen hasil.
+File hasil mentah pengukuran (JSON) ada di folder sementara dan tidak masuk repo; angka yang penting sudah tercatat di dokumen hasil.
