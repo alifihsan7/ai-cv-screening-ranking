@@ -210,6 +210,28 @@ async def test_processor_jev_extraction_success_with_mock_client(setup_document_
         assert chunk_row["cnt"] == 2
 
 
+@pytest.mark.asyncio
+async def test_processor_jev_extraction_receives_redacted_text(setup_document_fixture):
+    """Text sent to the external Jev API must not contain candidate contact details."""
+    doc_id, job_id, tenant_id, mock_san = await setup_document_fixture()
+
+    with (
+        patch("src.worker.processor.sanitize_file", return_value=mock_san),
+        patch("src.worker.processor.extract_work_experiences_jev", return_value=[]) as mock_extract,
+    ):
+        await process_document(
+            doc_id=doc_id,
+            use_jev_extraction=True,
+            client=AsyncMock(spec=AsyncTypeSafeClient),
+        )
+
+    sent_text = mock_extract.call_args.kwargs["text"]
+    assert "budi.santoso@example.com" not in sent_text
+    assert "081234567890" not in sent_text
+    assert "[EMAIL]" in sent_text
+    assert "Senior Backend Engineer" in sent_text
+
+
 # -----------------------------------------------------------------------------
 # 2. Fail-Fast Scenario: Unconfigured TYPESAFE_API_KEY
 # -----------------------------------------------------------------------------

@@ -49,13 +49,25 @@ NON_NAME_WORDS = {
 }
 
 
-def redact_text(text: str, name: str = "", emails: list[str] | None = None, phones: list[str] | None = None) -> str:
+def redact_text(
+    text: str,
+    name: str = "",
+    emails: list[str] | None = None,
+    phones: list[str] | None = None,
+    links: list[str] | None = None,
+) -> str:
     if not text:
         return ""
     result = text
 
     # Remove all demographic lines completely
     result = DEMOGRAPHIC_LINE_REGEX.sub("", result)
+
+    # Redact known profile links before name tokens (URLs often embed the name)
+    if links:
+        for ln in sorted((str(x).strip() for x in links if x), key=len, reverse=True):
+            if len(ln) >= 5:
+                result = re.sub(re.escape(ln), "[TAUTAN]", result, flags=re.IGNORECASE)
 
     # Redact known emails and general emails first to avoid token fragmentation
     if emails:

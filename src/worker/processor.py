@@ -296,6 +296,7 @@ async def process_document(
                 identity_rec["full_name"],
                 [email_val] if email_val else [],
                 [phone_val] if phone_val else [],
+                links=identity_rec.get("links") or [],
             )
 
             quality_flags = list(set(san.flags + raw_profile.get("quality", {}).get("warnings", [])))
@@ -373,7 +374,14 @@ async def process_document(
             )
 
             if is_jev_enabled:
-                cv_core_text = raw_profile.get("cv_core_text") or san.extracted_text
+                # Only redacted text may leave the worker for the external Jev API
+                cv_core_text = redact_text(
+                    raw_profile.get("cv_core_text") or san.extracted_text,
+                    identity_rec["full_name"],
+                    [email_val] if email_val else [],
+                    [phone_val] if phone_val else [],
+                    links=identity_rec.get("links") or [],
+                )
                 try:
                     jev_entities = await extract_work_experiences_jev(
                         text=cv_core_text,
@@ -419,7 +427,7 @@ async def process_document(
                 ]
 
                 # Rebuild EXPERIENCE profile chunks
-                chunks = [c for c in chunks if c.get("kind") != "EXPERIENCE"]
+                chunks = [c for c in chunks if str(c.get("kind", "")).lower() != "experience"]
                 for idx, exp in enumerate(matching_profile["experiences"], 1):
                     bullets_text = "\n".join(
                         b.get("text", "") if isinstance(b, dict) else str(b)
