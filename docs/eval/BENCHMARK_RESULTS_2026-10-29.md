@@ -4,9 +4,69 @@ Pengukuran ini memakai TypeSafe Jev asli (`jev-latest`) dan gateway LLM lokal, p
 
 - **Tanggal:** 29 Oktober 2026
 - **Data:** 15 CV core × 10 kriteria JD-01 = 150 status, pembanding label `expected_JD-01.json` (label dibuat sebelum Jev ada)
-- **Kode:** commit `d283da1` (semua mode); Mode 3 juga dijalankan pada `21d756d` (sebelum Tahap 3)
+- **Kode:** bagian 1 sampai 6 pada commit `d283da1` (semua mode; Mode 3 juga pada `21d756d`, sebelum Tahap 3); bagian pembaruan pada commit berikutnya
 - **Cara menjalankan:** `python scripts/compare_engines.py --modes 1,2,3,4` (database tes lewat `DATABASE_URL`)
 - **Batasan penting:** satu run per konfigurasi, kecuali Mode 3 yang dijalankan beberapa kali (lihat bagian 4 dan 6).
+
+## Pembaruan: ekstraksi DOCX, jalur produksi, dan pendapat kedua Jev
+
+> Bagian 1 sampai 6 di bawah diukur dengan skrip `compare_engines.py` **sebelum** perbaikan ekstraksi DOCX. Angka terkini ada di bagian ini.
+
+**Akar kesalahan terbesar ada di ekstraksi, bukan di Jev.** Tiga CV golden berformat DOCX (S5, M4, I2) menghasilkan 0 pengalaman terparse, karena judul pekerjaan, perusahaan, dan tanggal berada di dalam tabel, sedangkan ekstraktor hanya membaca paragraf. Pembaca DOCX baru (`src/worker/docx_text.py`) membaca isi dokumen sesuai urutan, termasuk tabel. Kegagalan membaca DOCX kini dilaporkan (`DOCX_TEXT_EXTRACTION_FAILED`), dan bagian pengalaman yang tidak menghasilkan entri diberi flag `EXPERIENCE_NOT_PARSED`.
+
+| JD-01, 15 CV × 10 kriteria | Sebelum | Sesudah |
+|---|---|---|
+| Aturan murni | 132/150 (88,0%) | **143/150 (95,3%)**, 11 diperbaiki, 0 dirusak |
+| NDCG@5 | 0,925 | **1,000** (top-5 persis S1 sampai S5) |
+| Peringkat S5 (acuan: 4) | 9 | 3 |
+
+**Jalur produksi dengan Jev asli** (`scripts/eval_agent_path.py`, meniru `screening_service`: validasi pengalaman saat ingest, loop pencarian dan verifikasi, lalu skor dan ranking):
+
+| Konfigurasi | Akurasi | Dibanding aturan murni |
+|---|---|---|
+| Awal | 134/150 | 4 diperbaiki, 2 dirusak |
+| Bukti terstruktur dengan jenis bagian CV | 133/150 | 2 diperbaiki, 1 dirusak |
+| + bukti dibatasi per potongan sebelum memilih potongan penentu | 135/150 | 3 diperbaiki, 0 dirusak |
+| + ekstraksi DOCX diperbaiki | **143/150** | **0 diubah** (sama dengan aturan murni) |
+
+Pada pengukuran terakhir Jev memutuskan hanya 5 dari 150 kriteria dan tidak mengubah satu pun status. Biayanya 203 panggilan, 170.281 token masuk (sekitar $0,007), 59,7 detik untuk 15 CV (p50 3,3 detik per CV), dibanding 0,1 detik untuk aturan murni. **Pada golden dataset ini Jev tidak terbukti menambah akurasi.**
+
+Flag `LOW_CONFIDENCE` pada 53 kriteria menyesatkan: confidence Jev tinggi (rata-rata 0,99), tetapi sekitar 147 dari 160 jawaban verifikasi adalah "tidak ditemukan bukti". Loop berhenti setelah 3 siklus lalu kembali ke status aturan. Pencarian bukti di loop ini juga tidak pernah memakai pgvector (konteksnya tidak membawa `profile_id` dan `tenant_id`), hanya pencocokan token kata.
+
+**7 kesalahan yang tersisa semuanya diputuskan aturan, tidak ada yang melewati Jev:** 4 ACHIEVEMENT (M2.R9, M3.R9, S3.R9, S5.R9: STRONG, seharusnya PARTIAL), 2 EDUCATION (M2.R7, S4.R7: STRONG, seharusnya PARTIAL), 1 LEADERSHIP (M3.R10).
+
+### Pendapat kedua Jev pada klaim STRONG dari aturan: ditolak
+
+`scripts/eval_second_opinion.py` menguji kebijakan "jika Jev yakin (confidence minimal 0,60) bukti tidak sekuat STRONG, turunkan ke PARTIAL, tidak lebih rendah" pada semua 57 klaim STRONG dari aturan (aturan salah pada 6 di antaranya):
+
+| Cara bertanya | Diperbaiki | Dirusak | Bersih |
+|---|---|---|---|
+| Primitive produksi (Score untuk skill dan pencapaian) | 2 | 12 | **−10** |
+| Choice generik (STRONG/PARTIAL/NOT_DEMONSTRATED) | 2 | 5 | **−3** |
+
+Jev menurunkan STRONG skill yang sebenarnya benar (10 dari 29 klaim dengan Score, 4 dengan Choice): rubriknya menilai kedalaman keahlian, sedangkan label menilai keberadaan skill di pekerjaan bertanggal. Pada EDUCATION Jev tidak membantu (confidence 0,5 pada kedua kesalahan). Satu-satunya hasil positif adalah ACHIEVEMENT dengan Choice generik (2 diperbaiki, 0 dirusak dari 9 klaim). Itu subkelompok yang dipilih setelah melihat hasil, kedua perbaikannya berada di confidence 0,64 dan 0,66 (dekat ambang 0,60), dan bobot R9 kecil, sehingga tidak diterapkan.
+
+### Set uji parafrase: di sinilah Jev terbukti berguna
+
+Golden dataset terlalu mudah bagi aturan (143/150), sehingga nilai Jev tidak terlihat. `scripts/build_paraphrase_set.py` membangun `docs/eval/paraphrase_set/`: 15 CV yang sama dengan 31 bullet ditulis ulang. Fakta, skill, tanggal, dan tata letak tidak berubah, hanya kata kerja dan satuannya (misalnya "Memimpin tim … mentoring" menjadi "Mengarahkan … pendampingan teknis", "60%" menjadi "60 persen", "Built" menjadi "Engineered"). Maknanya tetap, sehingga label golden berlaku apa adanya. Setiap pasangan kalimat tercatat di `docs/eval/paraphrase_set/README.md`. **Ini uji stres recall yang sengaja menarget celah kosakata aturan, bukan sampel CV nyata.**
+
+| Set parafrase, 15 CV × 10 kriteria | Akurasi |
+|---|---|
+| Aturan murni | 127/150 (84,7%), turun dari 143 |
+| Jalur produksi dengan Jev asli | **138/150 (92,0%)**: 12 diperbaiki, 1 dirusak |
+
+Per jenis kriteria (aturan murni → dengan Jev): RESPONSIBILITY 7/15 → 14/15, ACHIEVEMENT 5/15 → 8/15, LEADERSHIP 12/15 → 13/15, sisanya tidak berubah. Jev memutuskan 18 kriteria dengan 224 panggilan, 192.462 token masuk, sekitar $0,008, dan 66,6 detik untuk 15 CV.
+
+**12 kesalahan yang tersisa:** 5 sudah ada sejak golden dataset (M2.R7, S4.R7, M3.R9, M3.R10, S5.R9). Dari 7 yang baru, **5 terjadi karena bukti tidak pernah sampai ke Jev**: pencarian memakai kecocokan token kata dengan deskripsi kriteria, sehingga kalimat yang relevan tidak masuk 3 teratas (M1.R9, S1.R9, S4.R9, M4.R9, M4.R10). Penyebabnya antara lain kueri berbahasa Indonesia terhadap bullet berbahasa Inggris (skor 0), dan blok teks panjang yang ikut terambil karena memuat banyak kata umum. Satu lagi Jev terlalu rendah (S2.R9: PARTIAL, seharusnya STRONG), dan satu terlalu tinggi (M2.R2: STRONG untuk "API internal sederhana", sedangkan aturan lama mengenali kata "internal sederhana" sebagai PARTIAL).
+
+Kesimpulan: dengan bukti yang sampai kepadanya, Jev memulihkan sebagian besar kriteria yang meleset dari kosakata aturan. Hambatan berikutnya adalah pencarian bukti, bukan penilaian Jev.
+
+### Keterbatasan pembaruan ini
+
+- Dataset kecil (15 CV) dan sudah berkali-kali diamati. Perbaikan di atas tidak boleh dibaca sebagai estimasi akurasi pada CV nyata.
+- Golden dataset ditulis dengan kata yang dikenali taksonomi aturan, jadi kemungkinan terlalu mudah untuk menunjukkan nilai Jev (pemahaman bahasa di luar kamus aturan). Hal itu diuji pada set parafrase di bawah.
+- Hanya 3 contoh DOCX. Kotak teks, header/footer, dan file `.doc` lama belum ditangani.
+- Teks DOCX di sanitizer (untuk `full_text_redacted`) masih berupa satu baris panjang.
 
 ## 1. Akurasi status per kriteria
 
