@@ -287,12 +287,12 @@ export const UploadStep: React.FC<UploadStepProps> = ({
                 </div>
               </div>
 
-              {/* Ingestion Pipeline Telemetry Card */}
+              {/* Ingestion Pipeline Status Card */}
               <div className="bg-[#F5F8F6] border border-[#D5DFD9] rounded-xl p-4 space-y-3.5 shadow-tactile-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-[#13221C] flex items-center space-x-1.5">
                     <Activity className="w-3.5 h-3.5 text-[#1B4938]" />
-                    <span>Telemetri Pipeline Ingestion</span>
+                    <span>Status Pemrosesan Berkas</span>
                   </span>
                   <span className="font-mono text-xs font-bold text-[#124B2E]">
                     {progressPct}% Siap

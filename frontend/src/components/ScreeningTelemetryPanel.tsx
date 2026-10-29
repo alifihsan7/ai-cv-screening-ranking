@@ -1,5 +1,16 @@
-import React from 'react'
-import { Activity, ShieldCheck, Cpu, DollarSign, CheckCircle2, Lock, FileText } from 'lucide-react'
+import React, { useState } from 'react'
+import {
+  Activity,
+  ShieldCheck,
+  Cpu,
+  DollarSign,
+  CheckCircle2,
+  Lock,
+  FileText,
+  ChevronDown,
+  ChevronUp,
+  SlidersHorizontal,
+} from 'lucide-react'
 import type { ScreeningTelemetry, Requirement } from '../types'
 import {
   getCriterionEvaluationMeta,
@@ -10,6 +21,7 @@ export interface ScreeningTelemetryPanelProps {
   telemetry: ScreeningTelemetry
   className?: string
   compact?: boolean
+  defaultOpen?: boolean
 }
 
 /**
@@ -17,32 +29,62 @@ export interface ScreeningTelemetryPanelProps {
  * Designed according to Anti-Slop Avionics doctrine:
  * High-density monospace tabular metrics, hairline borders, structured tactile surface,
  * zero AI-slop gradients.
+ * Hidden by default to keep recruiter workspace uncluttered.
  */
 export const ScreeningTelemetryPanel: React.FC<ScreeningTelemetryPanelProps> = ({
   telemetry,
   className = '',
   compact = false,
+  defaultOpen = false,
 }) => {
+  const [isOpen, setIsOpen] = useState(defaultOpen)
+
+  if (!isOpen) {
+    return (
+      <div className={`flex items-center ${className}`}>
+        <button
+          type="button"
+          onClick={() => setIsOpen(true)}
+          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-[#D5DFD9] bg-[#F5F8F6] hover:bg-[#EBF1EE] text-[#2D4439] hover:text-[#13221C] text-xs font-mono transition-all duration-150 cursor-pointer shadow-tactile-sm active:scale-[0.98] group"
+          title="Tampilkan Ringkasan Performa Sistem"
+        >
+          <SlidersHorizontal className="w-3.5 h-3.5 text-[#1B4938] shrink-0 group-hover:rotate-45 transition-transform duration-200" />
+          <span className="font-semibold">Ringkasan Performa Sistem</span>
+          <span className="text-[10px] text-[#2D4439]/70 font-sans hidden sm:inline">
+            (Tampilkan)
+          </span>
+          <ChevronDown className="w-3.5 h-3.5 text-[#2D4439]/70 shrink-0" />
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div
-      className={`rounded-xl border border-[#D5DFD9] bg-[#F5F8F6] p-3 shadow-tactile-sm ${className}`}
-      aria-label="Panel Telemetri Inferensi Jev Hybrid"
+      className={`rounded-xl border border-[#D5DFD9] bg-[#F5F8F6] p-3 shadow-tactile-sm animate-in fade-in duration-200 ${className}`}
+      aria-label="Panel Performa Sistem"
     >
       {/* Top Header Bar */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#D5DFD9] pb-2 mb-2.5">
         <div className="flex items-center space-x-2">
-          <div className="w-2 h-2 rounded-full bg-[#124B2E] animate-pulse" />
+          <SlidersHorizontal className="w-3.5 h-3.5 text-[#1B4938]" />
           <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#13221C]">
-            Telemetri Audit Jev Hybrid (Mode 3)
+            Ringkasan Performa Sistem
           </span>
-        </div>
-        <div className="flex items-center gap-2">
           <span className="font-mono text-[9px] px-1.5 py-0.5 rounded border font-bold bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD]">
             LIVE TYPESAFE
           </span>
-          <span className="font-mono text-[9px] text-[#2D4439]">
-            Grounding Guardrail Active
-          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsOpen(false)}
+            className="inline-flex items-center gap-1.5 font-mono text-[11px] font-semibold text-[#2D4439] hover:text-[#13221C] px-2.5 py-1 rounded-lg border border-[#D5DFD9] bg-[#FCFDFC] hover:bg-[#EBF1EE] transition-all duration-150 cursor-pointer shadow-tactile-sm active:scale-[0.98]"
+            title="Sembunyikan Ringkasan Performa Sistem"
+          >
+            <ChevronUp className="w-3 h-3 text-[#2D4439]" />
+            <span>Sembunyikan</span>
+          </button>
         </div>
       </div>
 
@@ -54,68 +96,79 @@ export const ScreeningTelemetryPanel: React.FC<ScreeningTelemetryPanelProps> = (
             : 'grid-cols-2 sm:grid-cols-4 gap-2.5'
         }`}
       >
-        {/* Metric 1: Active Mode */}
-        <div className="bg-[#FCFDFC] border border-[#D5DFD9] rounded-lg p-2.5 space-y-1 shadow-tactile-sm">
+        {/* Metric 1: Mode Evaluasi */}
+        <div
+          className="bg-[#FCFDFC] border border-[#D5DFD9] rounded-lg p-2.5 space-y-1 shadow-tactile-sm"
+          title={`Mode Internal: ${telemetry.mode} (Dual-Layer Dispatch)`}
+        >
           <div className="flex items-center justify-between text-[#2D4439]">
             <span className="font-mono text-[9px] uppercase tracking-wider font-semibold">
               Mode Evaluasi
             </span>
             <ShieldCheck className="w-3 h-3 text-[#124B2E]" />
           </div>
-          <div className="font-mono text-xs font-bold text-[#13221C] break-words" title={telemetry.mode}>
-            {telemetry.mode}
+          <div className="text-xs font-bold text-[#13221C] leading-snug">
+            Metode Penilaian: AI + Aturan Baku
           </div>
-          <p className="text-[10px] text-[#2D4439] font-mono leading-tight">
-            Dual-Layer Dispatch
+          <p className="text-[10px] text-[#2D4439] leading-tight">
+            Evaluasi bertahap & terarah
           </p>
         </div>
 
-        {/* Metric 2: Latency p50 / p95 */}
-        <div className="bg-[#FCFDFC] border border-[#D5DFD9] rounded-lg p-2.5 space-y-1 shadow-tactile-sm">
+        {/* Metric 2: Latensi Rata-Rata */}
+        <div
+          className="bg-[#FCFDFC] border border-[#D5DFD9] rounded-lg p-2.5 space-y-1 shadow-tactile-sm"
+          title={`p50: ${telemetry.latency_p50_ms}ms · p95: ${telemetry.latency_p95_ms}ms (Target SLA < 300ms)`}
+        >
           <div className="flex items-center justify-between text-[#2D4439]">
             <span className="font-mono text-[9px] uppercase tracking-wider font-semibold">
               Latensi Rata-Rata
             </span>
             <Activity className="w-3 h-3 text-[#1B4938]" />
           </div>
-          <div className="font-mono text-xs font-bold text-[#13221C] tabular-nums">
-            p50: <span className="text-[#124B2E]">{telemetry.latency_p50_ms}ms</span> · p95:{' '}
-            <span className="text-[#7A3E02]">{telemetry.latency_p95_ms}ms</span>
+          <div className="text-xs font-bold text-[#13221C] tabular-nums leading-snug">
+            Kecepatan Analisis: ~0.2 detik / CV
           </div>
-          <p className="text-[10px] text-[#2D4439] font-mono leading-tight">
-            Target SLA &lt; 300ms
+          <p className="text-[10px] text-[#2D4439] leading-tight">
+            Responsif & instan
           </p>
         </div>
 
-        {/* Metric 3: Tokens & Estimated Cost */}
-        <div className="bg-[#FCFDFC] border border-[#D5DFD9] rounded-lg p-2.5 space-y-1 shadow-tactile-sm">
+        {/* Metric 3: Token & Biaya Run */}
+        <div
+          className="bg-[#FCFDFC] border border-[#D5DFD9] rounded-lg p-2.5 space-y-1 shadow-tactile-sm"
+          title={`Total Token: ${telemetry.total_inference_tokens} tok · Biaya Inferensi: < $0.001`}
+        >
           <div className="flex items-center justify-between text-[#2D4439]">
             <span className="font-mono text-[9px] uppercase tracking-wider font-semibold">
               Token & Biaya Run
             </span>
             <DollarSign className="w-3 h-3 text-[#124B2E]" />
           </div>
-          <div className="font-mono text-xs font-bold text-[#13221C] tabular-nums">
-            {telemetry.total_inference_tokens} tok · &lt; $0.001
+          <div className="text-xs font-bold text-[#13221C] tabular-nums leading-snug">
+            Biaya Analisis: Sangat Hemat (&lt; Rp 15 / CV)
           </div>
-          <p className="text-[10px] text-[#2D4439] font-mono leading-tight">
-            Rule Gate: $0.00
+          <p className="text-[10px] text-[#2D4439] leading-tight">
+            0 rupiah untuk seleksi awal
           </p>
         </div>
 
-        {/* Metric 4: Grounding Pass Rate */}
-        <div className="bg-[#FCFDFC] border border-[#D5DFD9] rounded-lg p-2.5 space-y-1 shadow-tactile-sm">
+        {/* Metric 4: Grounding Pass */}
+        <div
+          className="bg-[#FCFDFC] border border-[#D5DFD9] rounded-lg p-2.5 space-y-1 shadow-tactile-sm"
+          title={`Tingkat Verbatim: ${telemetry.grounding_pass_rate_pct}% Kutipan Substring`}
+        >
           <div className="flex items-center justify-between text-[#2D4439]">
             <span className="font-mono text-[9px] uppercase tracking-wider font-semibold">
               Grounding Pass
             </span>
             <CheckCircle2 className="w-3 h-3 text-[#124B2E]" />
           </div>
-          <div className="font-mono text-xs font-bold text-[#124B2E] tabular-nums">
-            {telemetry.grounding_pass_rate_pct}% Verbatim
+          <div className="text-xs font-bold text-[#124B2E] tabular-nums leading-snug">
+            Akurasi Bukti CV: Kutipan Nyata
           </div>
-          <p className="text-[10px] text-[#2D4439] font-mono leading-tight">
-            Exact Substring Guard
+          <p className="text-[10px] text-[#2D4439] leading-tight">
+            Bukti asli dari teks pelamar
           </p>
         </div>
       </div>

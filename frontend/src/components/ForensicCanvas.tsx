@@ -50,7 +50,7 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
           Pilih Kandidat untuk Membuka Forensic Canvas
         </h3>
         <p className="text-xs text-[#2D4439] max-w-md leading-relaxed">
-          Pilih kandidat di panel sebelah kiri untuk melihat evaluasi forensik dan telemetri verifikasi.
+          Pilih kandidat di panel sebelah kiri untuk melihat evaluasi kualifikasi dan jejak analisis AI.
         </p>
       </main>
     )
@@ -128,7 +128,7 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
                 type="button"
                 onClick={() => onOpenAuditDrawer?.('trajectory')}
                 className="bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD] hover:bg-[#DEF0E4] transition-all flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold cursor-pointer shadow-tactile-sm active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] shrink-0"
-                title="Buka Slide-Over Audit Telemetri AI"
+                title="Buka Log Analisis AI"
               >
                 <ShieldCheck className="w-3.5 h-3.5 text-[#124B2E] shrink-0" />
                 <span className="whitespace-nowrap">Buka Audit AI</span>

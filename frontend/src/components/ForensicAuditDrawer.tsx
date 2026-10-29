@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import {
   X,
-  ShieldCheck,
   Terminal,
   FileText,
   Cpu,
@@ -235,9 +234,6 @@ PENDIDIKAN & LATAR BELAKANG:
 
   const displayName =
     blindMode && !candidate.revealed ? candidate.blind_id : candidate.real_name
-  const isAiVerified =
-    candidate.verifier_provider === 'JEV_TYPESAFE' ||
-    (candidate.reasoning_trajectory && candidate.reasoning_trajectory.length > 0)
 
   const handleCopyCvText = () => {
     navigator.clipboard.writeText(defaultCvText)
@@ -276,18 +272,12 @@ PENDIDIKAN & LATAR BELAKANG:
                 <h3 className="text-sm font-bold text-[#13221C] truncate tracking-tight">
                   {displayName}
                 </h3>
-                {isAiVerified && (
-                  <span className="font-mono text-[10px] px-1.5 py-0.2 rounded border font-bold bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD] flex items-center space-x-1 shrink-0">
-                    <ShieldCheck className="w-3 h-3 text-[#124B2E]" />
-                    <span>AI Verified</span>
-                  </span>
-                )}
                 <span className="font-mono text-[9px] px-1.5 py-0.2 rounded border font-bold bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD] shadow-tactile-sm shrink-0">
                   {telemetry.scoring_mode}
                 </span>
               </div>
               <p className="text-[11px] text-[#2D4439] font-mono truncate mt-0.5">
-                Audit Telemetri AI • {candidate.file_name}
+                Log Analisis Sistem • {candidate.file_name}
               </p>
             </div>
           </div>

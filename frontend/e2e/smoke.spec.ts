@@ -114,9 +114,12 @@ test.describe('AI CV Screener E2E Smoke Test Suite', () => {
     await searchInput.fill('CAN-01');
     await expect(page.getByText('CAN-01').first()).toBeVisible();
     await searchInput.clear();
+
+    // Verifikasi badge buram "AI Verified" / "0 AI Verified" sudah bersih dari toolbar
+    await expect(page.getByText(/AI Verified/i)).toHaveCount(0);
   });
 
-  test('4. Inspeksi Modal Detail Kandidat (Candidate Inspector) dan Tab Evaluasi / Telemetri', async ({ page }) => {
+  test('4. Inspeksi Modal Detail Kandidat (Candidate Inspector) dan Tab Evaluasi / Jejak Penalaran', async ({ page }) => {
     await page.goto('/');
 
     // Muat data melalui Golden Dataset dan masuk ke Workbench
@@ -134,8 +137,8 @@ test.describe('AI CV Screener E2E Smoke Test Suite', () => {
     await expect(inspectorDialog).toHaveClass(/translate-x-0/);
     await expect(inspectorDialog.getByText('Skor Fit')).toBeVisible();
 
-    // Uji navigasi tab di dalam modal inspeksi: Telemetri
-    const telemetryTab = inspectorDialog.getByRole('button', { name: /Telemetri/i });
+    // Uji navigasi tab di dalam modal inspeksi: Jejak Penalaran
+    const telemetryTab = inspectorDialog.getByRole('button', { name: /Jejak Penalaran/i });
     await expect(telemetryTab).toBeVisible();
     await telemetryTab.click();
     await expect(telemetryTab).toHaveClass(/bg-\[#FCFDFC\]/);
@@ -150,6 +153,24 @@ test.describe('AI CV Screener E2E Smoke Test Suite', () => {
     const evalTab = inspectorDialog.getByRole('button', { name: /Evaluasi/i });
     await evalTab.click();
     await expect(evalTab).toHaveClass(/bg-\[#FCFDFC\]/);
+
+    // Verifikasi Panel Performa Sistem tersembunyi secara default (CLS 0, hemat ruang vertikal)
+    const telemetryToggleBtn = inspectorDialog.getByRole('button', { name: /Ringkasan Performa Sistem/i });
+    await expect(telemetryToggleBtn).toBeVisible();
+    await expect(inspectorDialog.getByText(/Metode Penilaian: AI \+ Aturan Baku/i)).toHaveCount(0);
+
+    // Buka Telemetry Panel via toggle
+    await telemetryToggleBtn.click();
+    await expect(inspectorDialog.getByText(/Metode Penilaian: AI \+ Aturan Baku/i)).toBeVisible();
+    await expect(inspectorDialog.getByText(/Kecepatan Analisis: ~0.2 detik \/ CV/i)).toBeVisible();
+    await expect(inspectorDialog.getByText(/Biaya Analisis: Sangat Hemat/i)).toBeVisible();
+    await expect(inspectorDialog.getByText(/Akurasi Bukti CV: Kutipan Nyata/i)).toBeVisible();
+
+    // Sembunyikan kembali Telemetry Panel
+    const hideBtn = inspectorDialog.getByRole('button', { name: /Sembunyikan/i }).first();
+    await hideBtn.click();
+    await expect(inspectorDialog.getByText(/Metode Penilaian: AI \+ Aturan Baku/i)).toHaveCount(0);
+    await expect(telemetryToggleBtn).toBeVisible();
 
     // Uji tombol keputusan status (misal Shortlist)
     const shortlistBtn = inspectorDialog.getByRole('button', { name: /Shortlist/i }).first();

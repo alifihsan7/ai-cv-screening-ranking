@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   AlertTriangle,
   FileText,
-  ShieldCheck,
   HelpCircle,
   Loader2,
 } from 'lucide-react'
@@ -178,13 +177,8 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
     const hold = candidates.filter((c) => c.decision === 'HOLD').length
     const rejected = candidates.filter((c) => c.decision === 'TIDAK_LANJUT').length
     const pending = candidates.filter((c) => !c.decision || c.decision === 'NONE').length
-    const aiVerified = candidates.filter(
-      (c) =>
-        c.verifier_provider === 'JEV_TYPESAFE' ||
-        (c.reasoning_trajectory && c.reasoning_trajectory.length > 0)
-    ).length
 
-    return { total, shortlist, hold, rejected, pending, aiVerified, jevVerified: aiVerified }
+    return { total, shortlist, hold, rejected, pending }
   }, [candidates])
 
   // Must-have requirements count helper
@@ -346,11 +340,6 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
                 </span>
               </>
             )}
-            <span className="text-[#D5DFD9]">·</span>
-            <span className="inline-flex items-center gap-1 text-[#1B4938] font-bold">
-              <ShieldCheck className="w-3 h-3 text-[#124B2E]" />
-              <span className="hidden sm:inline">{stats.aiVerified} AI Verified</span>
-            </span>
             {isRefreshing && candidates.length > 0 && (
               <>
                 <span className="text-[#D5DFD9]">·</span>

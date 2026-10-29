@@ -11,7 +11,6 @@ import {
   ChevronDown,
   ChevronUp,
   MessageSquare,
-  ShieldCheck,
   Terminal,
   FileText,
   Copy,
@@ -305,10 +304,6 @@ PENDIDIKAN & LATAR BELAKANG:
   const niceToHaveFulfilled = niceToHaveReqs.filter(
     (r) => candidate.requirement_states[r.requirement_id] === 'STRONG'
   )
-
-  const isAiVerified =
-    candidate.verifier_provider === 'JEV_TYPESAFE' ||
-    (candidate.reasoning_trajectory && candidate.reasoning_trajectory.length > 0)
 
   const telemetry = getScreeningTelemetry(candidate, requirements)
 
@@ -645,7 +640,7 @@ PENDIDIKAN & LATAR BELAKANG:
           </div>
         </header>
 
-        {/* Integrated Tab Bar: Evaluasi · Telemetri · Kutipan CV */}
+        {/* Integrated Tab Bar: Evaluasi · Jejak Penalaran · Kutipan CV */}
         <div className="px-3 sm:px-5 py-2 bg-[#F7FAF8] border-b border-[#D5DFD9] flex items-center justify-between gap-2.5 shrink-0 min-w-0">
           {/* Tab Controls (Equal 3-column Grid) */}
           <div className="flex-1 min-w-0">
@@ -675,10 +670,10 @@ PENDIDIKAN & LATAR BELAKANG:
                     ? 'bg-[#FCFDFC] text-[#1B4938] shadow-tactile-sm font-bold border border-[#D5DFD9]'
                     : 'text-[#2D4439] hover:text-[#13221C] hover:bg-black/[0.03] border border-transparent'
                 }`}
-                title="Telemetri Penalaran ReAct"
+                title="Jejak Penalaran AI"
               >
                 <Terminal className="w-3.5 h-3.5 text-[#1B4938] shrink-0" />
-                <span className="whitespace-nowrap">Telemetri</span>
+                <span className="whitespace-nowrap">Jejak Penalaran</span>
                 {candidate.reasoning_trajectory && candidate.reasoning_trajectory.length > 0 && (
                   <span className="font-mono tabular-nums text-[10px] bg-[#E2E9E5] text-[#124B2E] font-bold px-1.5 py-0.2 rounded shrink-0">
                     {candidate.reasoning_trajectory.length}
@@ -701,18 +696,6 @@ PENDIDIKAN & LATAR BELAKANG:
               </button>
             </div>
           </div>
-
-          {isAiVerified && (
-            <div className="flex items-center text-[10px] font-mono text-[#2D4439] shrink-0 pl-0.5">
-              <span
-                className="inline-flex items-center gap-1 font-bold text-[#124B2E] bg-[#EBF6EF] px-2 py-0.5 rounded-lg border border-[#BBE5CD] whitespace-nowrap shadow-tactile-sm"
-                title="Terverifikasi AI Pipeline"
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-[#124B2E] shrink-0" />
-                <span className="hidden sm:inline">AI Verified</span>
-              </span>
-            </div>
-          )}
         </div>
 
         {/* Scrollable Inspector Body */}
