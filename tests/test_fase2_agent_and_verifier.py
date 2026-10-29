@@ -26,6 +26,7 @@ from src.domain.tools.taxonomy_reflector import TaxonomyReflectorTool
 from src.domain.tools.verifier import GroundedVerifierTool
 from typesafe_sdk import ChoiceAnswer, SystemOneResponse, Usage
 from src.domain.verifier import (
+    BaseVerifierProvider,
     JevTypeSafeVerifierProvider,
     LLMGatewayVerifierProvider,
     VerifierDecision,
@@ -729,6 +730,45 @@ class TestReActStateMachineAndBudget:
         # 4. Trajectory contains termination step
         traj_actions = [s.action for s in state.reasoning_trajectory]
         assert "TERMINATION_RULE_FALLBACK" in traj_actions
+
+    @pytest.mark.asyncio
+    async def test_confident_no_evidence_is_flagged_no_evidence_found_not_low_confidence(self):
+        class ConfidentNoEvidenceVerifier(BaseVerifierProvider):
+            provider_name = "JEV_TYPESAFE"
+
+            async def verify(self, criterion_id, criterion_description, candidate_chunks, cv_full_text, **kwargs):
+                return VerifierDecision(
+                    state=EvaluationStatus.NOT_DEMONSTRATED,
+                    confidence=0.99,
+                    provider_name="JEV_TYPESAFE",
+                )
+
+        requirements = [
+            {
+                "requirement_id": "R_COBOL",
+                "description": "10+ years mainframe COBOL legacy banking systems migration",
+                "kind": "SKILL",
+                "category": "HARD_SKILLS",
+                "importance": "MUST_HAVE",
+                "weight": 25.0,
+                "concepts": ["cobol"],
+            }
+        ]
+        cv_text = "# Experience\nJunior Frontend Developer (2023 - 2024).\nBuilt user interfaces with Vue.js."
+        agent = ScreeningAgent(
+            job_id="job_01",
+            candidate_id="cand_no_evidence",
+            requirements=requirements,
+            profile={"skills": ["Vue.js"], "work_experiences": []},
+            raw_cv_text=cv_text,
+            verifier_provider=ConfidentNoEvidenceVerifier(),
+        )
+        state = await agent.run()
+
+        res = state.evaluation_results["R_COBOL"]
+        assert res.state == EvaluationStatus.NOT_DEMONSTRATED
+        assert "NO_EVIDENCE_FOUND" in res.flags
+        assert "LOW_CONFIDENCE" not in res.flags
 
     @pytest.mark.asyncio
     async def test_state_trajectory_records_typed_steps(self):

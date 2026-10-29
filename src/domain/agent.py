@@ -6,7 +6,7 @@ Enforces:
    isolated from contextual skills/responsibilities requiring ReAct reasoning.
 3. Reflection budgeting: maximum K = 3 cycles per criterion.
 4. Termination rule: if confidence < VERIFIER_MIN_CONFIDENCE (default 0.60) after K = 3 cycles, enforce baseline fallback
-   with LOW_CONFIDENCE flag.
+   with LOW_CONFIDENCE flag (NO_EVIDENCE_FOUND when the verifier was confident that no evidence exists).
 5. Verbatim grounding verification and context-elevation invariants.
 """
 
@@ -16,6 +16,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any, Literal
 
+from src.domain.domain_guard import apply_domain_guard, vacancy_is_technical
 from src.domain.evidence_chunks import build_candidate_chunks
 from src.domain.kind_rules import (
     eval_achievement,
@@ -655,6 +656,42 @@ class ScreeningAgent:
             )
 
             # -------------------------------------------------------------
+            # 3b. DOMAIN GUARD: the verifier may not raise LEADERSHIP or ACHIEVEMENT using a non-technical job
+            # -------------------------------------------------------------
+            if decision.confidence >= min_conf and decision.state != EvaluationStatus.NOT_DEMONSTRATED:
+                guarded_state, guard_flags = apply_domain_guard(
+                    kind=kind,
+                    verifier_state=decision.state,
+                    rule_state=rule_st,
+                    quote=decision.quote,
+                    profile=self._profile_dict,
+                    technical_vacancy=vacancy_is_technical(self.requirements),
+                )
+                if guard_flags:
+                    self.state.evaluation_results[req_id] = EvaluationResult(
+                        criterion_id=req_id,
+                        state=guarded_state,
+                        confidence=round(decision.confidence, 2),
+                        metrics=to_evaluation_metrics(rule_m),
+                        evidences=[],
+                        flags=sorted(set(rule_flgs + decision.flags + guard_flags)),
+                        reasons=["Verifier raised the status using a job with no technical work; kept the rule status."],
+                        evaluation_method=EvaluationMethod.DETERMINISTIC_RULE,
+                    )
+                    self.record_step(
+                        thought=thought,
+                        action="DOMAIN_GUARD",
+                        action_input=GeneralActionInput(
+                            action_type="GENERAL",
+                            criterion_id=req_id,
+                            note=f"Verifier said {decision.state.value}; rules said {rule_st}",
+                        ),
+                        observation=f"Domain guard kept {guarded_state.value} (verifier quote from a non-technical job).",
+                        state_mutation=f"evaluation_results[{req_id}] -> {guarded_state.value} ({guard_flags[0]})",
+                    )
+                    return
+
+            # -------------------------------------------------------------
             # 4. REFLECT
             # -------------------------------------------------------------
             # If high confidence (>= min_conf) and grounded evidence established:
@@ -738,7 +775,10 @@ class ScreeningAgent:
                 # ---------------------------------------------------------
                 term_st_val = rule_st if rule_st in ("STRONG", "PARTIAL") else "NOT_DEMONSTRATED"
                 term_status = EvaluationStatus(term_st_val)
-                term_flags = list(set(rule_flgs + (decision.flags if decision else []) + ["LOW_CONFIDENCE"]))
+                # A confident NOT_DEMONSTRATED means the verifier found no evidence; it is not low confidence.
+                no_evidence = decision is not None and decision.confidence >= min_conf
+                term_flag = "NO_EVIDENCE_FOUND" if no_evidence else "LOW_CONFIDENCE"
+                term_flags = sorted(set(rule_flgs + (decision.flags if decision else []) + [term_flag]))
 
                 eval_res = EvaluationResult(
                     criterion_id=req_id,
@@ -747,7 +787,11 @@ class ScreeningAgent:
                     metrics=to_evaluation_metrics(rule_m),
                     evidences=[],
                     flags=term_flags,
-                    reasons=[f"Reflection budget exhausted (K=3) with confidence < {min_conf:.2f}. Enforced fallback termination."],
+                    reasons=[
+                        "Reflection budget exhausted (K=3) with "
+                        + ("no evidence found" if no_evidence else f"confidence < {min_conf:.2f}")
+                        + ". Enforced fallback termination."
+                    ],
                     evaluation_method=EvaluationMethod.DETERMINISTIC_RULE,
                 )
                 self.state.evaluation_results[req_id] = eval_res
@@ -760,8 +804,8 @@ class ScreeningAgent:
                         criterion_id=req_id,
                         note=f"Max reflection budget K=3 reached with confidence < {min_conf:.2f}",
                     ),
-                    observation=f"Enforced termination rule: fallback to {term_status.value} with LOW_CONFIDENCE flag.",
-                    state_mutation=f"evaluation_results[{req_id}] -> {term_status.value} (LOW_CONFIDENCE)",
+                    observation=f"Enforced termination rule: fallback to {term_status.value} with {term_flag} flag.",
+                    state_mutation=f"evaluation_results[{req_id}] -> {term_status.value} ({term_flag})",
                 )
                 return
 

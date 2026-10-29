@@ -158,10 +158,55 @@ Urutan ranking alur lengkap **identik** dengan urutan acuan (12 dari 12 posisi).
 
 **Temuan ekstraksi:**
 - Sistem menebak nama kandidat dari **nama file** dan mengalahkan nama di baris pertama dokumen. K09 (`K09_platform_head_…`) terdeteksi bernama "K09 Platform Head Table2", lalu kata "Head" dan "Platform" disensor di seluruh CV, termasuk judul pekerjaannya. Dengan file diberi nama `CV_Arief_Nugraha.docx`, judul terbaca benar. Sebagian ini artefak nama file deskriptif buatan saya, tetapi nama file seperti `CV_Backend_Developer.pdf` umum di dunia nyata.
-- Header sebaris "Backend Developer di PT Cakra Teknologi, Surabaya (tanggal)" (K10) diparse dengan judul "Surabaya" dan perusahaan "Backend Developer di PT Cakra Teknologi"; Jev tetap benar karena menilai dari bullet dan klasifikasi peran.
+- Header sebaris "Backend Developer di PT Cakra Teknologi, Surabaya (tanggal)" (K10) diparse dengan judul "Surabaya" dan perusahaan "Backend Developer di PT Cakra Teknologi"; Jev tetap benar karena menilai dari bullet dan klasifikasi peran. **Sudah diperbaiki** (`1ff13ba`, bersama tata letak "tanggal dulu" dengan banyak pekerjaan, H02).
 - K03 (tata letak "tanggal dulu") hanya punya satu pekerjaan, sehingga cacat parser multi-pekerjaan yang diketahui (H02) tidak teruji.
 
 **Dampak pada rencana pengaman "harus ada angka" untuk Jev:** dari enam positif palsu ACHIEVEMENT/LEADERSHIP yang Jev hasilkan di dua hold-out, pengaman itu hanya menangkap dua (H04.R9, H09.R9, keduanya tanpa angka sama sekali). Pada hold-out kedua, tiga CV tanpa angka (K06, K07, K10) dinilai benar oleh Jev. Penyebab dominan positif palsu bukan ketiadaan angka, melainkan **domain yang salah** (H06.R9 data, K11.R9 gudang, K05.R10 pemasaran, dan I4.R10 penjualan di golden). Pengaman angka saja berdampak kecil.
+
+### Hold-out ketiga (L01 sampai L12): jebakan domain, baseline
+
+`scripts/build_holdout3_set.py` membangun `docs/eval/holdout_set_3/`: 12 CV fiktif yang menargetkan ACHIEVEMENT (R9) dan LEADERSHIP (R10) dengan angka atau peran memimpin di domain yang salah (penjualan, pemasaran, logistik, produk), di domain teknis berdekatan (data, QA), hanya di organisasi atau proyek, dan di tim non-teknis di dalam pekerjaan backend, ditambah dua kontrol positif (L01 R9, L10 R9 dan R10). Label ditulis dari spec sebelum sistem dijalankan, oleh asisten yang sama; **perlu ditinjau manusia**. Nama file sengaja netral. Set ini **hanya untuk mengukur**; tidak ada yang disetel terhadapnya.
+
+| Hold-out ketiga, 12 CV × 10 kriteria | Akurasi |
+|---|---|
+| Aturan murni | 115/120 (95,8%): 3 klaim berlebih, 2 kurang |
+| Jalur produksi dengan Jev (8 potongan) | **114/120 (95,0%)**: 1 diperbaiki, 2 dirusak |
+
+NDCG@5 alur lengkap = 1,0. 145 panggilan, sekitar $0,0089, 49 detik.
+
+**Per jenis kriteria (alur lengkap):** ACHIEVEMENT 10/12, LEADERSHIP 9/12, lainnya 95/96 (satu EDUCATION).
+
+**Kesalahan di alur lengkap (6):**
+- **Jev, domain salah (3):** L04.R10 (memimpin 7 content marketer, STRONG, confidence 0,69) dan L06.R10 (mengoordinasikan 15 staf gudang, STRONG, 0,75), keduanya tim non-teknis yang seharusnya NOT_DEMONSTRATED; L02.R9 (PARTIAL, 0,76) dengan kutipan "Developed REST APIs in Python (Django)..." yang tidak memuat angka, padahal satu-satunya angka di CV adalah target penjualan di pekerjaan lain. Pengaman "harus ada angka" akan menangkap L02.R9 saja.
+- **Aturan murni, tim non-teknis (2):** L12.R9 dan L12.R10 dinilai STRONG karena "Memimpin tim panitia relokasi kantor beranggotakan 8 orang" di pekerjaan backend. Aturan LEADERSHIP menilai kata kerja memimpin tanpa memeriksa jenis tim, dan angka "8 orang" dihitung sebagai angka hasil.
+- **Aturan murni, EDUCATION (1):** L09.R7 ("Bachelor of Informatics Engineering") dinilai NOT_DEMONSTRATED; label STRONG (Informatics Engineering = Teknik Informatika). Kemungkinan celah taksonomi jurusan.
+- **Jev memperbaiki:** L07.R9 (angka hasil di organisasi, PARTIAL), dari NOT_DEMONSTRATED di aturan murni.
+
+**Temuan:** pola positif palsu Jev dari dua hold-out sebelumnya terulang pada data baru (tim non-teknis dinilai memimpin tim teknis; kutipan tanpa angka dinilai ACHIEVEMENT), jadi itu bukan kebetulan satu set. Selain itu ada jenis kesalahan baru yang bukan milik Jev: aturan murni sendiri tidak memeriksa jenis tim pada LEADERSHIP dan menganggap setiap angka sebagai angka hasil. Flag baru `NO_EVIDENCE_FOUND` muncul pada 21 kriteria dan `LOW_CONFIDENCE` pada 23, jadi pemisahan keduanya memang membedakan dua kasus.
+
+### Perbaikan domain ACHIEVEMENT dan LEADERSHIP: hasil
+
+Rancangan dan kriteria penerimaan ditulis sebelum pengukuran (lihat [checkpoint](../plan/CHECKPOINT_2026-10-29.md)). Dua perubahan kode: (a) aturan murni tidak menghitung bullet memimpin tim non-teknis sebagai LEADERSHIP, dan tidak menghitung jumlah anggota tim sebagai angka hasil; (b) pengaman domain: untuk lowongan teknis, Jev tidak boleh menaikkan LEADERSHIP atau ACHIEVEMENT di atas status aturan memakai kutipan dari pekerjaan tanpa satu pun istilah teknis (flag `JEV_DOMAIN_GUARD`).
+
+| Set | Aturan murni (sebelum → sesudah) | Alur lengkap dengan Jev (sebelum → sesudah) |
+|---|---|---|
+| Golden | 149 → 149 | 150 → 150 |
+| Parafrase | 130 → 130 | 146 → 144, ulangan **146** |
+| Hold-out 1 | 114 → 114 | 115 → 115 |
+| Hold-out 2 | 110 → 110 | 116 → 117 |
+| Hold-out 3 (informasi) | 115 → 117 | 114 → 116 |
+
+**Kriteria 1 (tidak ada sel yang menjadi salah): terpenuhi.** Aturan murni identik di empat set pembanding, dan pengaman tidak aktif di golden, parafrase, maupun hold-out 1. Penurunan parafrase 146 → 144 pada run pertama hilang pada ulangan (146): variasi Jev antar run dengan input sama, bukan akibat perubahan ini.
+
+**Kriteria 2 (K05.R10 dan K11.R9 menjadi benar): terpenuhi sebagian.** K05.R10 benar (pengaman aktif). **K11.R9 tetap salah** dan dicatat sebagai kegagalan yang diketahui: Jev kini menjawab PARTIAL dari kutipan proyek bootcamp tanpa angka, bukan dari pekerjaan gudang, sehingga pengaman (yang hanya memeriksa kutipan dari pekerjaan) tidak aktif. Kasus serupa: L02.R9. Pengaman "harus ada angka" yang akan menjangkaunya tetap ditolak karena merusak K01 (hasil ditulis dengan kata) dan L07.R9.
+
+**Kriteria 3 (test baru lulus): terpenuhi** (10 test di `tests/test_domain_guard.py`).
+
+Hold-out 3 hanya informasi: L04.R10, L06.R10 (pengaman) dan L12.R9/R10 (aturan murni) ikut membentuk rancangan, sehingga set itu tidak lagi bersih untuk sel-sel tersebut. Di alur lengkap L12.R9 dan L12.R10 masih dijawab Jev, dari kutipan di pekerjaan backend, jadi di luar jangkauan pengaman.
+
+### EDUCATION: alias taksonomi untuk daftar jurusan recruiter
+
+L09.R7 ("Bachelor of Informatics Engineering") dinilai NOT_DEMONSTRATED walau taksonomi punya alias "informatics": aturan hanya memakai alias taksonomi bila recruiter tidak menulis daftar `strong_fields`, dan JD-01 menulisnya ("Informatika", "Ilmu Komputer", dan seterusnya). Atas keputusan Anda, daftar recruiter kini diperluas dengan alias bidang taksonomi yang sama (menyimpang dari bunyi spec 4.2, "jurusan di `params.strong_fields`"; bidang `partial_fields` tidak diubah). Kriteria ditetapkan sebelum pengukuran: tidak ada sel lain yang berubah menjadi salah. Hasil aturan murni di lima set: **tepat satu sel berubah, L09.R7 NOT_DEMONSTRATED → STRONG (benar)**; golden 149, parafrase 130, hold-out 1 114, hold-out 2 110 tidak berubah, hold-out 3 117 → 118. Alur lengkap dengan Jev tidak diukur ulang: EDUCATION dinilai aturan murni dan tidak melewati Jev.
 
 ### Nama kandidat: nama file dan kegagalan deteksi nama
 

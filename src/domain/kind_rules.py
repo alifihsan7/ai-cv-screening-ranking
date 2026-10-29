@@ -10,6 +10,7 @@ from typing import Any
 
 from typesafe_sdk import AsyncTypeSafeClient
 
+from src.domain.domain_guard import is_headcount_only, names_non_technical_team
 from src.domain.retrieval import extract_granular_evidence_quote
 from src.domain.taxonomy import get_taxonomy
 from src.domain.text_match import match_skill
@@ -718,6 +719,16 @@ def eval_education(
     strong_fields = [f.lower() for f in params.get("strong_fields", [])]
     partial_fields = [f.lower() for f in params.get("partial_fields", [])]
 
+    if strong_fields:
+        # The recruiter's list is written in one language; the same field has other names (Informatika, Informatics,
+        # Computer Science). Add the taxonomy aliases of any field the list already names.
+        listed = set(strong_fields)
+        for field_id, field_skill in tax.skills.items():
+            if field_id.startswith("field:"):
+                aliases = [a.lower() for a in getattr(field_skill, "aliases", [])]
+                if listed & set(aliases):
+                    strong_fields.extend(a for a in aliases if a not in listed)
+
     if not strong_fields:
         for field_id, field_skill in tax.skills.items():
             if field_id.startswith("field:"):
@@ -863,7 +874,9 @@ def eval_achievement(
             if award_pat.search(txt):
                 has_comp_award = True
                 evidence.append({"quote": txt[:120], "context": "experience", "verified": True})
-            if num_pat.search(txt):
+            if num_pat.search(txt) and not (
+                any(v.search(txt) for v in get_taxonomy().compiled_leadership_verbs) and is_headcount_only(txt, num_pat)
+            ):
                 if rf == "hr":
                     has_hr_num = True
                     evidence.append({"quote": txt[:120], "context": "experience", "verified": True})
@@ -933,12 +946,16 @@ def eval_leadership(
         rf = classify_role_family(title)
         bullets_text = " ".join(b.get("text", "") for b in exp.get("bullets", []))
 
-        is_lead = any(v.search(bullets_text) for v in tax.compiled_leadership_verbs) or any(
-            t.search(title) for t in tax.compiled_leadership_titles
-        )
+        lead_bullets = [
+            b.get("text", "")
+            for b in exp.get("bullets", [])
+            if any(v.search(b.get("text", "")) for v in tax.compiled_leadership_verbs)
+            and not names_non_technical_team(b.get("text", ""))
+        ]
+        is_lead = bool(lead_bullets) or any(t.search(title) for t in tax.compiled_leadership_titles)
 
         if is_lead:
-            lead_quote = (bullets_text[:120].strip() or title).strip()
+            lead_quote = (" ".join(lead_bullets)[:120].strip() or bullets_text[:120].strip() or title).strip()
             if rf in ("backend", "fullstack", "devops"):
                 has_tech_lead = True
                 evidence.append({"quote": lead_quote, "context": "experience", "verified": True})

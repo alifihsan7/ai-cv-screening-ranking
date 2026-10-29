@@ -456,7 +456,7 @@ def _extract_title_org(text: str) -> tuple[str, str]:
     if not t:
         return "", ""
 
-    parts = [p.strip() for p in re.split(r"[—–|]|\s+-\s+|,\s+|\s+at\s+|\s+@\s+", t) if p.strip()]
+    parts = [p.strip() for p in re.split(r"[—–|]|\s+-\s+|,\s+|\s+(?:at|di)\s+|\s+@\s+", t) if p.strip()]
     if len(parts) >= 2:
         p0, p1 = parts[0], parts[1].split(",")[0].strip()
         if any(k in p1.lower() for k in ROLE_KEYWORDS) and not any(k in p0.lower() for k in ROLE_KEYWORDS):
@@ -547,6 +547,16 @@ def _split_inline_boundary(raw_text: str) -> tuple[list[str], str]:
     return [s], ""
 
 
+def _plain_line(lines: list[str], i: int) -> str:
+    """Line `i` if it is a header candidate (not a bullet, not a date line), else empty."""
+    if i >= len(lines):
+        return ""
+    line = lines[i].strip()
+    if not line or line.startswith(("•", "-", "*", "▪", "~")) or RANGE_REGEX.search(line):
+        return ""
+    return line
+
+
 def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None = None) -> list[dict[str, Any]]:
     valid_lines = []
     for l in [line.strip() for line in section_text.splitlines() if line.strip()]:
@@ -629,6 +639,19 @@ def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None =
                 t, o = _extract_title_org(slice_after)
                 if t:
                     title, org = t, o
+
+        # Strategy 2b: "date first" layout. The date sits alone on its line and the header follows it;
+        # the line before is the previous entry's bullet (or nothing), so it cannot be this entry's header.
+        if not title and not curr_head.strip() and not slice_after.strip(")-:|•— \t"):
+            prev_is_bullet = idx == 0 or lines[idx - 1].lstrip().startswith(("•", "-", "*", "▪", "~"))
+            nxt = _plain_line(lines, idx + 1)
+            if prev_is_bullet and nxt:
+                title = nxt
+                used_lines.add(idx + 1)
+                org_line = _plain_line(lines, idx + 2)
+                if org_line:
+                    org = org_line.split(",")[0].strip()
+                    used_lines.add(idx + 2)
 
         # Strategy 3: Title from preceding lines (when date is on its own line)
         if not title and idx > 0 and (i == 0 or date_lines[i - 1][0] < idx):
@@ -776,6 +799,8 @@ def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None =
                 end_line -= 1
 
             for line_no in range(idx + 1, end_line):
+                if line_no in meta["used_lines"]:
+                    continue
                 raw_bullets.append(lines[line_no])
 
         # Deduplicate & sanitize bullets
