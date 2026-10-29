@@ -121,12 +121,13 @@ test.describe('AI CV Screener E2E Smoke Test Suite', () => {
 
   test('4. Inspeksi Modal Detail Kandidat (Candidate Inspector) dan Tab Evaluasi / Jejak Penalaran', async ({ page }) => {
     await page.goto('/');
+    await page.waitForLoadState('networkidle');
 
     // Muat data melalui Golden Dataset dan masuk ke Workbench
     await page.getByRole('button', { name: /Golden Dataset/i }).click();
     await page.getByRole('button', { name: /Workbench/i }).click();
 
-    // Klik baris kandidat pertama pada tabel
+    // Tunggu tabel siap dan klik baris kandidat pertama pada tabel
     const candidateRow = page.locator('tbody tr').first();
     await expect(candidateRow).toBeVisible();
     await candidateRow.click();
@@ -438,6 +439,54 @@ test.describe('AI CV Screener E2E Smoke Test Suite', () => {
     await expect(inspectorDialog.getByRole('button', { name: /(Buka|Tutup) Semua Bukti/i })).toBeVisible();
 
     // Tutup dialog
+    const closeBtn = inspectorDialog.getByTitle('Tutup Panel Inspeksi');
+    await closeBtn.click();
+    await expect(inspectorDialog).toHaveClass(/translate-x-full/);
+  });
+
+  test('9. Standarisasi Layout Kartu Kriteria (4 Tier Vertikal: Metadata, Deskripsi, Bobot, Bukti Verbatim)', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+
+    // Muat data melalui Golden Dataset dan masuk ke Workbench
+    await page.getByRole('button', { name: /Golden Dataset/i }).click();
+    await page.getByRole('button', { name: /Workbench/i }).click();
+
+    // Buka inspeksi kandidat pertama
+    const firstRow = page.locator('tbody tr').first();
+    await expect(firstRow).toBeVisible();
+    await firstRow.click();
+
+    const inspectorDialog = page.getByRole('dialog', { name: 'Panel Inspeksi Kandidat' });
+    await expect(inspectorDialog).toBeVisible();
+
+    // Dapatkan kartu kriteria pertama (id diawali criterion-)
+    const criterionCard = inspectorDialog.locator('[id^="criterion-"]').first();
+    await expect(criterionCard).toBeVisible();
+
+    // Baris 1: Metadata badge identitas (ID kriteria, badge importance Wajib Mutlak / Diutamakan / Nilai Tambah)
+    await expect(criterionCard.locator('.font-mono.font-bold').first()).toBeVisible();
+    await expect(criterionCard.getByText(/Wajib Mutlak|Diutamakan|Nilai Tambah/i).first()).toBeVisible();
+
+    // Baris 2: Deskripsi kriteria (text-sm font-semibold)
+    await expect(criterionCard.locator('.text-sm.font-semibold')).toBeVisible();
+
+    // Baris 3: Bobot dan status pencapaian
+    await expect(criterionCard.getByText(/Bobot:/i).first()).toBeVisible();
+    await expect(criterionCard.getByText(/Terbukti|Perlu Dicek/i).first()).toBeVisible();
+
+    // Baris 4: Footer bukti kutipan dan accordion
+    const viewProofBtn = criterionCard.getByRole('button', { name: /Lihat Bukti Kutipan CV/i });
+    if (await viewProofBtn.isVisible()) {
+      await expect(criterionCard.getByText(/VERBATIM_GROUNDED|SEMANTIC MATCH/i).first()).toBeVisible();
+
+      // Klik accordion untuk membuka kutipan
+      await viewProofBtn.click();
+      await expect(criterionCard.getByRole('button', { name: /Sembunyikan Kutipan CV/i })).toBeVisible();
+      await expect(criterionCard.getByRole('button', { name: /Sorot di Teks CV/i })).toBeVisible();
+    }
+
+    // Tutup panel inspeksi
     const closeBtn = inspectorDialog.getByTitle('Tutup Panel Inspeksi');
     await closeBtn.click();
     await expect(inspectorDialog).toHaveClass(/translate-x-full/);

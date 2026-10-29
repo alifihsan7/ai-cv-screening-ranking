@@ -356,67 +356,69 @@ PENDIDIKAN & LATAR BELAKANG:
         }`}
       >
         <span id={`req-${r.requirement_id}`} className="sr-only" />
-        {/* Header Row Kriteria */}
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center space-x-2 min-w-0 flex-wrap">
-            <span className="font-mono font-bold text-xs text-[#1B4938] bg-[#EBF1EE] px-2 py-0.5 rounded border border-[#D5DFD9]">
-              {r.requirement_id}
-            </span>
-            <DualLayerCriterionBadge req={r} />
-            <span className="font-semibold text-xs text-[#13221C]">
-              {r.description}
-            </span>
-            {isMustHave ? (
-              <span className="font-mono text-[9px] px-1.5 py-0.5 rounded font-bold uppercase bg-[#FCEBEB] text-[#8C1819] border border-[#F6C1C1]">
-                Wajib Mutlak
-              </span>
-            ) : isStrongPref ? (
-              <span className="font-mono text-[9px] px-1.5 py-0.5 rounded font-bold uppercase bg-[#FEF6E8] text-[#7A3E02] border border-[#F8D8A7]">
-                Diutamakan
-              </span>
-            ) : (
-              <span className="font-mono text-[9px] px-1.5 py-0.5 rounded font-bold uppercase bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD]">
-                Nilai Tambah
-              </span>
-            )}
-          </div>
 
-          <div className="flex items-center space-x-2 shrink-0">
-            <span className="font-mono text-xs tabular-nums text-[#2D4439]">
-              Bobot: <strong>{r.weight}%</strong>
+        {/* Baris 1: Header Metadata Badges */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-mono font-bold text-xs text-[#1B4938] bg-[#EBF1EE] px-2 py-0.5 rounded border border-[#D5DFD9]">
+            {r.requirement_id}
+          </span>
+          <DualLayerCriterionBadge req={r} />
+          {isMustHave ? (
+            <span className="font-mono text-[9px] px-2 py-0.5 rounded font-bold uppercase bg-[#FCEBEB] text-[#8C1819] border border-[#F6C1C1]">
+              Wajib Mutlak
             </span>
-            <span
-              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border ${
-                state === 'STRONG'
-                  ? 'bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD]'
-                  : state === 'PARTIAL'
-                  ? 'bg-[#FEF6E8] text-[#7A3E02] border-[#F8D8A7]'
-                  : 'bg-[#FCEBEB] text-[#8C1819] border-[#F6C1C1]'
-              }`}
-            >
-              {state === 'STRONG' ? (
-                <>
-                  <CheckCircle2 className="w-3 h-3 text-[#124B2E]" />
-                  <span>Terbukti</span>
-                </>
-              ) : state === 'PARTIAL' ? (
-                <>
-                  <AlertTriangle className="w-3 h-3 text-[#7A3E02]" />
-                  <span>Sebagian</span>
-                </>
-              ) : (
-                <>
-                  <XCircle className="w-3 h-3 text-[#8C1819]" />
-                  <span>Tidak Tercantum</span>
-                </>
-              )}
+          ) : isStrongPref ? (
+            <span className="font-mono text-[9px] px-2 py-0.5 rounded font-bold uppercase bg-[#FEF6E8] text-[#7A3E02] border border-[#F8D8A7]">
+              Diutamakan
             </span>
-          </div>
+          ) : (
+            <span className="font-mono text-[9px] px-2 py-0.5 rounded font-bold uppercase bg-[#EBF6EF] text-[#124B2E] border border-[#BBE5CD]">
+              Nilai Tambah
+            </span>
+          )}
         </div>
 
-        {/* Progressive Disclosure: Expandable Kutipan Bukti CV */}
+        {/* Baris 2: Deskripsi Kriteria */}
+        <div className="text-sm font-semibold text-[#13221C] leading-snug pt-0.5">
+          {r.description}
+        </div>
+
+        {/* Baris 3: Bobot & Status Pencapaian */}
+        <div className="flex items-center justify-between gap-2 pt-1">
+          <span className="font-mono text-xs text-[#2D4439]">
+            Bobot: <strong className="tabular-nums">{r.weight}%</strong>
+          </span>
+          <span
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border ${
+              state === 'STRONG'
+                ? 'bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD]'
+                : state === 'PARTIAL'
+                ? 'bg-[#FEF6E8] text-[#7A3E02] border-[#F8D8A7]'
+                : 'bg-[#FCEBEB] text-[#8C1819] border-[#F6C1C1]'
+            }`}
+          >
+            {state === 'STRONG' ? (
+              <>
+                <CheckCircle2 className="w-3 h-3 text-[#124B2E]" />
+                <span>Terbukti</span>
+              </>
+            ) : state === 'PARTIAL' ? (
+              <>
+                <AlertTriangle className="w-3 h-3 text-[#7A3E02]" />
+                <span>Perlu Dicek (Sebagian)</span>
+              </>
+            ) : (
+              <>
+                <XCircle className="w-3 h-3 text-[#8C1819]" />
+                <span>Perlu Dicek (Tidak Tercantum)</span>
+              </>
+            )}
+          </span>
+        </div>
+
+        {/* Baris 4: Footer Bukti Kutipan & Verbatim Grounded */}
         {evidenceQuote ? (
-          <div className="pt-1 border-t border-[#E2E9E5]/60">
+          <div className="border-t border-[#E2E9E5]/70 pt-2 space-y-2">
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <button
                 type="button"
@@ -429,28 +431,30 @@ PENDIDIKAN & LATAR BELAKANG:
                   <ChevronRight className="w-3.5 h-3.5 text-[#1B4938]" />
                 )}
                 <span>{isExpanded ? 'Sembunyikan Kutipan CV' : 'Lihat Bukti Kutipan CV'}</span>
-                <VerbatimGroundingChip isGrounded={isVerbatimGrounded(evidenceQuote, candidate.full_text)} />
                 {!isExpanded && (
-                  <span className="text-[#2D4439]/60 font-mono text-[10px] truncate max-w-[220px]">
-                    — &ldquo;{evidenceQuote.slice(0, 40)}...&rdquo;
+                  <span className="text-[#2D4439]/60 font-mono text-[10px] truncate max-w-[200px] hidden sm:inline">
+                    — &ldquo;{evidenceQuote.slice(0, 35)}...&rdquo;
                   </span>
                 )}
               </button>
 
-              {isExpanded && (
-                <button
-                  type="button"
-                  onClick={() => handleJumpToGrounding(evidenceQuote, r.requirement_id)}
-                  className="text-[10px] font-bold text-[#1B4938] hover:underline cursor-pointer flex items-center gap-1"
-                  title="Lihat konteks penuh di berkas CV asli"
-                >
-                  <span>Buka di Berkas CV</span>
-                  <ChevronRight className="w-3 h-3 text-[#1B4938]" />
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                <VerbatimGroundingChip isGrounded={isVerbatimGrounded(evidenceQuote, candidate.full_text)} />
+                {isExpanded && (
+                  <button
+                    type="button"
+                    onClick={() => handleJumpToGrounding(evidenceQuote, r.requirement_id)}
+                    className="text-[10px] font-bold text-[#1B4938] hover:underline cursor-pointer flex items-center gap-1"
+                    title="Lihat konteks penuh di berkas CV asli"
+                  >
+                    <span>Buka di Berkas CV</span>
+                    <ChevronRight className="w-3 h-3 text-[#1B4938]" />
+                  </button>
+                )}
+              </div>
             </div>
 
-            {/* Expanded Kutipan Verbatim */}
+            {/* Expanded Container: Kotak Kutipan Verbatim */}
             {isExpanded && (
               <div className="mt-2.5 p-3 rounded-xl bg-[#FEFCE8] border border-[#FEF08A] shadow-tactile-sm space-y-2">
                 <div className="flex items-center justify-between gap-2">
@@ -481,13 +485,17 @@ PENDIDIKAN & LATAR BELAKANG:
             )}
           </div>
         ) : unprovenItem?.note ? (
-          <div className="pt-2 border-t border-[#E2E9E5]/60 text-[11px] text-[#7A3E02] italic flex items-center gap-1.5">
-            <AlertTriangle className="w-3.5 h-3.5 text-[#7A3E02] shrink-0" />
-            <span>Catatan AI: {unprovenItem.note}</span>
+          <div className="border-t border-[#E2E9E5]/70 pt-2 flex items-center justify-between gap-2 flex-wrap">
+            <div className="text-[11px] text-[#7A3E02] italic flex items-center gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5 text-[#7A3E02] shrink-0" />
+              <span>Catatan AI: {unprovenItem.note}</span>
+            </div>
           </div>
         ) : (
-          <div className="pt-1 text-[10px] text-[#2D4439]/70 italic font-mono flex items-center gap-2">
-            <span>Tidak ditemukan kutipan eksplisit dalam berkas CV untuk kriteria ini.</span>
+          <div className="border-t border-[#E2E9E5]/70 pt-2 flex items-center justify-between gap-2 flex-wrap">
+            <div className="text-[10px] text-[#2D4439]/70 italic font-mono flex items-center gap-2">
+              <span>Tidak ditemukan kutipan eksplisit dalam berkas CV untuk kriteria ini.</span>
+            </div>
           </div>
         )}
       </div>
