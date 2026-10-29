@@ -112,10 +112,27 @@ DOCKER_REQ = {
 }
 
 
+def keyword_aware_jev_client(keyword: str):
+    """Jev stand-in that says yes only to chunks that actually mention the keyword, like a real verifier would."""
+    from unittest.mock import AsyncMock
+
+    from typesafe_sdk import NoulAnswer, SystemOneResponse, Usage
+
+    async def _system_one(state, questions, **kwargs):
+        answers = {
+            key: NoulAnswer(type="noul", noul=0.95 if keyword in state["evidence_chunks"][key].lower() else 0.02)
+            for key in questions
+        }
+        return SystemOneResponse(model="jev-latest", usage=Usage(), answers=answers)
+
+    client = AsyncMock()
+    client.system_one.side_effect = _system_one
+    return client
+
+
 async def _screen(profile: dict, raw_text: str):
     from src.domain.agent import ScreeningAgent
     from src.domain.verifier import JevTypeSafeVerifierProvider
-    from tests.conftest import mock_jev_client
 
     screening = ScreeningAgent(
         job_id="JD-T",
@@ -123,7 +140,7 @@ async def _screen(profile: dict, raw_text: str):
         requirements=[DOCKER_REQ],
         profile=profile,
         raw_cv_text=raw_text,
-        verifier_provider=JevTypeSafeVerifierProvider(client=mock_jev_client()),
+        verifier_provider=JevTypeSafeVerifierProvider(client=keyword_aware_jev_client("docker")),
         as_of="2026-10-01",
     )
     return (await screening.run()).evaluation_results["R5"]

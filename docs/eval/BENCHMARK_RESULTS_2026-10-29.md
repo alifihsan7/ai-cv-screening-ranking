@@ -63,7 +63,7 @@ Kesimpulan: dengan bukti yang sampai kepadanya, Jev memulihkan sebagian besar kr
 
 ### Jumlah potongan bukti per siklus (`EVIDENCE_TOP_K`)
 
-Kesimpulan di atas mengarah ke pencarian bukti, jadi jumlah potongan yang dikirim ke Jev per siklus dibuat menjadi pengaturan `EVIDENCE_TOP_K` (default tetap 3) dan diuji dengan 8. Nilai 8 ditentukan sebelum pengukuran, satu nilai saja, bukan hasil menyisir beberapa angka.
+Kesimpulan di atas mengarah ke pencarian bukti, jadi jumlah potongan yang dikirim ke Jev per siklus dibuat menjadi pengaturan `EVIDENCE_TOP_K` dan diuji dengan 8 (default semula 3, kini 8 setelah hasil di bawah). Nilai 8 ditentukan sebelum pengukuran, satu nilai saja, bukan hasil menyisir beberapa angka.
 
 | | 3 potongan | 8 potongan |
 |---|---|---|
