@@ -231,7 +231,8 @@ Kriteria disetujui ──┐
           → LLM verifier memilih status dari pilihan tertutup + menunjuk kutipan
      c. Kode mengecek kutipan benar-benar ada di CV. Kalau tidak → status dari langkah (a), flag GROUNDING_FAIL
 4. Skor, band, cap, rekomendasi (bagian 5–7) → oleh kode
-5. Urutkan: band (A, B, C, R) → skor turun → jumlah STRONG turun → hash(run_id, candidate_id)
+5. Urutkan: band (A, B, C, R) → skor turun → jumlah STRONG turun → hash(candidate_id)
+   (tidak memakai run_id, supaya urutan kandidat yang seri sama persis saat screening diulang)
 ```
 
 **Embedding** dipakai untuk (1) mencari kandidat di pool besar dan (2) memilih potongan CV yang paling relevan

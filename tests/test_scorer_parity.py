@@ -73,3 +73,22 @@ def test_ranking_tie_breaker_parity():
     # Deterministic order
     ranked_again = rank(candidates, run_id="run_test")
     assert [c["candidate_id"] for c in ranked] == [c["candidate_id"] for c in ranked_again]
+
+
+def test_tied_candidates_keep_the_same_order_across_runs():
+    """Exactly tied candidates must rank identically no matter which run id screens them."""
+    jd1 = json.loads(Path("docs/spec/golden_dataset/job_descriptions/JD-01_requirements.approved.json").read_text())
+    states = {r["requirement_id"]: "STRONG" for r in jd1["requirements"]}
+    result = score(states, jd1)
+    candidates = [
+        {"candidate_id": cid, "file": f"{cid}.pdf", "result": result, "strong_count": 10}
+        for cid in ("S1", "S4", "C3", "C9", "7b1f0c2e-5a44-4c1e-9d6a-0f2b8e3a1c55")
+    ]
+
+    orders = {
+        tuple(c["candidate_id"] for c in rank(candidates, run_id=run_id))
+        for run_id in ("run_a", "run_b", "7d1c9f5e-0000-4000-8000-000000000001", None)
+    }
+    assert len(orders) == 1
+    # Input order must not matter either
+    assert tuple(c["candidate_id"] for c in rank(list(reversed(candidates)))) in orders
