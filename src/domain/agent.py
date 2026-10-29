@@ -16,6 +16,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any, Literal
 
+from src.domain.domain_guard import apply_domain_guard, vacancy_is_technical
 from src.domain.evidence_chunks import build_candidate_chunks
 from src.domain.kind_rules import (
     eval_achievement,
@@ -653,6 +654,42 @@ class ScreeningAgent:
                 observation=observation,
                 state_mutation=f"verifier_decision[{req_id}] -> {decision.state.value} (conf={decision.confidence:.2f})",
             )
+
+            # -------------------------------------------------------------
+            # 3b. DOMAIN GUARD: the verifier may not raise LEADERSHIP or ACHIEVEMENT using a non-technical job
+            # -------------------------------------------------------------
+            if decision.confidence >= min_conf and decision.state != EvaluationStatus.NOT_DEMONSTRATED:
+                guarded_state, guard_flags = apply_domain_guard(
+                    kind=kind,
+                    verifier_state=decision.state,
+                    rule_state=rule_st,
+                    quote=decision.quote,
+                    profile=self._profile_dict,
+                    technical_vacancy=vacancy_is_technical(self.requirements),
+                )
+                if guard_flags:
+                    self.state.evaluation_results[req_id] = EvaluationResult(
+                        criterion_id=req_id,
+                        state=guarded_state,
+                        confidence=round(decision.confidence, 2),
+                        metrics=to_evaluation_metrics(rule_m),
+                        evidences=[],
+                        flags=sorted(set(rule_flgs + decision.flags + guard_flags)),
+                        reasons=["Verifier raised the status using a job with no technical work; kept the rule status."],
+                        evaluation_method=EvaluationMethod.DETERMINISTIC_RULE,
+                    )
+                    self.record_step(
+                        thought=thought,
+                        action="DOMAIN_GUARD",
+                        action_input=GeneralActionInput(
+                            action_type="GENERAL",
+                            criterion_id=req_id,
+                            note=f"Verifier said {decision.state.value}; rules said {rule_st}",
+                        ),
+                        observation=f"Domain guard kept {guarded_state.value} (verifier quote from a non-technical job).",
+                        state_mutation=f"evaluation_results[{req_id}] -> {guarded_state.value} ({guard_flags[0]})",
+                    )
+                    return
 
             # -------------------------------------------------------------
             # 4. REFLECT

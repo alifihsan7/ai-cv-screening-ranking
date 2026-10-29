@@ -41,11 +41,15 @@ class Taxonomy(BaseModel):
     certifications: dict[str, list[str]]
     leadership_verbs: list[str]
     leadership_titles: list[str]
+    non_technical_team_terms: list[str] = Field(default_factory=list)
+    technical_domain_terms: list[str] = Field(default_factory=list)
     stopwords: list[str]
 
     compiled_role_titles: dict[str, list[re.Pattern]] = Field(default_factory=dict, exclude=True)
     compiled_leadership_verbs: list[re.Pattern] = Field(default_factory=list, exclude=True)
     compiled_leadership_titles: list[re.Pattern] = Field(default_factory=list, exclude=True)
+    compiled_non_technical_team_terms: list[re.Pattern] = Field(default_factory=list, exclude=True)
+    compiled_technical_domain_terms: list[re.Pattern] = Field(default_factory=list, exclude=True)
 
 
 def _load_yaml(path: Path) -> dict[str, Any]:
@@ -107,6 +111,8 @@ def get_taxonomy(tax_dir: str | None = None) -> Taxonomy:
         certifications=certifications,
         leadership_verbs=leadership_verbs,
         leadership_titles=leadership_titles,
+        non_technical_team_terms=lead_raw.get("non_technical_team_terms", []),
+        technical_domain_terms=lead_raw.get("technical_domain_terms", []),
         stopwords=stopwords,
     )
 
@@ -130,6 +136,16 @@ def get_taxonomy(tax_dir: str | None = None) -> Taxonomy:
             tax.compiled_leadership_titles.append(re.compile(t_pat, re.I))
         except re.error as e:
             raise ValueError(f"Failed to compile regex in leadership.yaml [titles]: {t_pat} ({e})") from e
+
+    for field, target in (
+        ("non_technical_team_terms", tax.compiled_non_technical_team_terms),
+        ("technical_domain_terms", tax.compiled_technical_domain_terms),
+    ):
+        for pat_str in getattr(tax, field):
+            try:
+                target.append(re.compile(pat_str, re.I))
+            except re.error as e:
+                raise ValueError(f"Failed to compile regex in leadership.yaml [{field}]: {pat_str} ({e})") from e
 
     logger.info("Taxonomy successfully loaded and compiled.")
     return tax
