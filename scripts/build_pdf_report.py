@@ -2,7 +2,8 @@ import re
 from pathlib import Path
 
 raw_typ_path = Path("/tmp/body_raw.typ")
-output_typ_path = Path("/home/alifihsan/agentic-cv-screener/docs/research/AI_CV_SCREENER_RESEARCH_REPORT.typ")
+REPO_ROOT = Path(__file__).resolve().parent.parent
+output_typ_path = REPO_ROOT / "docs/research/AI_CV_SCREENER_RESEARCH_REPORT.typ"
 
 content = raw_typ_path.read_text(encoding="utf-8")
 
