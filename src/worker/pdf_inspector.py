@@ -216,6 +216,10 @@ class PdfInspectionReport:
 # ---------------------------------------------------------------------------
 
 
+# One character cannot carry a keyword or an instruction; a lone glyph in a zero-width box is a layout artifact.
+MIN_HIDDEN_SPAN_CHARS = 2
+
+
 def _visible_on_real_background(page: Any, color: Any, bbox: tuple[float, ...]) -> bool:
     """True when text that is white-ish against a white page is drawn over a background that makes it readable."""
     background = dominant_background_rgb(page, bbox)
@@ -309,7 +313,7 @@ def inspect_pdf_adversarial(content: bytes) -> PdfInspectionReport:
 
                         # Check 3a: Micro-font size (< 2.0 pt)
                         size = float(span.get("size", 10.0))
-                        if size < 2.0 and clean_text:
+                        if size < 2.0 and len(clean_text) >= MIN_HIDDEN_SPAN_CHARS:
                             report.findings.append(
                                 HiddenTextFinding(
                                     page_number=page_num,
@@ -323,7 +327,11 @@ def inspect_pdf_adversarial(content: bytes) -> PdfInspectionReport:
                         # Check 3b: Low-contrast / white text on white background (WCAG CR < 1.20:1)
                         color = span.get("color", 0)
                         contrast = calculate_contrast_against_white(color)
-                        if contrast < 1.20 and clean_text and not _visible_on_real_background(page, color, span_bbox):
+                        if (
+                            contrast < 1.20
+                            and len(clean_text) >= MIN_HIDDEN_SPAN_CHARS
+                            and not _visible_on_real_background(page, color, span_bbox)
+                        ):
                             report.findings.append(
                                 HiddenTextFinding(
                                     page_number=page_num,

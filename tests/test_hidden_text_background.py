@@ -58,3 +58,27 @@ def test_white_text_over_a_dark_box_that_does_not_cover_it_is_still_hidden_text(
         c.drawString(100, 150, "Hidden text beside a dark bar")
 
     assert len(_low_contrast(_pdf(draw))) == 1
+
+
+def test_a_single_white_glyph_is_a_layout_artifact_not_hidden_text():
+    def draw(c):
+        c.setFillColor(white)
+        c.drawString(10, 150, "x")
+
+    assert _low_contrast(_pdf(draw)) == []
+
+
+def test_a_single_tiny_glyph_is_ignored_but_tiny_words_are_not():
+    def tiny(text):
+        def draw(c):
+            c.setFillColor(black)
+            c.setFont("Helvetica", 1)
+            c.drawString(10, 150, text)
+
+        return draw
+
+    def tiny_findings(pdf: bytes) -> list:
+        return [f for f in inspect_pdf_adversarial(pdf).findings if f.finding_type == "TINY_FONT"]
+
+    assert tiny_findings(_pdf(tiny("x"))) == []
+    assert len(tiny_findings(_pdf(tiny("python kubernetes")))) == 1
