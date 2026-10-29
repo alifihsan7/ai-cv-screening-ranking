@@ -358,4 +358,41 @@ test.describe('AI CV Screener E2E Smoke Test Suite', () => {
     await expect(page.getByText('cv_too_large.pdf')).toBeVisible();
     await expect(page.getByText(/Ukuran payload melebihi batas \(413\)/i).first()).toBeVisible();
   });
+
+  test('7. Catatan Integritas Dokumen menampilkan penjelasan ramah manusia dalam kurung untuk setiap flag', async ({ page }) => {
+    await page.goto('/');
+
+    // Muat data melalui Golden Dataset dan masuk ke Workbench
+    await page.getByRole('button', { name: /Golden Dataset/i }).click();
+    await page.getByRole('button', { name: /Workbench/i }).click();
+
+    // Cari baris kandidat dengan flags (cand-11 / C-0011 / S11)
+    const targetRow = page.locator('tbody tr').filter({ hasText: /C-0011|S11|Eko/i }).first();
+    await expect(targetRow).toBeVisible();
+    await targetRow.click();
+
+    // Verifikasi modal dialog inspeksi terbuka
+    const inspectorDialog = page.getByRole('dialog', { name: 'Panel Inspeksi Kandidat' });
+    await expect(inspectorDialog).toBeVisible();
+
+    // Verifikasi judul blok catatan integritas
+    await expect(inspectorDialog.getByText('Catatan Integritas Dokumen:')).toBeVisible();
+
+    // Verifikasi flag dengan penjelasan dalam kurung
+    await expect(
+      inspectorDialog.getByText(/Flag:\s*TYPESAFE_LIVE\s*\(Diverifikasi langsung oleh AI engine resmi TypeSafe\)/i)
+    ).toBeVisible();
+    await expect(
+      inspectorDialog.getByText(/Flag:\s*NO_EVIDENCE_FOUND\s*\(Bukti kualifikasi tidak ditemukan di teks CV\)/i)
+    ).toBeVisible();
+    await expect(
+      inspectorDialog.getByText(/Flag:\s*DATE_YEAR_ONLY_INFERRED\s*\(Periode kerja hanya mencantumkan tahun, durasi diestimasi\)/i)
+    ).toBeVisible();
+    await expect(
+      inspectorDialog.getByText(/Flag:\s*DATE_ANOMALY\s*\(Urutan kronologi tanggal kerja terdeteksi janggal atau tumpang tindih\)/i)
+    ).toBeVisible();
+    await expect(
+      inspectorDialog.getByText(/Flag:\s*JEV_ROLE_FAMILY_LOW_CONFIDENCE\s*\(Judul posisi di CV kurang spesifik\/tidak lazim\)/i)
+    ).toBeVisible();
+  });
 });

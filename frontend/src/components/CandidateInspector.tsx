@@ -26,6 +26,7 @@ import {
   VerbatimGroundingChip,
 } from './ScreeningTelemetryPanel'
 import { getScreeningTelemetry, isVerbatimGrounded } from '../utils/telemetry'
+import { getFlagExplanation } from '../utils/flags'
 
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -976,13 +977,19 @@ PENDIDIKAN & LATAR BELAKANG:
                       <AlertTriangle className="w-3.5 h-3.5 text-[#7A3E02] shrink-0" />
                       <span>Catatan Integritas Dokumen:</span>
                     </div>
-                    <div className="space-y-1 text-[#7A3E02]">
-                      {candidate.flags.map((flag, idx) => (
-                        <div key={`flag-${idx}`} className="flex items-center gap-1.5 text-xs">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#7A3E02]" />
-                          <span>Flag: <strong>{flag}</strong></span>
-                        </div>
-                      ))}
+                    <div className="space-y-1.5 text-[#7A3E02]">
+                      {candidate.flags.map((flag, idx) => {
+                        const explanation = getFlagExplanation(flag)
+                        return (
+                          <div key={`flag-${idx}`} className="flex items-start gap-1.5 text-xs">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#7A3E02] shrink-0 mt-1" />
+                            <span className="break-words">
+                              Flag: <strong>{flag}</strong>{' '}
+                              <span className="text-[#5A2E02] font-normal">({explanation})</span>
+                            </span>
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
                 )}

@@ -793,7 +793,15 @@ QA Automation & Python Engineer | Jakarta
     recommendation: 'LOW_PRIORITY',
     category_breakdown: { EXPERIENCE: 20, HARD_SKILLS: 15, EDUCATION_CERTIFICATION: 5, ACHIEVEMENT_LEADERSHIP: 2 },
     metrics: { backend_months: 18 },
-    flags: ['HIDDEN_TEXT_SANITIZED', 'PROMPT_INJECTION_NEUTRALIZED'],
+    flags: [
+      'TYPESAFE_LIVE',
+      'NO_EVIDENCE_FOUND',
+      'DATE_YEAR_ONLY_INFERRED',
+      'DATE_ANOMALY',
+      'JEV_ROLE_FAMILY_LOW_CONFIDENCE',
+      'HIDDEN_TEXT_SANITIZED',
+      'PROMPT_INJECTION_NEUTRALIZED',
+    ],
     requirement_states: {
       R1: 'PARTIAL',
       R2: 'PARTIAL',

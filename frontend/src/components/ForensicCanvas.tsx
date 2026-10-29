@@ -19,6 +19,7 @@ import {
   VerbatimGroundingChip,
 } from './ScreeningTelemetryPanel'
 import { getScreeningTelemetry, isVerbatimGrounded } from '../utils/telemetry'
+import { getFlagExplanation } from '../utils/flags'
 
 export interface ForensicCanvasProps {
   candidate: CandidateDetail | null
@@ -313,16 +314,20 @@ export const ForensicCanvas: React.FC<ForensicCanvasProps> = ({
                 <AlertTriangle className="w-4 h-4 text-[#7A3E02] shrink-0" />
                 <span>Catatan Defisit & Indikasi Verifikasi:</span>
               </div>
-              <div className="space-y-1 text-[#13221C]">
+              <div className="space-y-1.5 text-[#13221C]">
                 {candidate.flags &&
-                  candidate.flags.map((flag, idx) => (
-                    <div key={`flag-${idx}`} className="flex items-center gap-1.5 text-xs text-[#7A3E02]">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#7A3E02]" />
-                      <span>
-                        Flag Integritas: <strong>{flag}</strong>
-                      </span>
-                    </div>
-                  ))}
+                  candidate.flags.map((flag, idx) => {
+                    const explanation = getFlagExplanation(flag)
+                    return (
+                      <div key={`flag-${idx}`} className="flex items-start gap-1.5 text-xs text-[#7A3E02]">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#7A3E02] mt-1 shrink-0" />
+                        <span className="break-words">
+                          Flag Integritas: <strong>{flag}</strong>{' '}
+                          <span className="text-[#5A2E02] font-normal">({explanation})</span>
+                        </span>
+                      </div>
+                    )
+                  })}
                 {candidate.explanation.unproven &&
                   candidate.explanation.unproven.map((u, idx) => (
                     <div
