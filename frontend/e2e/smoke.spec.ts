@@ -540,4 +540,374 @@ test.describe('AI CV Screener E2E Smoke Test Suite', () => {
     await expect(panel.getByText('Disunting recruiter')).toBeVisible();
     await panel.screenshot({ path: 'test-results/role-profile-panel.png' });
   });
+
+  test('11. Pemilihan template peran saat lowongan memiliki CV otomatis membuat lowongan baru tanpa menimpa data lowongan lama', async ({ page }) => {
+    // Intercept jobs API list endpoint
+    let jobsList = [
+      {
+        id: 'job-backend-test',
+        title: 'Senior Backend Engineer',
+        cv_count: 3,
+        location: 'Jakarta',
+        employment_type: 'Full-time',
+        jd_text: 'Deskripsi Senior Backend Engineer',
+      },
+    ];
+
+    await page.route('**/api/v1/jobs', async (route) => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(jobsList),
+        });
+      } else if (route.request().method() === 'POST') {
+        const payload = JSON.parse(route.request().postData() || '{}');
+        const newJob = {
+          id: 'job-civil-test',
+          title: 'Civil Engineering Specialist',
+          cv_count: 0,
+          location: payload.location || 'Jakarta / Proyek Lapangan',
+          employment_type: payload.employment_type || 'Penuh Waktu (Full-time)',
+          jd_text: payload.jd_text || '',
+        };
+        jobsList = [newJob, ...jobsList];
+        await route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify(newJob),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    await page.route('**/api/v1/jobs/job-backend-test', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: 'job-backend-test',
+          title: 'Senior Backend Engineer',
+          cv_count: 3,
+          location: 'Jakarta',
+          employment_type: 'Full-time',
+          jd_text: 'Deskripsi Senior Backend Engineer',
+        }),
+      });
+    });
+
+    await page.route('**/api/v1/jobs/job-civil-test', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: 'job-civil-test',
+          title: 'Civil Engineering Specialist',
+          cv_count: 0,
+          location: 'Jakarta / Proyek Lapangan',
+          employment_type: 'Penuh Waktu (Full-time)',
+          jd_text: 'Deskripsi Civil Engineering Specialist',
+        }),
+      });
+    });
+
+    await page.route('**/api/v1/jobs/*/requirements*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([]),
+      });
+    });
+
+    await page.route('**/api/v1/jobs/*/cvs/status', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ job_id: 'test', documents: [] }),
+      });
+    });
+
+    await page.route('**/api/v1/jobs/*/screenings/latest', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(null),
+      });
+    });
+
+    await page.goto('/');
+
+    // Pastikan antarmuka Setup Lowongan termuat dengan lowongan Senior Backend Engineer aktif (3 CV)
+    await expect(page.getByRole('heading', { name: /Setup Lowongan Kerja/i })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByTitle('Pilih Lowongan Aktif')).toContainText('Senior Backend Engineer');
+
+    // Klik template pill Civil Engineering saat lowongan Backend yang memiliki CV aktif
+    const civilPill = page.getByTestId('template-pill-civil_engineering');
+    await expect(civilPill).toBeVisible();
+    await civilPill.click();
+
+    // Verifikasi judul input langsung berganti ke Civil Engineering Specialist
+    const titleInput = page.getByLabel('Judul Lowongan Pekerjaan');
+    await expect(titleInput).toHaveValue('Civil Engineering Specialist');
+
+    // Verifikasi toast proteksi data muncul
+    await expect(page.getByText(/Data lowongan sebelumnya tersimpan aman/i)).toBeVisible();
+
+    // Verifikasi active job di Topbar sekarang adalah Civil Engineering Specialist dengan 0 CV
+    await expect(page.getByTitle('Pilih Lowongan Aktif')).toContainText('Civil Engineering Specialist');
+
+    // Buka dropdown switcher lowongan untuk memverifikasi lowongan Backend lama TIDAK tertimpa
+    await page.getByTitle('Pilih Lowongan Aktif').click();
+    const dropdownList = page.getByRole('listbox');
+    await expect(dropdownList).toBeVisible();
+
+    // Lowongan Senior Backend Engineer tetap ada dengan 3 CV utuh
+    const backendOption = page.getByRole('option', { name: /Senior Backend Engineer.*3 CV/i });
+    await expect(backendOption).toBeVisible();
+
+    // Lowongan baru Civil Engineering Specialist ada dengan 0 CV
+    const civilOption = page.getByRole('option', { name: /Civil Engineering Specialist.*0 CV/i });
+    await expect(civilOption).toBeVisible();
+
+    // Pilih kembali lowongan Senior Backend Engineer
+    await backendOption.click();
+
+    // Verifikasi tampilan kembali ke Senior Backend Engineer tanpa ada data yang rusak
+    await expect(page.getByTitle('Pilih Lowongan Aktif')).toContainText('Senior Backend Engineer');
+    await expect(titleInput).toHaveValue('Senior Backend Engineer');
+  });
+
+  test('12. Pemilihan template peran saat lowongan SUDAH ADA di daftar lowongan langsung switch (selectJob) tanpa membuat duplikat atau menimpa lowongan lain', async ({ page }) => {
+    let jobsList = [
+      {
+        id: 'job-backend-test',
+        title: 'Senior Backend Engineer',
+        cv_count: 3,
+        location: 'Jakarta',
+        employment_type: 'Full-time',
+        jd_text: 'Deskripsi Senior Backend Engineer',
+      },
+      {
+        id: 'job-civil-existing',
+        title: 'Civil Engineer (Struktur & Pelaksana)',
+        cv_count: 1,
+        location: 'Kediri, Jawa Timur',
+        employment_type: 'Penuh Waktu (Full-time)',
+        jd_text: 'Deskripsi Proyek Konstruksi Sipil Lapangan',
+      },
+    ];
+
+    let postJobCalled = false;
+    let patchBackendCalled = false;
+
+    await page.route('**/api/v1/jobs', async (route) => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(jobsList),
+        });
+      } else if (route.request().method() === 'POST') {
+        postJobCalled = true;
+        await route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify({ id: 'unexpected-new-job', title: 'Unexpected' }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    await page.route('**/api/v1/jobs/job-backend-test', async (route) => {
+      if (route.request().method() === 'PATCH') {
+        patchBackendCalled = true;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(jobsList[0]),
+      });
+    });
+
+    await page.route('**/api/v1/jobs/job-civil-existing', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(jobsList[1]),
+      });
+    });
+
+    await page.route('**/api/v1/jobs/*/requirements', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([]),
+      });
+    });
+
+    await page.route('**/api/v1/jobs/*/screenings/latest', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(null),
+      });
+    });
+
+    await page.route('**/api/v1/jobs/*/cvs/status', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          total_uploaded: 0,
+          total_parsed: 0,
+          pending: 0,
+          ready: 0,
+          failed: 0,
+        }),
+      });
+    });
+
+    await page.goto('/');
+
+    // Pastikan antarmuka Setup Lowongan termuat dengan lowongan Senior Backend Engineer aktif (3 CV)
+    await expect(page.getByRole('heading', { name: /Setup Lowongan Kerja/i })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByTitle('Pilih Lowongan Aktif')).toContainText('Senior Backend Engineer');
+
+    // Klik template pill Civil Engineering saat lowongan Civil Engineer sudah ada di availableJobs
+    const civilPill = page.getByTestId('template-pill-civil_engineering');
+    await expect(civilPill).toBeVisible();
+    await civilPill.click();
+
+    // Verifikasi toast info switch lowongan muncul
+    await expect(page.getByText(/Beralih ke lowongan "Civil Engineer/i)).toBeVisible();
+
+    // Verifikasi judul input dan topbar langsung beralih ke lowongan Civil Engineer yang sudah ada
+    const titleInput = page.getByLabel('Judul Lowongan Pekerjaan');
+    await expect(titleInput).toHaveValue('Civil Engineer (Struktur & Pelaksana)');
+    await expect(page.getByTitle('Pilih Lowongan Aktif')).toContainText('Civil Engineer (Struktur & Pelaksana)');
+
+    // Verifikasi bahwa sistem TIDAK membuat lowongan baru dan TIDAK menimpa lowongan Backend
+    expect(postJobCalled).toBe(false);
+    expect(patchBackendCalled).toBe(false);
+
+    // Buka dropdown switcher lowongan untuk memastikan kedua lowongan tetap utuh
+    await page.getByTitle('Pilih Lowongan Aktif').click();
+    const dropdownList = page.getByRole('listbox');
+    await expect(dropdownList).toBeVisible();
+
+    const backendOption = page.getByRole('option', { name: /Senior Backend Engineer.*3 CV/i });
+    await expect(backendOption).toBeVisible();
+
+    const civilOption = page.getByRole('option', { name: /Civil Engineer \(Struktur & Pelaksana\).*1 CV/i });
+    await expect(civilOption).toBeVisible();
+
+    // Pilih kembali lowongan Senior Backend Engineer
+    await backendOption.click();
+
+    // Verifikasi tampilan kembali ke Senior Backend Engineer tanpa ada data yang rusak
+    await expect(page.getByTitle('Pilih Lowongan Aktif')).toContainText('Senior Backend Engineer');
+    await expect(titleInput).toHaveValue('Senior Backend Engineer');
+  });
+
+  test('13. Pemilihan template peran saat lowongan draf kosong (0 CV) mengisi form secara in-place tanpa membuat lowongan baru', async ({ page }) => {
+    let jobsList = [
+      {
+        id: 'job-draft-test',
+        title: 'Draft Lowongan Baru',
+        cv_count: 0,
+        location: '',
+        employment_type: 'Full-time',
+        jd_text: '',
+      },
+    ];
+
+    let postJobCalled = false;
+    let patchDraftCalled = false;
+
+    await page.route('**/api/v1/jobs', async (route) => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(jobsList),
+        });
+      } else if (route.request().method() === 'POST') {
+        postJobCalled = true;
+        await route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify({ id: 'unexpected-new-job', title: 'Unexpected' }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    await page.route('**/api/v1/jobs/job-draft-test', async (route) => {
+      if (route.request().method() === 'PATCH') {
+        patchDraftCalled = true;
+        const payload = JSON.parse(route.request().postData() || '{}');
+        jobsList[0] = { ...jobsList[0], ...payload };
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(jobsList[0]),
+      });
+    });
+
+    await page.route('**/api/v1/jobs/*/requirements', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([]),
+      });
+    });
+
+    await page.route('**/api/v1/jobs/*/screenings/latest', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(null),
+      });
+    });
+
+    await page.route('**/api/v1/jobs/*/cvs/status', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          total_uploaded: 0,
+          total_parsed: 0,
+          pending: 0,
+          ready: 0,
+          failed: 0,
+        }),
+      });
+    });
+
+    await page.goto('/');
+
+    // Pastikan antarmuka Setup Lowongan termuat dengan lowongan draft kosong
+    await expect(page.getByRole('heading', { name: /Setup Lowongan Kerja/i })).toBeVisible({ timeout: 15000 });
+
+    // Klik template pill Civil Engineering
+    const civilPill = page.getByTestId('template-pill-civil_engineering');
+    await expect(civilPill).toBeVisible();
+    await civilPill.click();
+
+    // Verifikasi toast info template diterapkan muncul
+    await expect(page.getByText(/Template "Civil Engineering" diterapkan/i)).toBeVisible();
+
+    // Verifikasi judul input dan topbar terisi template secara in-place
+    const titleInput = page.getByLabel('Judul Lowongan Pekerjaan');
+    await expect(titleInput).toHaveValue('Civil Engineer (Struktur & Pelaksana)');
+    await expect(page.getByTitle('Pilih Lowongan Aktif')).toContainText('Civil Engineer (Struktur & Pelaksana)');
+
+    // Verifikasi bahwa lowongan baru TIDAK dibuat dan patch draf in-place terpanggil
+    expect(postJobCalled).toBe(false);
+    expect(patchDraftCalled).toBe(true);
+  });
 });

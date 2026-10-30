@@ -105,7 +105,7 @@ Kualifikasi Nilai Tambah (Nice-to-Have):
 - Pemahaman prinsip data governance, lineage, dan pengujian kualitas data otomatis (Great Expectations / dbt test).`,
   },
   {
-    id: 'civil_engineer',
+    id: 'civil_engineering',
     role: 'Civil Engineering',
     title: 'Civil Engineer (Struktur & Pelaksana)',
     location: 'Kediri, Jawa Timur',
@@ -233,3 +233,64 @@ Kualifikasi Nilai Tambah (Nice-to-Have):
 - Pemahaman teknis tentang arsitektur REST API, database, dan siklus pengembangan software.`,
   },
 ]
+
+/**
+ * Mencari lowongan yang cocok di availableJobs berdasarkan template peran.
+ * Memeriksa kesamaan judul, nama peran, maupun kecocokan spesifik berbasis kata kunci peran.
+ */
+export function findMatchingJobForTemplate<
+  T extends { id: string; title: string; cv_count?: number }
+>(jobs: T[] | undefined, tmpl: JobTemplate): T | undefined {
+  if (!jobs || jobs.length === 0 || !tmpl) return undefined
+
+  const normalize = (s: string) => s.toLowerCase().trim()
+  const tmplTitle = normalize(tmpl.title)
+  const tmplRole = normalize(tmpl.role)
+
+  // 1. Exact match on title or role
+  const exact = jobs.find((j) => {
+    if (!j.title) return false
+    const jt = normalize(j.title)
+    return jt === tmplTitle || jt === tmplRole
+  })
+  if (exact) return exact
+
+  // 2. Substring & keyword matching
+  const match = jobs.find((j) => {
+    if (!j.title) return false
+    const jt = normalize(j.title)
+    if (jt.includes(tmplTitle) || tmplTitle.includes(jt)) return true
+    if (jt.includes(tmplRole) || tmplRole.includes(jt)) return true
+
+    // Check base role without parentheses, e.g. "civil engineer" from "civil engineer (struktur & pelaksana)"
+    const tmplBase = tmplTitle.split('(')[0].trim()
+    const jobBase = jt.split('(')[0].trim()
+    if (tmplBase.length >= 5 && (jt.includes(tmplBase) || tmplTitle.includes(jobBase))) {
+      return true
+    }
+    return false
+  })
+
+  return match
+}
+
+/**
+ * Mencari objek template peran yang cocok berdasarkan judul atau peran lowongan.
+ */
+export function findTemplateByJobTitle(title: string | null | undefined): JobTemplate | undefined {
+  if (!title) return undefined
+  const normalize = (s: string) => s.toLowerCase().trim()
+  const clean = normalize(title)
+
+  return ROLE_TEMPLATES.find((t) => {
+    const tTitle = normalize(t.title)
+    const tRole = normalize(t.role)
+    if (tTitle === clean || tRole === clean) return true
+    if (clean.includes(tTitle) || tTitle.includes(clean)) return true
+    if (clean.includes(tRole) || tRole.includes(clean)) return true
+    const tBase = tTitle.split('(')[0].trim()
+    const cleanBase = clean.split('(')[0].trim()
+    return tBase.length >= 5 && (clean.includes(tBase) || tTitle.includes(cleanBase))
+  })
+}
+

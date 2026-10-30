@@ -1,7 +1,12 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { AlertCircle, AlertTriangle, CheckCircle2, Info, X } from 'lucide-react'
 import type { CandidateDetail, Requirement, WorkflowStep, UploadedCvFile } from './types'
-import { ROLE_TEMPLATES, type JobTemplate } from './jobTemplates'
+import {
+  ROLE_TEMPLATES,
+  type JobTemplate,
+  findMatchingJobForTemplate,
+  findTemplateByJobTitle,
+} from './jobTemplates'
 import { MOCK_CANDIDATES } from './mockData'
 import { Topbar } from './components/Topbar'
 import { WorkflowStepper } from './components/WorkflowStepper'
@@ -60,7 +65,12 @@ export default function App() {
   }
 
   const [isScreening, setIsScreening] = useState<boolean>(false)
-  const [isGoldenSampleActive, setIsGoldenSampleActive] = useState<boolean>(false)
+  const [isGoldenSampleActive, setIsGoldenSampleActiveState] = useState<boolean>(false)
+  const isGoldenSampleActiveRef = useRef<boolean>(false)
+  const setIsGoldenSampleActive = useCallback((val: boolean) => {
+    isGoldenSampleActiveRef.current = val
+    setIsGoldenSampleActiveState(val)
+  }, [])
   const [currentStep, setCurrentStepState] = useState<WorkflowStep>(getInitialStep)
 
   const setCurrentStep = useCallback((step: WorkflowStep) => {
@@ -720,182 +730,50 @@ export default function App() {
     )
   }, [syncJobDetailsToBackend])
 
-  const handleSelectTemplate = useCallback(
-    async (tmpl: JobTemplate) => {
-      // 1. Clear any pending title debouncer
-      if (debounceTitleTimerRef.current) {
-        clearTimeout(debounceTitleTimerRef.current)
-      }
-
-      // 2. Atomically update local form states & refs
-      setJobTitle(tmpl.title, false)
-      setJobLocation(tmpl.location)
-      setJobType(tmpl.employmentType)
-      setJobDescription(tmpl.jd_text)
-
-      jobTitleRef.current = tmpl.title
-      jobLocationRef.current = tmpl.location
-      jobTypeRef.current = tmpl.employmentType
-      jobDescriptionRef.current = tmpl.jd_text
-
-      handleSetActiveTemplateId(tmpl.id)
-
-      const cached = templateCriteriaCacheRef.current[tmpl.id]
-
-      if (cached && cached.requirements && cached.requirements.length > 0) {
-        // KASUS ADA CACHE
-        setRequirements(cached.requirements)
-        const catWeights = cached.categoryWeights || categoryWeights
-        if (cached.categoryWeights) {
-          setCategoryWeights(cached.categoryWeights)
-        }
-        const targetVer = cached.criteriaVersion || criteriaVersion || 1
-        setCriteriaVersion(targetVer)
-        const isAppr = Boolean(cached.criteriaApproved)
-        setApprovedSnapshot(
-          isAppr
-            ? cached.approvedSnapshot ||
-                createCriteriaSnapshot(cached.requirements, catWeights)
-            : null
-        )
-
-        try {
-          const jId = currentJobIdRef.current || (await ensureJobExists())
-          if (jId) {
-            if (!currentJobIdRef.current) {
-              setCurrentJobId(jId)
-            }
-            // Synchronize updated metadata directly to backend
-            await fetch(`/api/v1/jobs/${jId}`, {
-              method: 'PATCH',
-              headers: {
-                'Content-Type': 'application/json',
-                ...getAuthHeaders(),
-              },
-              body: JSON.stringify({
-                title: tmpl.title,
-                location: tmpl.location,
-                employment_type: tmpl.employmentType,
-                jd_text: tmpl.jd_text,
-              }),
-            })
-
-            // Synchronize restored requirements to backend
-            await fetch(`/api/v1/jobs/${jId}/requirements/import-approved`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                ...getAuthHeaders(),
-              },
-              body: JSON.stringify({
-                requirement_set_version: targetVer,
-                category_weights: catWeights,
-                requirements: cached.requirements,
-                status: isAppr ? 'APPROVED' : 'DRAFT',
-              }),
-            })
-
-            setCurrentJobTitleState(tmpl.title)
-            setAvailableJobs((prev) => {
-              const next = prev.map((j) => (j.id === jId ? { ...j, title: tmpl.title } : j))
-              try {
-                localStorage.setItem('cv_screening_available_jobs', JSON.stringify(next))
-              } catch {}
-              return next
-            })
-          }
-
-          showToast(
-            `Kriteria template "${tmpl.role}" dipulihkan (${cached.requirements.length} kriteria).`,
-            'success'
-          )
-        } catch (err) {
-          console.warn('Apply template error:', err)
-          showToast('Gagal menyinkronkan data template ke server.', 'warning')
-        }
-      } else {
-        // KASUS BELUM ADA CACHE
-        setRequirements([])
-        setApprovedSnapshot(null)
-        const targetVer = criteriaVersion || 1
-        setCriteriaVersion(targetVer)
-
-        try {
-          const jId = currentJobIdRef.current || (await ensureJobExists())
-          if (jId) {
-            if (!currentJobIdRef.current) {
-              setCurrentJobId(jId)
-            }
-            // Synchronize updated metadata directly to backend
-            await fetch(`/api/v1/jobs/${jId}`, {
-              method: 'PATCH',
-              headers: {
-                'Content-Type': 'application/json',
-                ...getAuthHeaders(),
-              },
-              body: JSON.stringify({
-                title: tmpl.title,
-                location: tmpl.location,
-                employment_type: tmpl.employmentType,
-                jd_text: tmpl.jd_text,
-              }),
-            })
-
-            setCurrentJobTitleState(tmpl.title)
-            setAvailableJobs((prev) => {
-              const next = prev.map((j) => (j.id === jId ? { ...j, title: tmpl.title } : j))
-              try {
-                localStorage.setItem('cv_screening_available_jobs', JSON.stringify(next))
-              } catch {}
-              return next
-            })
-          }
-
-          showToast(
-            `Template "${tmpl.role}" diterapkan. Silakan tinjau dan klik Ekstrak Kriteria.`,
-            'info'
-          )
-        } catch (err) {
-          console.warn('Apply template error:', err)
-          showToast('Gagal menyinkronkan data template ke server.', 'warning')
-        }
-      }
-    },
-    [
-      categoryWeights,
-      criteriaVersion,
-      ensureJobExists,
-      getAuthHeaders,
-      handleSetActiveTemplateId,
-      setCurrentJobId,
-      setJobDescription,
-      setJobLocation,
-      setJobTitle,
-      setJobType,
-      showToast,
-    ]
-  )
-
   const fetchLatestLeaderboard = useCallback(
     async (jId?: string, maxAttempts = 1) => {
-      if (isGoldenSampleActive) {
+      if (isGoldenSampleActiveRef.current) {
         return
       }
       try {
         const targetJobId = jId || (await ensureJobExists())
-        if (!targetJobId) {
-          setCurrentRunId(null)
-          setCandidates([])
-          setSelectedCandidate(null)
+        if (
+          !targetJobId ||
+          isGoldenSampleActiveRef.current ||
+          (loadedJobIdRef.current !== null && targetJobId !== loadedJobIdRef.current)
+        ) {
+          if (!targetJobId && !isGoldenSampleActiveRef.current) {
+            setCurrentRunId(null)
+            setCandidates([])
+            setSelectedCandidate(null)
+          }
           return
         }
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          if (
+            isGoldenSampleActiveRef.current ||
+            (loadedJobIdRef.current !== null && targetJobId !== loadedJobIdRef.current)
+          ) {
+            return
+          }
           const res = await fetch(`/api/v1/jobs/${targetJobId}/screenings/latest`, {
             headers: { ...getAuthHeaders() },
           })
+          if (
+            isGoldenSampleActiveRef.current ||
+            (loadedJobIdRef.current !== null && targetJobId !== loadedJobIdRef.current)
+          ) {
+            return
+          }
           if (res.ok) {
             const data = await res.json()
-            if (data.latest_run && data.rankings && data.rankings.length > 0) {
+            if (
+              isGoldenSampleActiveRef.current ||
+              (loadedJobIdRef.current !== null && targetJobId !== loadedJobIdRef.current)
+            ) {
+              return
+            }
+            if (data && data.latest_run && data.rankings && data.rankings.length > 0) {
               setCurrentRunId(data.screening_run_id || data.latest_run.id)
               const mappedCandidates: CandidateDetail[] = data.rankings.map(
                 (r: any, idx: number) => ({
@@ -995,6 +873,8 @@ export default function App() {
       if (title) {
         setJobTitle(title, false)
         setCurrentJobTitle(title)
+        const matchedTmpl = findTemplateByJobTitle(title)
+        handleSetActiveTemplateId(matchedTmpl ? matchedTmpl.id : null)
       }
       setUploadedFiles([])
       setCandidates([])
@@ -1017,6 +897,9 @@ export default function App() {
           setJobDescription(data.jd_text || '')
           setJobLocation(data.location || '')
           setJobType(data.employment_type || 'Full-time')
+          const effectiveTitle = data.title || title || ''
+          const matchedTmpl = findTemplateByJobTitle(effectiveTitle)
+          handleSetActiveTemplateId(matchedTmpl ? matchedTmpl.id : null)
         }
 
         if (resReq.ok) {
@@ -1108,6 +991,11 @@ export default function App() {
               localStorage.setItem('cv_screening_available_jobs', JSON.stringify(mapped))
             } catch {}
 
+            if (isGoldenSampleActiveRef.current) {
+              setIsJobLoading(false)
+              return
+            }
+
             const savedId = localStorage.getItem('cv_screening_job_id')
             const found = jobs.find((j: any) => j.id === savedId)
             if (found) {
@@ -1138,6 +1026,356 @@ export default function App() {
       }
     },
     [getAuthHeaders, loginRecruiter, selectJob]
+  )
+
+  const handleSelectTemplate = useCallback(
+    async (tmpl: JobTemplate) => {
+      // 1. Clear any pending title debouncer
+      if (debounceTitleTimerRef.current) {
+        clearTimeout(debounceTitleTimerRef.current)
+      }
+
+      const currentId = currentJobIdRef.current || currentJobId
+
+      // SKENARIO 1: Jika lowongan untuk peran tersebut sudah ada di daftar lowongan (availableJobs),
+      // sistem langsung beralih (switch/selectJob) ke lowongan tersebut yang sudah ada,
+      // BUKAN menimpa lowongan lain dan BUKAN membuat lowongan duplikat baru!
+      const existingJob = findMatchingJobForTemplate(availableJobs, tmpl)
+      if (existingJob) {
+        if (existingJob.id !== currentId) {
+          await selectJob(existingJob.id, existingJob.title)
+          handleSetActiveTemplateId(tmpl.id)
+          setCurrentStep('setup')
+          showToast(`Beralih ke lowongan "${existingJob.title}".`, 'info')
+        } else {
+          handleSetActiveTemplateId(tmpl.id)
+          setCurrentStep('setup')
+        }
+        return
+      }
+
+      // SKENARIO 2: Lowongan untuk peran tersebut BELUM ada sama sekali di availableJobs.
+      // Periksa apakah lowongan yang sedang aktif adalah draf kosong atau sudah ada data CV.
+      const activeJob = availableJobs.find((j) => j.id === currentId)
+      const hasCvData = Boolean(
+        (activeJob && (activeJob.cv_count ?? 0) > 0) ||
+          uploadedFiles.length > 0 ||
+          candidates.length > 0 ||
+          isGoldenSampleActive
+      )
+
+      if (hasCvData) {
+        // SKENARIO 2B: Lowongan saat ini sudah terisi CV (cv_count > 0).
+        // Buatkan lowongan baru untuk peran tersebut agar tidak merusak data CV lowongan lama.
+        stopPollingJobCvs()
+
+        try {
+          let res = await fetch('/api/v1/jobs', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...getAuthHeaders(),
+            },
+            body: JSON.stringify({
+              title: tmpl.title,
+              jd_text: tmpl.jd_text,
+              location: tmpl.location,
+              employment_type: tmpl.employmentType,
+              external_ref: `JD-${Date.now().toString().slice(-6)}`,
+            }),
+          })
+
+          if (res.status === 401) {
+            const freshToken = await loginRecruiter()
+            if (freshToken) {
+              res = await fetch('/api/v1/jobs', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${freshToken}`,
+                },
+                body: JSON.stringify({
+                  title: tmpl.title,
+                  jd_text: tmpl.jd_text,
+                  location: tmpl.location,
+                  employment_type: tmpl.employmentType,
+                  external_ref: `JD-${Date.now().toString().slice(-6)}`,
+                }),
+              })
+            }
+          }
+
+          if (!res.ok) {
+            showToast('Gagal membuat lowongan baru untuk template. Silakan coba lagi.', 'warning')
+            return
+          }
+
+          const newJob = await res.json()
+          const newJobId = newJob.id
+          const finalTitle = newJob.title || tmpl.title
+
+          // 1. Update available jobs dropdown list: prepend new job, previous jobs untouched
+          setAvailableJobs((prev) => {
+            const next = [{ id: newJobId, title: finalTitle, cv_count: 0 }, ...prev]
+            try {
+              localStorage.setItem('cv_screening_available_jobs', JSON.stringify(next))
+            } catch {}
+            return next
+          })
+
+          // 2. Direct clean purge of previous job state and switch to new job
+          loadedJobIdRef.current = newJobId
+          setCurrentJobId(newJobId)
+          currentJobIdRef.current = newJobId
+          try {
+            localStorage.setItem('cv_screening_job_id', newJobId)
+          } catch {}
+
+          setJobTitleState(finalTitle)
+          jobTitleRef.current = finalTitle
+          try {
+            localStorage.setItem('cv_screening_job_title', finalTitle)
+          } catch {}
+          setCurrentJobTitleState(finalTitle)
+
+          setJobLocation(tmpl.location)
+          jobLocationRef.current = tmpl.location
+
+          setJobType(tmpl.employmentType)
+          jobTypeRef.current = tmpl.employmentType
+
+          setJobDescription(tmpl.jd_text)
+          jobDescriptionRef.current = tmpl.jd_text
+
+          handleSetActiveTemplateId(tmpl.id)
+
+          // 3. Reset all CV and candidate screening data cleanly
+          setIsGoldenSampleActive(false)
+          setUploadedFiles([])
+          setCandidates([])
+          setCurrentRunId(null)
+          setSelectedCandidate(null)
+          setIsInspectorOpen(false)
+          setIsUploadModalOpen(false)
+          setUploadStatusMsg('')
+          setIsJobLoading(false)
+
+          // 4. Handle criteria cache if exists
+          const cached = templateCriteriaCacheRef.current[tmpl.id]
+          if (cached && cached.requirements && cached.requirements.length > 0) {
+            setRequirements(cached.requirements)
+            const catWeights = cached.categoryWeights || categoryWeights
+            if (cached.categoryWeights) {
+              setCategoryWeights(cached.categoryWeights)
+            }
+            const targetVer = cached.criteriaVersion || 1
+            setCriteriaVersion(targetVer)
+            const isAppr = Boolean(cached.criteriaApproved)
+            setApprovedSnapshot(
+              isAppr
+                ? cached.approvedSnapshot ||
+                    createCriteriaSnapshot(cached.requirements, catWeights)
+                : null
+            )
+
+            try {
+              await fetch(`/api/v1/jobs/${newJobId}/requirements/import-approved`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...getAuthHeaders(),
+                },
+                body: JSON.stringify({
+                  requirement_set_version: targetVer,
+                  category_weights: catWeights,
+                  requirements: cached.requirements,
+                  status: isAppr ? 'APPROVED' : 'DRAFT',
+                }),
+              })
+            } catch (err) {
+              console.warn('Failed importing criteria to new job:', err)
+            }
+
+            showToast(
+              `Lowongan baru "${tmpl.role}" dibuat dengan ${cached.requirements.length} kriteria tersimpan. Data lowongan sebelumnya tersimpan aman.`,
+              'success'
+            )
+          } else {
+            setRequirements([])
+            setApprovedSnapshot(null)
+            setCriteriaVersion(1)
+            setCategoryWeights({
+              EXPERIENCE: 40,
+              HARD_SKILLS: 30,
+              EDUCATION_CERT: 15,
+              ACHIEVEMENT: 15,
+            })
+            showToast(
+              `Lowongan baru "${tmpl.role}" dibuat otomatis dari template. Data lowongan sebelumnya tersimpan aman.`,
+              'success'
+            )
+          }
+
+          // 5. Direct navigation to Setup Step
+          setCurrentStep('setup')
+        } catch (err) {
+          console.error('Error creating job from template:', err)
+          showToast('Gagal memproses pembuatan lowongan baru.', 'warning')
+        }
+        return
+      }
+
+      // SKENARIO 2A: Lowongan saat ini adalah draf kosong (cv_count === 0).
+      // Terapkan template ke lowongan saat ini in-place.
+      setJobTitle(tmpl.title, false)
+      setJobLocation(tmpl.location)
+      setJobType(tmpl.employmentType)
+      setJobDescription(tmpl.jd_text)
+
+      jobTitleRef.current = tmpl.title
+      jobLocationRef.current = tmpl.location
+      jobTypeRef.current = tmpl.employmentType
+      jobDescriptionRef.current = tmpl.jd_text
+
+      handleSetActiveTemplateId(tmpl.id)
+
+      const cached = templateCriteriaCacheRef.current[tmpl.id]
+
+      if (cached && cached.requirements && cached.requirements.length > 0) {
+        setRequirements(cached.requirements)
+        const catWeights = cached.categoryWeights || categoryWeights
+        if (cached.categoryWeights) {
+          setCategoryWeights(cached.categoryWeights)
+        }
+        const targetVer = cached.criteriaVersion || criteriaVersion || 1
+        setCriteriaVersion(targetVer)
+        const isAppr = Boolean(cached.criteriaApproved)
+        setApprovedSnapshot(
+          isAppr
+            ? cached.approvedSnapshot ||
+                createCriteriaSnapshot(cached.requirements, catWeights)
+            : null
+        )
+
+        try {
+          const jId = currentJobIdRef.current || (await ensureJobExists())
+          if (jId) {
+            if (!currentJobIdRef.current) {
+              setCurrentJobId(jId)
+            }
+            await fetch(`/api/v1/jobs/${jId}`, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                ...getAuthHeaders(),
+              },
+              body: JSON.stringify({
+                title: tmpl.title,
+                location: tmpl.location,
+                employment_type: tmpl.employmentType,
+                jd_text: tmpl.jd_text,
+              }),
+            })
+
+            await fetch(`/api/v1/jobs/${jId}/requirements/import-approved`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...getAuthHeaders(),
+              },
+              body: JSON.stringify({
+                requirement_set_version: targetVer,
+                category_weights: catWeights,
+                requirements: cached.requirements,
+                status: isAppr ? 'APPROVED' : 'DRAFT',
+              }),
+            })
+
+            setCurrentJobTitleState(tmpl.title)
+            setAvailableJobs((prev) => {
+              const next = prev.map((j) => (j.id === jId ? { ...j, title: tmpl.title } : j))
+              try {
+                localStorage.setItem('cv_screening_available_jobs', JSON.stringify(next))
+              } catch {}
+              return next
+            })
+          }
+
+          showToast(
+            `Kriteria template "${tmpl.role}" dipulihkan (${cached.requirements.length} kriteria).`,
+            'success'
+          )
+        } catch (err) {
+          console.warn('Apply template error:', err)
+          showToast('Gagal menyinkronkan data template ke server.', 'warning')
+        }
+      } else {
+        setRequirements([])
+        setApprovedSnapshot(null)
+        const targetVer = criteriaVersion || 1
+        setCriteriaVersion(targetVer)
+
+        try {
+          const jId = currentJobIdRef.current || (await ensureJobExists())
+          if (jId) {
+            if (!currentJobIdRef.current) {
+              setCurrentJobId(jId)
+            }
+            await fetch(`/api/v1/jobs/${jId}`, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                ...getAuthHeaders(),
+              },
+              body: JSON.stringify({
+                title: tmpl.title,
+                location: tmpl.location,
+                employment_type: tmpl.employmentType,
+                jd_text: tmpl.jd_text,
+              }),
+            })
+
+            setCurrentJobTitleState(tmpl.title)
+            setAvailableJobs((prev) => {
+              const next = prev.map((j) => (j.id === jId ? { ...j, title: tmpl.title } : j))
+              try {
+                localStorage.setItem('cv_screening_available_jobs', JSON.stringify(next))
+              } catch {}
+              return next
+            })
+          }
+
+          showToast(
+            `Template "${tmpl.role}" diterapkan. Silakan tinjau dan klik Ekstrak Kriteria.`,
+            'info'
+          )
+        } catch (err) {
+          console.warn('Apply template error:', err)
+          showToast('Gagal menyinkronkan data template ke server.', 'warning')
+        }
+      }
+    },
+    [
+      availableJobs,
+      candidates.length,
+      categoryWeights,
+      criteriaVersion,
+      currentJobId,
+      ensureJobExists,
+      getAuthHeaders,
+      handleSetActiveTemplateId,
+      isGoldenSampleActive,
+      loginRecruiter,
+      selectJob,
+      setCurrentJobId,
+      setJobDescription,
+      setJobLocation,
+      setJobTitle,
+      setJobType,
+      showToast,
+      stopPollingJobCvs,
+      uploadedFiles.length,
+    ]
   )
 
   const handleRenameJob = async () => {
@@ -1421,6 +1659,7 @@ export default function App() {
 
   const handleLoadGoldenSample = () => {
     setIsGoldenSampleActive(true)
+    loadedJobIdRef.current = null
     setCurrentJobId(null)
     setCurrentRunId(null)
     setCandidates(MOCK_CANDIDATES)

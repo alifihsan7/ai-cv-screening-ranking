@@ -93,6 +93,8 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
   const selectedTemplateId =
     propSelectedTemplateId !== undefined ? propSelectedTemplateId : internalSelectedId
 
+  const [isApplying, setIsApplying] = useState(false)
+
   const updateSelectedId = (id: string | null) => {
     setInternalSelectedId(id)
     if (onSelectTemplateId) {
@@ -101,13 +103,20 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
   }
 
   const handleApplyTemplate = async (tmpl: JobTemplate) => {
-    updateSelectedId(tmpl.id)
-    setJobTitle(tmpl.title)
-    setJobLocation(tmpl.location)
-    setJobType(tmpl.employmentType)
-    setJobDescription(tmpl.jd_text)
-    if (onSelectTemplate) {
-      await onSelectTemplate(tmpl)
+    if (isApplying || isCompiling || isLoading) return
+    setIsApplying(true)
+    try {
+      if (onSelectTemplate) {
+        await onSelectTemplate(tmpl)
+      } else {
+        updateSelectedId(tmpl.id)
+        setJobTitle(tmpl.title)
+        setJobLocation(tmpl.location)
+        setJobType(tmpl.employmentType)
+        setJobDescription(tmpl.jd_text)
+      }
+    } finally {
+      setIsApplying(false)
     }
   }
 
@@ -313,13 +322,14 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
                 <button
                   key={tmpl.id}
                   type="button"
-                  disabled={isCompiling}
+                  data-testid={`template-pill-${tmpl.id}`}
+                  disabled={isCompiling || isLoading || isApplying}
                   onClick={() => handleApplyTemplate(tmpl)}
                   className={`text-xs px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg border font-semibold transition-all duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer shadow-tactile-sm flex items-center space-x-1.5 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] focus-visible:ring-offset-1 disabled:cursor-not-allowed ${
                     isSelected
                       ? 'bg-[#1B4938] text-[#FCFDFC] border-[#1B4938] font-bold ring-1 ring-[#1B4938]'
                       : 'bg-[#FCFDFC] border-[#D5DFD9] text-[#13221C] hover:text-[#1B4938] hover:border-[#1B4938]/40 hover:bg-[#EBF1EE]'
-                  } ${isCompiling ? 'opacity-50 pointer-events-none' : ''}`}
+                  } ${isCompiling || isLoading || isApplying ? 'opacity-50 pointer-events-none' : ''}`}
                 >
                   {isSelected ? (
                     <CheckCircle2 className="w-3.5 h-3.5 text-[#BBE5CD] shrink-0" />
@@ -397,10 +407,12 @@ export const JobSetupStep: React.FC<JobSetupStepProps> = ({
             </h2>
 
             <div>
-              <label className="block text-xs font-bold text-[#13221C] mb-1.5">
+              <label htmlFor="job-title-input" className="block text-xs font-bold text-[#13221C] mb-1.5">
                 Judul Posisi Pekerjaan <span className="text-[#8C1819] font-bold">*</span>
               </label>
               <input
+                id="job-title-input"
+                aria-label="Judul Lowongan Pekerjaan"
                 type="text"
                 value={jobTitle}
                 onChange={(e) => {
