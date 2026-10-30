@@ -35,9 +35,10 @@
 
 ## 📚 Dokumentasi Resmi
 
-* 📕 **[Buku Panduan Pengguna / User Manual (PDF Lengkap Bergambar)](docs/BUKU_PANDUAN_PENGGUNA_AI_CV_SCREENING.pdf)**: Dokumen cetak siap distribusi dengan tangkapan layar antarmuka asli resolusi tinggi, tabel alur kerja, dan panduan audit forensik.
+* 📕 **[Buku Panduan Pengguna / User Manual (PDF Lengkap Bergambar)](docs/BUKU_PANDUAN_PENGGUNA_AI_CV_SCREENING.pdf)**: Dokumen operasional cetak siap distribusi dengan tangkapan layar antarmuka asli resolusi tinggi, tabel alur kerja, dan panduan audit forensik.
+* 🏛️ **[Spesifikasi Arsitektur Sistem / Technical Architecture Spec (PDF Resmi)](docs/SPESIFIKASI_ARSITEKTUR_TEKNIS_AI_CV_SCREENING.pdf)**: Dokumen rekayasa sistem lengkap mencakup blueprint topologi, Dual-Engine AI, pipeline sanitasi biner, dan formula komputasi MCDA.
 * 📘 **[Buku Panduan Pengguna / User Manual (Markdown)](docs/USER_MANUAL.md)**: Versi daring ramah git untuk navigasi cepat.
-* 🏛️ **[Spesifikasi Arsitektur Sistem (Technical Architecture Spec)](docs/TECHNICAL_ARCHITECTURE_SPEC.md)**: Blueprint rekayasa, topologi server, dan integrasi Dual-Engine AI (9Router + TypeSafe Jev).
+* 📐 **[Spesifikasi Arsitektur Sistem (Markdown)](docs/TECHNICAL_ARCHITECTURE_SPEC.md)**: Versi teks markdown blueprint arsitektur sistem.
 * 🛠️ **[Panduan Deployment & Runbook Operasional](docs/DEPLOYMENT_AND_RUNBOOK.md)**: Prosedur pemeliharaan layanan systemd, migrasi database, dan environment.
 
 ---
