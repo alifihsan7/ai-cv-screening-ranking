@@ -4,7 +4,7 @@ Lanjutan dari [CHECKPOINT_2026-10-29.md](CHECKPOINT_2026-10-29.md) (yang tetap b
 
 ## 1. Status
 
-- **Branch kerja:** `fix/vacancy-role-profile` (lokal, **belum di-push, belum ada PR**; keputusan pemilik: push dan PR di akhir). Dicabangkan dari `main`.
+- **Branch kerja:** `fix/vacancy-role-profile`, sudah di-push dan dibuka sebagai **PR #6** (https://github.com/alifihsan7/ai-cv-screening-ranking/pull/6, 12 commit dari `main`). Belum digabung.
 - **Test:** 459 lulus, 3 dilewati; Playwright 10 lulus; `tsc -b` dan `oxlint` bersih; ruff bersih pada berkas yang disentuh.
 - **Belum berubah:** PR #5 (`chore/repo-cleanup`) masih terbuka; `fix/jev-remediation` tidak boleh dihapus sampai pemilik bilang; Tahap 4 (cache Jev) tetap paling akhir; buku panduan (dua PDF) belum dimulai.
 
@@ -42,4 +42,42 @@ Angka: R2 set sipil sintetis (alur produksi) 4/12 → **12/12**; uji alur penuh 
 1. Pemilik meninjau lima kandidat nyata yang masih N (daftar judul relevan dan tidak relevan diberikan terpisah, tidak masuk repo). Hasilnya memutuskan langkah 4.
 2. Periksa kriteria sipil R3 sampai R8, terutama R7.
 3. Langkah 4 atau 5 sesuai hasil butir 1.
-4. Di akhir: push `fix/vacancy-role-profile` dan buka PR (`gh --repo alifihsan7/ai-cv-screening-ranking`; tanpa Co-Authored-By di commit).
+4. Gabungkan PR #6 setelah pemilik puas. Bila PR #5 digabung lebih dulu, `CLAUDE.md` dan `docs/README.md` akan konflik pada baris status/checkpoint yang sama.
+
+## 6. Konteks kerja untuk agen berikutnya (serah terima dari Claude Code ke Codex)
+
+Bagian ini menyalin "memori" yang selama ini hanya ada di sisi Claude Code, supaya agen lain bisa melanjutkan tanpa riwayat percakapan. Baca juga `CLAUDE.md` (aturan emas, peta kode, perintah); dokumen itu tetap berlaku untuk agen mana pun.
+
+### Preferensi pemilik (Alif Ihsan)
+
+- **Bahasa:** komunikasi dalam Bahasa Indonesia, ringkas, dan jujur soal hasil. Bila tes gagal atau sesuatu tidak diperiksa, katakan apa adanya.
+- **Commit tanpa `Co-Authored-By`** dan tanpa atribusi agen apa pun, walau alat atau sistem menawarkannya. Pemilik dua kali memintanya eksplisit dan pernah meminta satu commit ditulis ulang.
+- **Jangan menyebut alur skrining sebagai "agent".** `ScreeningAgent` (`src/domain/agent.py`) adalah urutan fase tetap dengan percobaan ulang terbatas; hanya Jev yang memakai model. Sebut "alur skrining" atau "jalur produksi". Penggantian nama kode **ditunda** dan belum diputuskan; jangan memulai atau menanyakannya lagi sebelum pemilik membahasnya (nama ada di 69 baris `src`, 60 baris tes, kolom DB `react_agent`, dan field API `use_agent`).
+- **Dua fitur spec 4.2 sengaja tidak dikerjakan** (keputusan 29 Oktober 2026): mahasiswa aktif maksimal PARTIAL (K08.R7) dan sertifikat kedaluwarsa PARTIAL (H10.R8). Dampak skornya kecil dan keputusan akhir tetap di recruiter. Jangan menawarkannya lagi sebagai langkah berikutnya; kasus itu di hold-out memang masih salah dan itu diketahui.
+- **Bersih-bersih repo:** hapus yang jelas mati dan tanpa rujukan; berkas `.md` atau apa pun yang dirujuk dokumen, Makefile, atau tes **diperbarui, bukan dihapus**. Lakukan di branch terpisah dan laporkan apa yang dihapus beserta cara memulihkannya. Jangan menyentuh `data/` (berisi CV nyata) tanpa perintah eksplisit.
+- **Push dan PR hanya bila diminta.** Pemilik biasa meminta keduanya di akhir pekerjaan ("akhiran aja"). Jangan menghapus branch `fix/jev-remediation` sampai pemilik bilang. Hal luar (push, PR, hapus branch) dikonfirmasi dulu.
+- **Disiplin pengukuran:** tulis kriteria penerimaan **sebelum** mengukur; set hold-out (`docs/eval/holdout_set*/`) hanya untuk mengukur, tidak untuk menyetel; label golden dataset tidak pernah diubah demi meluluskan tes. Laporkan batas dan klaim yang tidak terbukti, bukan hanya angka bagus.
+- **Pemilik meminta penjelasan sederhana** bila istilahnya terlalu teknis ("jadi ini ngapain?"); jelaskan masalah, apa yang sudah dikerjakan, dan apa yang ditunda dengan bahasa awam.
+
+### Perintah dan jebakan yang sudah terbukti
+
+- **Tes:** ekspor `TEST_DATABASE_URL` dari `.env` dan setel `DATABASE_URL` sama dengannya sebelum `pytest`; tes memakai database `cv_screening_test`, **bukan** `cv_screening` (produksi). Tanpa itu, sebagian tes gagal karena lingkungan, bukan karena kode. Enam tes gagal di worktree bersih tanpa `.env` dan PDF golden (lingkungan, bukan regresi).
+  ```bash
+  export TEST_DATABASE_URL="$(grep '^TEST_DATABASE_URL=' .env | cut -d= -f2-)" DATABASE_URL="$(grep '^TEST_DATABASE_URL=' .env | cut -d= -f2-)"
+  .venv/bin/pytest -q
+  ```
+- **Frontend:** `cd frontend && npx tsc -b && npx oxlint src && npx playwright test` (Playwright menyalakan dev server sendiri).
+- **Uji alur penuh tanpa menyentuh produksi:** API di port 8110 dan worker produksi sedang berjalan dari pohon kerja ini dan **tidak memuat ulang kode** (tanpa `--reload`); jangan dimatikan. Untuk uji end-to-end, jalankan API di port lain (mis. 8199) dan worker kedua dengan `DATABASE_URL` diarahkan ke `cv_screening_test`, `STORAGE_VAULT_PATH` ke direktori sementara, lalu `PYTHONPATH=. python scripts/seed_users.py`. Setelah selesai matikan **berdasarkan PID**. `pkill -f` dengan pola yang juga muncul di baris perintah shell sendiri akan membunuh shell itu, dan `pkill -n` bisa mengenai proses yang salah.
+- **Ukur jalur produksi pada CV:** `scripts/eval_agent_path.py` (nama berkas tetap, lihat catatan "agent" di atas), mis. set sipil: `--jd docs/eval/civil_set/job_descriptions/JD-CIVIL_requirements.approved.json --cvs-dir docs/eval/civil_set/cvs/core --labels docs/eval/civil_set/labels/expected_JD-CIVIL.json`. Label boleh sebagian.
+- **Jev tidak deterministik** di sekitar keyakinan 0,6; sampai cache Tahap 4 ada, dua kali jalan bisa berbeda pada entri ambigu.
+- **Saat memotong berkas dengan skrip,** periksa bahwa fungsi berikutnya tidak ikut terhapus (pernah menghapus `determine_importance` di `jd_compiler.py`; ruff F821 menangkapnya).
+- Ruff dan mypy punya temuan lama (sekitar 105 ruff, 9 mypy) yang bukan dari pekerjaan ini; jangan dihitung sebagai regresi. `scripts/compile_spec_pdf.py` sudah rusak sebelum pekerjaan ini.
+
+### Janji dan permintaan yang masih terbuka
+
+- **Buku panduan dua PDF** (pembaca recruiter/HR dan pembaca developer/operator; diperbarui di tempat, bukan berkas baru) disetujui secara konsep tetapi **belum dimulai**.
+- **PR #5** (`chore/repo-cleanup`, bersih-bersih dokumen dan skrip, keputusan D16 sampai D22) masih terbuka.
+- **Tahap 4 (cache hasil Jev)** sengaja paling akhir; pgvector yang ditunda juga belum disentuh.
+- **Opsi 1 lint/mypy/path di `tests/conftest.py:15`** ditunda.
+- **Langkah 4 profil peran** ditunda atas permintaan pemilik ("tunda dulu"); keputusannya bergantung pada tinjauan pemilik atas lima CV nyata yang masih N (pemilik yang mengenal CV-nya).
+- Berkas tidak terlacak `.claude/` dan `cv_screener.db` (0 byte, asal tidak diketahui) jangan ikut commit.
