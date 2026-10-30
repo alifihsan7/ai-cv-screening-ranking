@@ -48,6 +48,42 @@ const createCriteriaSnapshot = (
   })
 }
 
+// Hiring Manager decision and notes local persistence helpers
+const getSavedCandidateReviews = (
+  jobId: string | null | undefined
+): Record<string, { decision?: 'SHORTLIST' | 'HOLD' | 'TIDAK_LANJUT' | 'NONE' | null; decision_notes?: string }> => {
+  try {
+    const key = `cv_screening_candidate_reviews_${jobId || 'default'}`
+    const raw = localStorage.getItem(key)
+    return raw ? JSON.parse(raw) : {}
+  } catch {
+    return {}
+  }
+}
+
+const saveCandidateReview = (
+  jobId: string | null | undefined,
+  cvId: string,
+  update: { decision?: 'SHORTLIST' | 'HOLD' | 'TIDAK_LANJUT' | 'NONE' | null; decision_notes?: string }
+) => {
+  try {
+    const key = `cv_screening_candidate_reviews_${jobId || 'default'}`
+    const existing = getSavedCandidateReviews(jobId)
+    const current = existing[cvId] || {}
+    const updated = {
+      ...existing,
+      [cvId]: {
+        ...current,
+        ...(update.decision !== undefined ? { decision: update.decision } : {}),
+        ...(update.decision_notes !== undefined ? { decision_notes: update.decision_notes } : {}),
+      },
+    }
+    localStorage.setItem(key, JSON.stringify(updated))
+  } catch (e) {
+    console.warn('Failed to save review to localStorage:', e)
+  }
+}
+
 export default function App() {
   // Navigation & 4-Step Workflow state (with URL hash & localStorage persistence)
   const getInitialStep = (): WorkflowStep => {
@@ -367,10 +403,10 @@ export default function App() {
 
   // Linear-Style Focused Candidate Inspector state (Option B)
   const [isInspectorOpen, setIsInspectorOpen] = useState<boolean>(false)
-  const [inspectorInitialTab, setInspectorInitialTab] = useState<'evaluation' | 'trajectory' | 'grounding'>('evaluation')
+  const [inspectorInitialTab, setInspectorInitialTab] = useState<'evaluation' | 'scoring' | 'trajectory' | 'grounding'>('evaluation')
 
   const handleOpenInspector = useCallback(
-    (cand?: CandidateDetail, tab: 'evaluation' | 'trajectory' | 'grounding' = 'evaluation') => {
+    (cand?: CandidateDetail, tab: 'evaluation' | 'scoring' | 'trajectory' | 'grounding' = 'evaluation') => {
       if (cand) setSelectedCandidate(cand)
       setInspectorInitialTab(tab)
       setIsInspectorOpen(true)
@@ -775,49 +811,56 @@ export default function App() {
             }
             if (data && data.latest_run && data.rankings && data.rankings.length > 0) {
               setCurrentRunId(data.screening_run_id || data.latest_run.id)
+              const savedReviews = getSavedCandidateReviews(targetJobId)
               const mappedCandidates: CandidateDetail[] = data.rankings.map(
-                (r: any, idx: number) => ({
-                  rank: r.rank || idx + 1,
-                  cv_id: r.cv_id || r.candidate_id,
-                  file_name: r.file_name,
-                  blind_id: `C-${String(idx + 1).padStart(4, '0')}`,
-                  real_name: r.file_name.replace(/\.[^/.]+$/, '').replace(/_/g, ' '),
-                  revealed: false,
-                  final_score:
-                    typeof r.final_score === 'number'
-                      ? r.final_score
-                      : parseFloat(r.final_score) || 0,
-                  raw_score:
-                    typeof r.raw_score === 'number'
-                      ? r.raw_score
-                      : parseFloat(r.raw_score) || 0,
-                  band: r.band,
-                  recommendation: r.recommendation,
-                  category_breakdown: r.category_breakdown || {},
-                  metrics: {},
-                  flags: r.flags || [],
-                  quality_status: r.quality_status || 'READY',
-                  eligibility_status: r.eligibility_status || 'ELIGIBLE',
-                  eligibility_reasons: r.eligibility_reasons || [],
-                  requirement_states: r.requirement_states || {},
-                  evidence: r.evidence || {},
-                  explanation: {
-                    band: r.band,
-                    recommendation: r.recommendation,
+                (r: any, idx: number) => {
+                  const cid = r.cv_id || r.candidate_id
+                  const review = savedReviews[cid]
+                  return {
+                    rank: r.rank || idx + 1,
+                    cv_id: cid,
+                    file_name: r.file_name,
+                    blind_id: `C-${String(idx + 1).padStart(4, '0')}`,
+                    real_name: r.file_name.replace(/\.[^/.]+$/, '').replace(/_/g, ' '),
+                    revealed: false,
+                    decision: review?.decision !== undefined ? review.decision : (r.decision || null),
+                    decision_notes: review?.decision_notes !== undefined ? review.decision_notes : (r.decision_notes || ''),
                     final_score:
                       typeof r.final_score === 'number'
                         ? r.final_score
                         : parseFloat(r.final_score) || 0,
-                    strengths: [],
-                    unproven: [],
-                    interview_questions: [],
-                  },
-                  full_text:
-                    r.full_text ||
-                    `Dokumen: ${r.file_name}\nStatus Ingestion: ${
-                      r.quality_status || 'READY'
-                    }\nSkor Evaluasi: ${r.final_score}`,
-                })
+                    raw_score:
+                      typeof r.raw_score === 'number'
+                        ? r.raw_score
+                        : parseFloat(r.raw_score) || 0,
+                    band: r.band,
+                    recommendation: r.recommendation,
+                    category_breakdown: r.category_breakdown || {},
+                    metrics: {},
+                    flags: r.flags || [],
+                    quality_status: r.quality_status || 'READY',
+                    eligibility_status: r.eligibility_status || 'ELIGIBLE',
+                    eligibility_reasons: r.eligibility_reasons || [],
+                    requirement_states: r.requirement_states || {},
+                    evidence: r.evidence || {},
+                    explanation: {
+                      band: r.band,
+                      recommendation: r.recommendation,
+                      final_score:
+                        typeof r.final_score === 'number'
+                          ? r.final_score
+                          : parseFloat(r.final_score) || 0,
+                      strengths: [],
+                      unproven: [],
+                      interview_questions: [],
+                    },
+                    full_text:
+                      r.full_text ||
+                      `Dokumen: ${r.file_name}\nStatus Ingestion: ${
+                        r.quality_status || 'READY'
+                      }\nSkor Evaluasi: ${r.final_score}`,
+                  }
+                }
               )
               setCandidates(mappedCandidates)
               setSelectedCandidate((prev) => {
@@ -1609,6 +1652,8 @@ export default function App() {
       setSelectedCandidate((prev) =>
         prev && prev.cv_id === cv_id ? { ...prev, decision: normalizedDecision } : prev
       )
+      const currentJid = isGoldenSampleActiveRef.current ? 'golden' : currentJobIdRef.current
+      saveCandidateReview(currentJid, cv_id, { decision: normalizedDecision })
       const labelMap: Record<string, string> = {
         SHORTLIST: 'Shortlist',
         HOLD: 'Hold',
@@ -1620,6 +1665,20 @@ export default function App() {
       showToast(`Status kandidat diperbarui -> ${label}`, 'success')
     },
     [showToast]
+  )
+
+  const handleUpdateCandidateNote = useCallback(
+    (cv_id: string, note: string) => {
+      setCandidates((prev) =>
+        prev.map((c) => (c.cv_id === cv_id ? { ...c, decision_notes: note } : c))
+      )
+      setSelectedCandidate((prev) =>
+        prev && prev.cv_id === cv_id ? { ...prev, decision_notes: note } : prev
+      )
+      const currentJid = isGoldenSampleActiveRef.current ? 'golden' : currentJobIdRef.current
+      saveCandidateReview(currentJid, cv_id, { decision_notes: note })
+    },
+    []
   )
 
   const handleRevealCandidate = async (cv_id: string) => {
@@ -1662,8 +1721,17 @@ export default function App() {
     loadedJobIdRef.current = null
     setCurrentJobId(null)
     setCurrentRunId(null)
-    setCandidates(MOCK_CANDIDATES)
-    setSelectedCandidate(MOCK_CANDIDATES[0])
+    const savedReviews = getSavedCandidateReviews('golden')
+    const hydratedMock = MOCK_CANDIDATES.map((c) => {
+      const review = savedReviews[c.cv_id]
+      return {
+        ...c,
+        decision: review?.decision !== undefined ? review.decision : (c.decision || null),
+        decision_notes: review?.decision_notes !== undefined ? review.decision_notes : (c.decision_notes || ''),
+      }
+    })
+    setCandidates(hydratedMock)
+    setSelectedCandidate(hydratedMock[0])
     setUploadedFiles([
       { name: 'S1_senior_backend_id.pdf', size: '142 KB', status: 'READY' },
       { name: 'S2_backend_fintech_en.pdf', size: '128 KB', status: 'READY' },
@@ -2387,6 +2455,7 @@ export default function App() {
                   onDecision={handleDecision}
                   onRevealCandidate={handleRevealCandidate}
                   initialTab={inspectorInitialTab}
+                  onUpdateNote={handleUpdateCandidateNote}
                 />
               </div>
             </div>

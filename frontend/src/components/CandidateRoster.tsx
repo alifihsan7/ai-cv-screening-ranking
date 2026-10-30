@@ -8,6 +8,8 @@ import {
   FileText,
   HelpCircle,
   Loader2,
+  Download,
+  MessageSquare,
 } from 'lucide-react'
 import type { CandidateDetail, Requirement } from '../types'
 import { CustomSelect, type SelectOption } from './CustomSelect'
@@ -86,7 +88,10 @@ export interface CandidateRosterProps {
     decision?: 'SHORTLIST' | 'HOLD' | 'TIDAK_LANJUT' | 'NONE' | '' | null
   ) => void
   onRevealCandidate: (cv_id: string) => void
-  onOpenInspector: (candidate?: CandidateDetail) => void
+  onOpenInspector: (
+    candidate?: CandidateDetail,
+    tab?: 'evaluation' | 'scoring' | 'trajectory' | 'grounding'
+  ) => void
   isRefreshing?: boolean
   isCompact?: boolean
 }
@@ -185,6 +190,104 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
   const mustHaveReqs = useMemo(() => {
     return requirements.filter((r) => r.importance === 'MUST_HAVE')
   }, [requirements])
+
+  // Export candidate screening results to CSV (UTF-8 BOM for Excel)
+  const handleExportCsv = () => {
+    if (candidates.length === 0) return
+
+    const headers = [
+      'Peringkat',
+      'Nama Kandidat',
+      'Identitas Asli',
+      'Skor Akhir (%)',
+      'Skor Mentah (%)',
+      'Kategori Band',
+      'Rekomendasi AI',
+      'Keputusan Hiring Manager',
+      'Catatan Hiring Manager',
+      'Syarat Wajib Terpenuhi',
+      'Nama Berkas Asli CV',
+    ]
+
+    const escapeCsv = (val: string | number | undefined | null): string => {
+      if (val === null || val === undefined) return '""'
+      const str = String(val).replace(/"/g, '""')
+      return `"${str}"`
+    }
+
+    const recommendationLabelMap: Record<string, string> = {
+      SHORTLIST: 'Disarankan Shortlist',
+      REVIEW: 'Perlu Ditinjau',
+      LOW_PRIORITY: 'Prioritas Rendah',
+      MANUAL_CHECK: 'Perlu Cek Manual',
+      REJECTED_NOT_A_CV: 'Bukan Berkas CV',
+    }
+
+    const decisionLabelMap: Record<string, string> = {
+      SHORTLIST: 'Shortlist',
+      HOLD: 'Hold',
+      TIDAK_LANJUT: 'Tolak',
+      NONE: 'Belum Ada',
+    }
+
+    const rows = candidates.map((c) => {
+      const candidateName = blindMode && !c.revealed ? c.blind_id : c.real_name
+      const realName = !blindMode || c.revealed ? c.real_name : 'Terselubung (Blind Mode)'
+      const rawScore =
+        c.raw_score !== undefined ? c.raw_score.toFixed(1) : c.final_score.toFixed(1)
+      const finalScore = c.final_score.toFixed(1)
+      const bandLabel = `Band ${c.band}`
+      const aiRec = recommendationLabelMap[c.recommendation] || c.recommendation || '-'
+      const hmDecision =
+        c.decision && decisionLabelMap[c.decision]
+          ? decisionLabelMap[c.decision]
+          : 'Belum Ada'
+      const hmNotes = c.decision_notes || ''
+
+      const fulfilledCount = mustHaveReqs.filter(
+        (r) =>
+          c.requirement_states &&
+          c.requirement_states[r.requirement_id] === 'STRONG'
+      ).length
+      const mustHaveStr =
+        mustHaveReqs.length > 0 ? `${fulfilledCount}/${mustHaveReqs.length}` : '-'
+
+      return [
+        c.rank,
+        candidateName,
+        realName,
+        finalScore,
+        rawScore,
+        bandLabel,
+        aiRec,
+        hmDecision,
+        hmNotes,
+        mustHaveStr,
+        c.file_name,
+      ]
+    })
+
+    const csvContent = [
+      headers.map(escapeCsv).join(','),
+      ...rows.map((row) => row.map(escapeCsv).join(',')),
+    ].join('\r\n')
+
+    // Prepend UTF-8 BOM (\uFEFF) for Microsoft Excel compatibility
+    const blob = new Blob(['\uFEFF' + csvContent], {
+      type: 'text/csv;charset=utf-8;',
+    })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.setAttribute('href', url)
+    link.setAttribute(
+      'download',
+      `hasil_screening_kandidat_${new Date().toISOString().slice(0, 10)}.csv`
+    )
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
 
   const getBandBadgeClass = (band: string) => {
     switch (band) {
@@ -308,6 +411,23 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
             <Eye className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Blind Mode: {blindMode ? 'Aktif' : 'Non-aktif'}</span>
             <span className="sm:hidden">{blindMode ? 'Blind' : 'Normal'}</span>
+          </button>
+
+          {/* Tombol Ekspor CSV */}
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            disabled={candidates.length === 0}
+            className={`h-7 px-2.5 rounded-xl border text-xs font-bold flex items-center space-x-1.5 transition-all duration-150 cursor-pointer shadow-tactile-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] ${
+              candidates.length === 0
+                ? 'opacity-50 cursor-not-allowed bg-[#F2F5F3] text-[#8C9B93] border-[#D5DFD9]'
+                : 'bg-[#FCFDFC] hover:bg-[#EBF1EE] text-[#1B4938] border-[#D5DFD9] hover:border-[#1B4938] active:scale-[0.97]'
+            }`}
+            title="Ekspor Seluruh Hasil Screening ke Format CSV / Excel (UTF-8 BOM)"
+          >
+            <Download className="w-3.5 h-3.5 text-[#1B4938]" />
+            <span className="hidden sm:inline">Ekspor CSV</span>
+            <span className="sm:hidden">CSV</span>
           </button>
         </div>
 
@@ -491,6 +611,20 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
                           </span>
                         </div>
 
+                        {/* Indikator / Ringkasan Catatan Hiring Manager */}
+                        {c.decision_notes && c.decision_notes.trim().length > 0 && (
+                          <div
+                            className="inline-flex items-center gap-1.5 text-[10px] text-[#13221C] bg-[#F2F5F3] hover:bg-[#EBF1EE] px-2 py-0.5 rounded-md border border-[#D5DFD9] max-w-full min-w-0 transition-colors shadow-tactile-sm"
+                            title={`Catatan Hiring Manager: ${c.decision_notes}`}
+                          >
+                            <MessageSquare className="w-2.5 h-2.5 text-[#1B4938] shrink-0" />
+                            <span className="font-semibold text-[#1B4938] shrink-0 font-mono">Catatan HM:</span>
+                            <span className="truncate text-[#2D4439] italic">
+                              {c.decision_notes}
+                            </span>
+                          </div>
+                        )}
+
                         {/* In compact mode: qualification badge rendered right under candidate file */}
                         {isDualPane && (
                           <div className="pt-0.5 min-w-0">
@@ -507,10 +641,18 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
                       </td>
                     )}
 
-                    {/* 4. Skor Fit */}
-                    <td className={`py-2.5 ${isDualPane ? 'px-1.5 w-16' : 'px-2 w-20'} text-right shrink-0`}>
+                    {/* 4. Skor Fit (Click to inspect score breakdown) */}
+                    <td
+                      className={`py-2.5 ${isDualPane ? 'px-1.5 w-16' : 'px-2 w-20'} text-right shrink-0 cursor-pointer group/score`}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onSelectCandidate(c)
+                        onOpenInspector(c, 'scoring')
+                      }}
+                      title="Klik untuk melihat Audit Perhitungan Skor matematis"
+                    >
                       <div className="flex flex-col items-end">
-                        <span className="font-mono tabular-nums font-bold text-sm text-[#13221C] leading-none">
+                        <span className="font-mono tabular-nums font-bold text-sm text-[#13221C] group-hover/score:text-[#1B4938] underline decoration-dotted decoration-[#1B4938]/40 underline-offset-2 leading-none transition-colors">
                           {c.final_score.toFixed(1)}
                         </span>
                         <span className="font-mono text-[9px] text-[#2D4439]/80 mt-0.5">

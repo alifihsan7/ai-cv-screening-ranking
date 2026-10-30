@@ -18,6 +18,10 @@ import {
   Eye,
   Search,
   Sparkles,
+  Calculator,
+  Percent,
+  Scale,
+  ShieldCheck,
 } from 'lucide-react'
 import type { CandidateDetail, Requirement } from '../types'
 import {
@@ -43,7 +47,8 @@ export interface CandidateInspectorProps {
     decision: 'SHORTLIST' | 'HOLD' | 'TIDAK_LANJUT' | 'NONE'
   ) => void
   onRevealCandidate?: (cv_id: string) => void
-  initialTab?: 'evaluation' | 'trajectory' | 'grounding'
+  initialTab?: 'evaluation' | 'scoring' | 'trajectory' | 'grounding'
+  onUpdateNote?: (cv_id: string, note: string) => void
 }
 
 const getActionBadgeClass = (action: string) => {
@@ -77,14 +82,29 @@ export const CandidateInspector: React.FC<CandidateInspectorProps> = ({
   onDecision,
   onRevealCandidate,
   initialTab = 'evaluation',
+  onUpdateNote,
 }) => {
-  const [activeTab, setActiveTab] = useState<'evaluation' | 'trajectory' | 'grounding'>(initialTab)
+  const [activeTab, setActiveTab] = useState<'evaluation' | 'scoring' | 'trajectory' | 'grounding'>(initialTab)
   const [expandedQuotes, setExpandedQuotes] = useState<Record<string, boolean>>({})
   const [groundingSearchTerm, setGroundingSearchTerm] = useState('')
   const [highlightedQuote, setHighlightedQuote] = useState<string | null>(null)
   const [selectedReqId, setSelectedReqId] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [highlightedReqId, setHighlightedReqId] = useState<string | null>(null)
+
+  // Catatan Hiring Manager local state
+  const [hmNote, setHmNote] = useState<string>(candidate?.decision_notes || '')
+
+  useEffect(() => {
+    setHmNote(candidate?.decision_notes || '')
+  }, [candidate?.cv_id, candidate?.decision_notes])
+
+  const handleHmNoteChange = (val: string) => {
+    setHmNote(val)
+    if (candidate && onUpdateNote) {
+      onUpdateNote(candidate.cv_id, val)
+    }
+  }
 
   const [prevInitialTab, setPrevInitialTab] = useState(initialTab)
 
@@ -274,6 +294,147 @@ PENDIDIKAN & LATAR BELAKANG:
       return () => clearTimeout(timer)
     }
   }, [activeTab, isMatchFound, highlightedQuote, groundingSearchTerm])
+
+  // Calculations for Scoring Breakdown Tab
+  const scoringCalculations = useMemo(() => {
+    if (!candidate) return null
+
+    const rawScore =
+      typeof candidate.raw_score === 'number'
+        ? candidate.raw_score
+        : candidate.final_score
+    const finalScore = candidate.final_score
+    const isCapped = rawScore > finalScore
+    const penalty = isCapped ? rawScore - finalScore : 0
+
+    // Band Capping description & status
+    const bandInfo = (() => {
+      switch (candidate.band) {
+        case 'A':
+          return {
+            title: 'Band A · Kualifikasi Prima (Skor 75.0 – 100.0)',
+            desc: 'Semua kriteria Syarat Wajib (MUST_HAVE) berstatus STRONG. Lolos kualifikasi penuh tanpa batas pemotongan skor (Maks. 100.0).',
+            badgeBg: 'bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD]',
+            borderAccent: 'border-[#BBE5CD]',
+          }
+        case 'B':
+          return {
+            title: 'Band B · Dibatasi Maksimal 74.0 (Band Capping)',
+            desc: 'Tepat 1 kriteria Syarat Wajib (MUST_HAVE) belum berstatus STRONG (PARTIAL atau UNPROVEN). Sistem menerapkan Band Capping membatasi skor akhir ke 74.0.',
+            badgeBg: 'bg-[#FEF6E8] text-[#7A3E02] border-[#F8D8A7]',
+            borderAccent: 'border-[#F8D8A7]',
+          }
+        case 'C':
+          return {
+            title: 'Band C · Dibatasi Maksimal 49.0 (Band Capping)',
+            desc: '≥ 2 kriteria Syarat Wajib (MUST_HAVE) tidak terpenuhi (PARTIAL atau UNPROVEN). Skor dibatasi ke batas maksimal 49.0.',
+            badgeBg: 'bg-[#FCEBEB] text-[#8C1819] border-[#F6C1C1]',
+            borderAccent: 'border-[#F6C1C1]',
+          }
+        default:
+          return {
+            title: 'Band R · Peninjauan Khusus / Non-CV',
+            desc: 'Terdapat kriteria wajib dengan status UNKNOWN atau berkas tidak terverifikasi sebagai dokumen CV yang sah.',
+            badgeBg: 'bg-[#EBF1EE] text-[#2D4439] border-[#D5DFD9]',
+            borderAccent: 'border-[#D5DFD9]',
+          }
+      }
+    })()
+
+    // Matrix audit rows
+    const matrixRows = requirements.map((r) => {
+      const state = candidate.requirement_states?.[r.requirement_id] || 'NOT_DEMONSTRATED'
+      let multiplier = 0
+      let statusLabel = 'UNPROVEN'
+      let statusClass = 'bg-[#FCEBEB] text-[#8C1819] border-[#F6C1C1]'
+
+      if (state === 'STRONG') {
+        multiplier = 1.0
+        statusLabel = 'STRONG'
+        statusClass = 'bg-[#EBF6EF] text-[#124B2E] border-[#BBE5CD]'
+      } else if (state === 'PARTIAL') {
+        multiplier = 0.5
+        statusLabel = 'PARTIAL'
+        statusClass = 'bg-[#FEF6E8] text-[#7A3E02] border-[#F8D8A7]'
+      }
+
+      const pointsEarned = Number((r.weight * multiplier).toFixed(1))
+
+      return {
+        requirement: r,
+        state,
+        multiplier,
+        statusLabel,
+        statusClass,
+        weight: r.weight,
+        pointsEarned,
+      }
+    })
+
+    const totalWeight = matrixRows.reduce((acc, row) => acc + row.weight, 0)
+    const totalCalculatedPoints = matrixRows.reduce((acc, row) => acc + row.pointsEarned, 0)
+
+    // Category breakdown
+    const categoryMap: Record<
+      string,
+      {
+        label: string
+        maxWeight: number
+        earnedPoints: number
+        reqCount: number
+      }
+    > = {
+      EXPERIENCE: { label: 'Pengalaman Kerja', maxWeight: 0, earnedPoints: 0, reqCount: 0 },
+      HARD_SKILLS: { label: 'Keterampilan Teknis (Hard Skill)', maxWeight: 0, earnedPoints: 0, reqCount: 0 },
+      EDUCATION_CERT: { label: 'Pendidikan & Sertifikasi', maxWeight: 0, earnedPoints: 0, reqCount: 0 },
+      ACHIEVEMENT: { label: 'Prestasi & Kepemimpinan', maxWeight: 0, earnedPoints: 0, reqCount: 0 },
+    }
+
+    const mapCategoryKey = (cat: string) => {
+      const upper = (cat || '').toUpperCase()
+      if (upper.includes('EXP') || upper.includes('KERJA')) return 'EXPERIENCE'
+      if (upper.includes('HARD') || upper.includes('SKILL') || upper.includes('TECH')) return 'HARD_SKILLS'
+      if (upper.includes('EDU') || upper.includes('PEND') || upper.includes('CERT')) return 'EDUCATION_CERT'
+      if (upper.includes('ACHIEV') || upper.includes('LEAD') || upper.includes('PRESTASI')) return 'ACHIEVEMENT'
+      return 'HARD_SKILLS'
+    }
+
+    matrixRows.forEach((row) => {
+      const key = mapCategoryKey(row.requirement.category)
+      if (!categoryMap[key]) {
+        categoryMap[key] = { label: row.requirement.category, maxWeight: 0, earnedPoints: 0, reqCount: 0 }
+      }
+      categoryMap[key].maxWeight += row.weight
+      categoryMap[key].earnedPoints += row.pointsEarned
+      categoryMap[key].reqCount += 1
+    })
+
+    const categories = Object.entries(categoryMap)
+      .filter(([, data]) => data.maxWeight > 0)
+      .map(([key, data]) => {
+        const pct = data.maxWeight > 0 ? (data.earnedPoints / data.maxWeight) * 100 : 0
+        return {
+          key,
+          label: data.label,
+          maxWeight: data.maxWeight,
+          earnedPoints: Number(data.earnedPoints.toFixed(1)),
+          reqCount: data.reqCount,
+          percentage: Number(pct.toFixed(0)),
+        }
+      })
+
+    return {
+      rawScore,
+      finalScore,
+      isCapped,
+      penalty: Number(penalty.toFixed(1)),
+      bandInfo,
+      matrixRows,
+      totalWeight,
+      totalCalculatedPoints: Number(totalCalculatedPoints.toFixed(1)),
+      categories,
+    }
+  }, [candidate, requirements])
 
   // Guard: all hooks have been declared unconditionally above. Return null if no candidate.
   if (!candidate) return null
@@ -676,22 +837,42 @@ PENDIDIKAN & LATAR BELAKANG:
               </button>
             </div>
           </div>
+
+          {/* Catatan Hiring Manager */}
+          <div className="pt-2 border-t border-[#EBF1EE] space-y-1">
+            <div className="flex items-center justify-between text-[11px] font-mono">
+              <div className="flex items-center space-x-1.5 text-[#13221C] font-semibold">
+                <MessageSquare className="w-3.5 h-3.5 text-[#1B4938]" />
+                <span>Catatan Hiring Manager:</span>
+              </div>
+              <span className="text-[10px] text-[#2D4439]/70">
+                Tersimpan otomatis
+              </span>
+            </div>
+            <textarea
+              value={hmNote}
+              onChange={(e) => handleHmNoteChange(e.target.value)}
+              placeholder="Tulis catatan pertimbangan, konteks wawancara, atau alasan keputusan kandidat..."
+              rows={2}
+              className="w-full px-2.5 py-1.5 bg-[#F2F5F3] focus:bg-[#FCFDFC] hover:bg-[#EBF1EE] border border-[#D5DFD9] focus:border-[#1B4938] focus:ring-2 focus:ring-[#1B4938]/15 rounded-xl text-xs text-[#13221C] placeholder-[#2D4439]/60 focus:outline-none transition-all resize-none shadow-tactile-sm leading-relaxed"
+            />
+          </div>
         </header>
 
-        {/* Integrated Tab Bar: Evaluasi · Jejak Penalaran · Kutipan CV */}
+        {/* Integrated Tab Bar: Evaluasi · Perhitungan Skor · Jejak Penalaran · Kutipan CV */}
         <div className="px-3 sm:px-5 py-2 bg-[#F7FAF8] border-b border-[#D5DFD9] flex items-center justify-between gap-2.5 shrink-0 min-w-0">
-          {/* Tab Controls (Equal 3-column Grid) */}
+          {/* Tab Controls (Equal 4-column Grid) */}
           <div className="flex-1 min-w-0">
-            <div className="w-full grid grid-cols-3 bg-[#EBF1EE] p-0.5 rounded-xl border border-[#D5DFD9] gap-0.5 sm:gap-1">
+            <div className="w-full grid grid-cols-2 sm:grid-cols-4 bg-[#EBF1EE] p-0.5 rounded-xl border border-[#D5DFD9] gap-0.5 sm:gap-1">
               <button
                 type="button"
                 onClick={() => setActiveTab('evaluation')}
-                className={`h-7 px-1.5 sm:px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center space-x-1 sm:space-x-1.5 transition-all duration-150 cursor-pointer whitespace-nowrap min-w-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] ${
+                className={`h-7 px-1.5 sm:px-2 rounded-lg text-xs font-semibold flex items-center justify-center space-x-1 sm:space-x-1.5 transition-all duration-150 cursor-pointer whitespace-nowrap min-w-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] ${
                   activeTab === 'evaluation'
                     ? 'bg-[#FCFDFC] text-[#1B4938] shadow-tactile-sm font-bold border border-[#D5DFD9]'
                     : 'text-[#2D4439] hover:text-[#13221C] hover:bg-black/[0.03] border border-transparent'
                 }`}
-                title="Evaluasi Forensik Kandidat"
+                title="Evaluasi Kriteria Kandidat"
               >
                 <Award className="w-3.5 h-3.5 text-[#1B4938] shrink-0" />
                 <span className="whitespace-nowrap">Evaluasi</span>
@@ -702,8 +883,22 @@ PENDIDIKAN & LATAR BELAKANG:
 
               <button
                 type="button"
+                onClick={() => setActiveTab('scoring')}
+                className={`h-7 px-1.5 sm:px-2 rounded-lg text-xs font-semibold flex items-center justify-center space-x-1 sm:space-x-1.5 transition-all duration-150 cursor-pointer whitespace-nowrap min-w-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] ${
+                  activeTab === 'scoring'
+                    ? 'bg-[#FCFDFC] text-[#1B4938] shadow-tactile-sm font-bold border border-[#D5DFD9]'
+                    : 'text-[#2D4439] hover:text-[#13221C] hover:bg-black/[0.03] border border-transparent'
+                }`}
+                title="Audit Perhitungan Skor Deterministik"
+              >
+                <Calculator className="w-3.5 h-3.5 text-[#1B4938] shrink-0" />
+                <span className="whitespace-nowrap">Perhitungan Skor</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setActiveTab('trajectory')}
-                className={`h-7 px-1.5 sm:px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center space-x-1 sm:space-x-1.5 transition-all duration-150 cursor-pointer whitespace-nowrap min-w-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] ${
+                className={`h-7 px-1.5 sm:px-2 rounded-lg text-xs font-semibold flex items-center justify-center space-x-1 sm:space-x-1.5 transition-all duration-150 cursor-pointer whitespace-nowrap min-w-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] ${
                   activeTab === 'trajectory'
                     ? 'bg-[#FCFDFC] text-[#1B4938] shadow-tactile-sm font-bold border border-[#D5DFD9]'
                     : 'text-[#2D4439] hover:text-[#13221C] hover:bg-black/[0.03] border border-transparent'
@@ -722,7 +917,7 @@ PENDIDIKAN & LATAR BELAKANG:
               <button
                 type="button"
                 onClick={() => setActiveTab('grounding')}
-                className={`h-7 px-1.5 sm:px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center space-x-1 sm:space-x-1.5 transition-all duration-150 cursor-pointer whitespace-nowrap min-w-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] ${
+                className={`h-7 px-1.5 sm:px-2 rounded-lg text-xs font-semibold flex items-center justify-center space-x-1 sm:space-x-1.5 transition-all duration-150 cursor-pointer whitespace-nowrap min-w-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] ${
                   activeTab === 'grounding'
                     ? 'bg-[#FCFDFC] text-[#1B4938] shadow-tactile-sm font-bold border border-[#D5DFD9]'
                     : 'text-[#2D4439] hover:text-[#13221C] hover:bg-black/[0.03] border border-transparent'
@@ -1128,7 +1323,327 @@ PENDIDIKAN & LATAR BELAKANG:
             </div>
           )}
 
-          {/* TAB 2: REACT REASONING TRAJECTORY RAIL */}
+          {/* TAB 2: AUDIT PERHITUNGAN SKOR DETERMINISTIK */}
+          {activeTab === 'scoring' && scoringCalculations && (
+            <div className="space-y-4">
+              {/* Screening Telemetry Avionics HUD */}
+              <ScreeningTelemetryPanel telemetry={telemetry} />
+
+              {/* 1. Header Overview: Status Banding & Perbandingan Skor */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Status Banding Kualifikasi */}
+                <div
+                  className={`p-4 rounded-2xl border ${scoringCalculations.bandInfo.borderAccent} bg-[#FCFDFC] shadow-tactile flex flex-col justify-between space-y-3`}
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Scale className="w-4 h-4 text-[#1B4938]" />
+                        <span className="text-xs font-bold uppercase tracking-wider text-[#13221C]">
+                          Status Banding Kualifikasi
+                        </span>
+                      </div>
+                      <span
+                        className={`text-xs font-mono font-bold px-2 py-0.5 rounded-md border ${scoringCalculations.bandInfo.badgeBg}`}
+                      >
+                        Band {candidate.band}
+                      </span>
+                    </div>
+                    <div className="text-sm font-bold text-[#13221C]">
+                      {scoringCalculations.bandInfo.title}
+                    </div>
+                    <p className="text-xs text-[#2D4439] leading-relaxed">
+                      {scoringCalculations.bandInfo.desc}
+                    </p>
+                  </div>
+
+                  <div className="pt-2 border-t border-[#EBF1EE] flex items-center justify-between text-[11px] font-mono text-[#2D4439]">
+                    <span>Aturan Syarat Wajib:</span>
+                    <span className="font-semibold text-[#13221C]">
+                      {candidate.band === 'A'
+                        ? '100% MUST_HAVE Terpenuhi'
+                        : candidate.band === 'B'
+                        ? '1 MUST_HAVE Belum Terpenuhi (Max 74.0)'
+                        : candidate.band === 'C'
+                        ? '≥2 MUST_HAVE Belum Terpenuhi (Max 49.0)'
+                        : 'Verifikasi Khusus Diperlukan'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Perbandingan Skor Mentah vs Skor Akhir */}
+                <div className="p-4 rounded-2xl border border-[#D5DFD9] bg-[#FCFDFC] shadow-tactile flex flex-col justify-between space-y-3">
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center space-x-2 text-[#13221C]">
+                        <Calculator className="w-4 h-4 text-[#1B4938]" />
+                        <span className="text-xs font-bold uppercase tracking-wider text-[#13221C]">
+                          Ringkasan Kalkulasi Skor
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono text-[#2D4439] bg-[#F2F5F3] px-2 py-0.5 rounded border border-[#D5DFD9]">
+                        Metode Deterministik
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      {/* Skor Mentah */}
+                      <div className="p-2.5 rounded-xl bg-[#F7FAF8] border border-[#D5DFD9]">
+                        <div className="text-[10px] text-[#2D4439] font-mono mb-0.5">
+                          Skor Mentah
+                        </div>
+                        <div className="font-mono font-bold text-base text-[#13221C] tabular-nums">
+                          {scoringCalculations.rawScore.toFixed(1)}
+                        </div>
+                        <div className="text-[9px] text-[#2D4439]/70 font-mono">
+                          ∑ (W × V)
+                        </div>
+                      </div>
+
+                      {/* Penalti Band Cap */}
+                      <div
+                        className={`p-2.5 rounded-xl border ${
+                          scoringCalculations.isCapped
+                            ? 'bg-[#FEF6E8] border-[#F8D8A7] text-[#7A3E02]'
+                            : 'bg-[#F7FAF8] border-[#D5DFD9] text-[#2D4439]'
+                        }`}
+                      >
+                        <div className="text-[10px] font-mono mb-0.5">
+                          Band Capping
+                        </div>
+                        <div className="font-mono font-bold text-base tabular-nums">
+                          {scoringCalculations.isCapped
+                            ? `-${scoringCalculations.penalty.toFixed(1)}`
+                            : '0.0'}
+                        </div>
+                        <div className="text-[9px] font-mono opacity-80">
+                          {scoringCalculations.isCapped ? 'Dipangkas' : 'Tanpa Penalti'}
+                        </div>
+                      </div>
+
+                      {/* Skor Akhir */}
+                      <div className="p-2.5 rounded-xl bg-[#EBF6EF] border border-[#BBE5CD] text-[#124B2E]">
+                        <div className="text-[10px] font-mono mb-0.5 font-bold">
+                          Skor Akhir
+                        </div>
+                        <div className="font-mono font-bold text-lg tabular-nums">
+                          {scoringCalculations.finalScore.toFixed(1)}
+                        </div>
+                        <div className="text-[9px] font-mono opacity-80">
+                          Skor Validasi
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Capping Banner Alert */}
+                  {scoringCalculations.isCapped ? (
+                    <div className="p-2.5 rounded-xl bg-[#FEF6E8] border border-[#F8D8A7] text-xs text-[#7A3E02] flex items-start space-x-2">
+                      <AlertTriangle className="w-4 h-4 shrink-0 text-[#7A3E02] mt-0.5" />
+                      <div className="text-[11px] leading-relaxed">
+                        <strong className="font-bold">Band Capping Diterapkan:</strong> Skor mentah kandidat ({scoringCalculations.rawScore.toFixed(1)}) melampaui batas ambang untuk Band {candidate.band} (maks. {scoringCalculations.finalScore.toFixed(1)}). Skor akhir dibatasi secara deterministik.
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-2 rounded-xl bg-[#EBF6EF] border border-[#BBE5CD] text-xs text-[#124B2E] flex items-center space-x-2">
+                      <ShieldCheck className="w-4 h-4 shrink-0 text-[#124B2E]" />
+                      <div className="text-[11px] font-medium">
+                        Kualifikasi utuh tanpa penalti band capping. Skor akhir identik dengan hasil akumulasi matriks.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 2. Breakdown Kontribusi per Kategori */}
+              <div className="bg-[#FCFDFC] border border-[#D5DFD9] rounded-2xl p-4 shadow-tactile space-y-3">
+                <div className="flex items-center justify-between border-b border-[#E2E9E5] pb-2">
+                  <div className="flex items-center space-x-2 text-[#13221C]">
+                    <Percent className="w-4 h-4 text-[#1B4938]" />
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-[#13221C]">
+                      Breakdown Kontribusi per Kategori
+                    </h4>
+                  </div>
+                  <span className="text-[10px] font-mono text-[#2D4439]">
+                    Distribusi Bobot {scoringCalculations.totalWeight}%
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {scoringCalculations.categories.map((cat) => {
+                    const isOptimal = cat.percentage >= 80
+                    const isModerate = cat.percentage >= 50 && cat.percentage < 80
+
+                    return (
+                      <div
+                        key={cat.key}
+                        className="p-3 rounded-xl bg-[#F7FAF8] border border-[#D5DFD9] space-y-2"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-[#13221C]">
+                            {cat.label}
+                          </span>
+                          <span className="text-[10px] font-mono text-[#2D4439]">
+                            {cat.reqCount} Kriteria
+                          </span>
+                        </div>
+
+                        <div className="flex items-baseline justify-between text-xs">
+                          <span className="font-mono text-[11px] text-[#2D4439]">
+                            Capaian: <strong className="text-[#13221C]">{cat.earnedPoints}</strong> / {cat.maxWeight} pts
+                          </span>
+                          <span
+                            className={`font-mono text-xs font-bold ${
+                              isOptimal
+                                ? 'text-[#124B2E]'
+                                : isModerate
+                                ? 'text-[#7A3E02]'
+                                : 'text-[#8C1819]'
+                            }`}
+                          >
+                            {cat.percentage}%
+                          </span>
+                        </div>
+
+                        {/* Visual Progress Bar */}
+                        <div className="w-full bg-[#EBF1EE] h-2 rounded-full overflow-hidden border border-[#D5DFD9]">
+                          <div
+                            className={`h-full rounded-full transition-all duration-300 ${
+                              isOptimal
+                                ? 'bg-[#1B4938]'
+                                : isModerate
+                                ? 'bg-[#C05621]'
+                                : 'bg-[#C53030]'
+                            }`}
+                            style={{
+                              width: `${Math.min(100, Math.max(0, cat.percentage))}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* 3. Tabel Audit Matriks Bobot Kriteria */}
+              <div className="bg-[#FCFDFC] border border-[#D5DFD9] rounded-2xl p-4 shadow-tactile space-y-3">
+                <div className="flex items-center justify-between border-b border-[#E2E9E5] pb-2">
+                  <div className="space-y-0.5">
+                    <div className="flex items-center space-x-2 text-[#13221C]">
+                      <Calculator className="w-4 h-4 text-[#1B4938]" />
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-[#13221C]">
+                        Tabel Audit Matriks Bobot Kriteria
+                      </h4>
+                    </div>
+                    <p className="text-[11px] text-[#2D4439]">
+                      Formula: <code className="font-mono bg-[#EBF1EE] px-1 py-0.5 rounded text-[10px] text-[#13221C]">Poin = Bobot (W) × Pengali (V)</code> [STRONG=1.0 · PARTIAL=0.5 · UNPROVEN=0.0]
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-mono text-[#2D4439] bg-[#F2F5F3] px-2 py-0.5 rounded border border-[#D5DFD9] shrink-0">
+                    {scoringCalculations.matrixRows.length} Kriteria Total
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto rounded-xl border border-[#D5DFD9]">
+                  <table className="w-full text-left text-xs border-collapse font-sans">
+                    <thead>
+                      <tr className="bg-[#F2F5F3] border-b border-[#D5DFD9] text-[#2D4439] font-mono text-[10px] uppercase tracking-wider">
+                        <th className="py-2.5 px-3">ID Kriteria</th>
+                        <th className="py-2.5 px-3">Kategori & Deskripsi</th>
+                        <th className="py-2.5 px-3 text-center">Tingkat</th>
+                        <th className="py-2.5 px-3 text-right">Bobot (W)</th>
+                        <th className="py-2.5 px-3 text-center">Status Evaluasi (V)</th>
+                        <th className="py-2.5 px-3 text-right">Poin Kontribusi</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#EBF1EE]">
+                      {scoringCalculations.matrixRows.map((row) => (
+                        <tr
+                          key={row.requirement.requirement_id}
+                          className="hover:bg-[#F7FAF8] transition-colors"
+                        >
+                          <td className="py-2.5 px-3 font-mono font-bold text-[11px] text-[#1B4938] whitespace-nowrap">
+                            {row.requirement.requirement_id}
+                          </td>
+                          <td className="py-2.5 px-3 max-w-xs sm:max-w-md">
+                            <div className="font-semibold text-[#13221C] truncate" title={row.requirement.description}>
+                              {row.requirement.description}
+                            </div>
+                            <div className="text-[10px] text-[#2D4439]/70 font-mono">
+                              {row.requirement.category}
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                            <span
+                              className={`inline-block font-mono text-[10px] font-bold px-2 py-0.5 rounded border ${
+                                row.requirement.importance === 'MUST_HAVE'
+                                  ? 'bg-[#FCEBEB] text-[#8C1819] border-[#F6C1C1]'
+                                  : 'bg-[#F2F5F3] text-[#2D4439] border-[#D5DFD9]'
+                              }`}
+                            >
+                              {row.requirement.importance === 'MUST_HAVE'
+                                ? 'Syarat Wajib'
+                                : 'Diutamakan'}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-mono text-[#13221C] font-semibold tabular-nums whitespace-nowrap">
+                            {row.weight}%
+                          </td>
+                          <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                            <span
+                              className={`inline-block font-mono text-[10px] font-bold px-2 py-0.5 rounded border ${row.statusClass}`}
+                            >
+                              {row.statusLabel} ({row.multiplier.toFixed(1)})
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-mono font-bold text-[#13221C] tabular-nums whitespace-nowrap">
+                            {row.pointsEarned.toFixed(1)} pts
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-[#F7FAF8] border-t-2 border-[#D5DFD9] font-mono text-xs">
+                      <tr>
+                        <td colSpan={3} className="py-2 px-3 font-bold text-[#13221C] text-right">
+                          Total Akumulasi Matriks (Skor Mentah):
+                        </td>
+                        <td className="py-2 px-3 font-bold text-[#13221C] text-right">
+                          {scoringCalculations.totalWeight}%
+                        </td>
+                        <td className="py-2 px-3 text-center text-[10px] text-[#2D4439]">
+                          ∑ (W × V)
+                        </td>
+                        <td className="py-2 px-3 font-bold text-[#13221C] text-right">
+                          {scoringCalculations.totalCalculatedPoints.toFixed(1)} pts
+                        </td>
+                      </tr>
+                      {scoringCalculations.isCapped && (
+                        <tr className="text-[#7A3E02] bg-[#FEF6E8]/70">
+                          <td colSpan={5} className="py-1.5 px-3 text-right font-semibold">
+                            Penalti Band Capping (Batas Atas Band {candidate.band}):
+                          </td>
+                          <td className="py-1.5 px-3 text-right font-bold">
+                            -{scoringCalculations.penalty.toFixed(1)} pts
+                          </td>
+                        </tr>
+                      )}
+                      <tr className="bg-[#EBF6EF]/70 text-[#124B2E] border-t border-[#BBE5CD]">
+                        <td colSpan={5} className="py-2.5 px-3 text-right font-bold text-sm">
+                          Skor Akhir Kandidat:
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-bold text-base">
+                          {scoringCalculations.finalScore.toFixed(1)} / 100
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: REACT REASONING TRAJECTORY RAIL */}
           {activeTab === 'trajectory' && (
             <div className="space-y-4">
               {/* Screening Telemetry Avionics HUD */}

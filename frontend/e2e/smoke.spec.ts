@@ -910,4 +910,57 @@ test.describe('AI CV Screener E2E Smoke Test Suite', () => {
     expect(postJobCalled).toBe(false);
     expect(patchDraftCalled).toBe(true);
   });
+
+  test('14. Tab Perhitungan Skor, Catatan Hiring Manager, dan Ekspor CSV di Workbench Screening', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+
+    // Muat data melalui Golden Dataset dan navigasi ke Workbench
+    await page.getByRole('button', { name: /Golden Dataset/i }).click();
+    await page.getByRole('button', { name: /Workbench/i }).click();
+
+    // 1. Uji Tombol Ekspor CSV
+    const exportBtn = page.getByRole('button', { name: /Ekspor CSV/i });
+    await expect(exportBtn).toBeVisible();
+
+    const downloadPromise = page.waitForEvent('download');
+    await exportBtn.click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toMatch(/\.csv$/);
+
+    // 2. Buka Inspeksi Kandidat
+    const candidateRow = page.locator('tbody tr').first();
+    await expect(candidateRow).toBeVisible();
+    await candidateRow.click();
+
+    const inspectorDialog = page.getByRole('dialog', { name: 'Panel Inspeksi Kandidat' });
+    await expect(inspectorDialog).toBeVisible();
+
+    // 3. Uji Tab Perhitungan Skor
+    const scoringTab = inspectorDialog.getByRole('button', { name: /Perhitungan Skor/i });
+    await expect(scoringTab).toBeVisible();
+    await scoringTab.click();
+    await expect(scoringTab).toHaveClass(/bg-\[#FCFDFC\]/);
+
+    // Verifikasi elemen-elemen transparansi audit skor
+    await expect(inspectorDialog.getByText('Status Banding Kualifikasi')).toBeVisible();
+    await expect(inspectorDialog.getByText('Ringkasan Kalkulasi Skor')).toBeVisible();
+    await expect(inspectorDialog.getByText('Breakdown Kontribusi per Kategori')).toBeVisible();
+    await expect(inspectorDialog.getByText('Tabel Audit Matriks Bobot Kriteria')).toBeVisible();
+
+    // 4. Uji Input Catatan Hiring Manager & Sinkronisasi ke Roster
+    const noteTextarea = inspectorDialog.getByPlaceholder(/Tulis catatan pertimbangan/i);
+    await expect(noteTextarea).toBeVisible();
+    await noteTextarea.fill('Kandidat sangat potensial, agendakan interview teknis.');
+
+    // Tutup modal inspeksi
+    const closeBtn = inspectorDialog.getByTitle('Tutup Panel Inspeksi');
+    await expect(closeBtn).toBeVisible();
+    await closeBtn.click();
+    await expect(inspectorDialog).toHaveClass(/translate-x-full/);
+
+    // Verifikasi badge / preview catatan HM muncul di baris roster kandidat
+    await expect(page.getByText('Catatan HM:').first()).toBeVisible();
+    await expect(page.getByText(/Kandidat sangat potensial, agendakan interview teknis/i).first()).toBeVisible();
+  });
 });
