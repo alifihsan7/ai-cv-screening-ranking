@@ -44,7 +44,7 @@ const STEPS: StepItem[] = [
   {
     id: 'workbench',
     stepNum: 4,
-    label: 'Workbench Skrining',
+    label: 'Workbench Screening',
     sublabel: 'Forensik & Ranking',
   },
 ]

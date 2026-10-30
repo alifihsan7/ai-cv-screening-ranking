@@ -367,7 +367,7 @@ export const UploadStep: React.FC<UploadStepProps> = ({
                         <span>Siap (READY)</span>
                       </span>
                       <span className="text-[10px] text-[#2D4439]/80 min-w-0 leading-tight">
-                        {readyFiles.length} CV terindeks & siap skrining
+                        {readyFiles.length} CV terindeks & siap screening
                       </span>
                     </div>
                   </div>
@@ -694,7 +694,7 @@ export const UploadStep: React.FC<UploadStepProps> = ({
                 <>
                   <CheckCircle2 className="w-4 h-4 text-[#BBE5CD]" />
                   <span>
-                    Mulai Skrining AI & Buka Workbench{' '}
+                    Mulai Screening AI & Buka Workbench{' '}
                     {readyFiles.length > 0 ? `(${readyFiles.length} CV Siap)` : ''}
                   </span>
                   <ChevronRight className="w-4 h-4" />

@@ -33,7 +33,7 @@ test.describe('AI CV Screener E2E Smoke Test Suite', () => {
     await expect(page.getByText('Setup Lowongan')).toBeVisible();
     await expect(page.getByText('Kriteria & Bobot')).toBeVisible();
     await expect(page.getByText('Unggah Berkas CV')).toBeVisible();
-    await expect(page.getByText('Workbench Skrining')).toBeVisible();
+    await expect(page.getByText('Workbench Screening')).toBeVisible();
 
     // Verifikasi konten langkah awal (Setup Lowongan Kerja) setelah inisialisasi
     await expect(page.getByRole('heading', { name: /Setup Lowongan Kerja/i })).toBeVisible({ timeout: 15000 });
@@ -79,7 +79,7 @@ test.describe('AI CV Screener E2E Smoke Test Suite', () => {
     await expect(goldenDatasetBtn).toBeVisible();
     await goldenDatasetBtn.click();
 
-    // Navigasi ke Workbench Skrining (Langkah 4)
+    // Navigasi ke Workbench Screening (Langkah 4)
     const workbenchStepBtn = page.getByRole('button', { name: /Workbench/i });
     await workbenchStepBtn.click();
 
@@ -263,8 +263,8 @@ test.describe('AI CV Screener E2E Smoke Test Suite', () => {
     await expect(page.getByText('kandidat_alif.pdf')).toBeVisible();
     await expect(page.getByText('kandidat_budi.docx')).toBeVisible();
 
-    // Verifikasi tombol skrining aktif dengan info jumlah CV siap
-    const startScreeningBtn = page.getByRole('button', { name: /Mulai Skrining AI & Buka Workbench/i });
+    // Verifikasi tombol screening aktif dengan info jumlah CV siap
+    const startScreeningBtn = page.getByRole('button', { name: /Mulai Screening AI & Buka Workbench/i });
     await expect(startScreeningBtn).toBeEnabled();
     await expect(startScreeningBtn).toContainText('CV Siap');
   });

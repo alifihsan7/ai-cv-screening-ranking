@@ -10,5 +10,5 @@ Ringkasan yang paling sering terlupa:
 - Bahasa komunikasi: Indonesia. Laporkan hasil dengan jujur, termasuk tes yang gagal atau yang tidak diperiksa.
 - Commit **tanpa** `Co-Authored-By` atau atribusi agen apa pun.
 - Push, PR, dan penghapusan branch hanya bila pemilik meminta.
-- Jangan menyebut alur skrining sebagai "agent" (urutan fase tetap, bukan agen otonom).
+- Jangan menyebut alur screening sebagai "agent" (urutan fase tetap, bukan agen otonom).
 - Tes memakai database `cv_screening_test`, bukan produksi; lihat checkpoint bagian 6 untuk perintahnya.

@@ -65,7 +65,7 @@ Jalur Jev yang ada sudah terukur (golden 150/150, hold-out 115 sampai 117). Meng
 
 ## 7. Uji alur penuh lewat API (30 Oktober 2026)
 
-Dijalankan pada API dan worker terpisah (port 8199, database `cv_screening_test`, vault sementara), bukan pada layanan produksi. Alur: buat lowongan dari templat "Civil Engineer (Struktur & Pelaksana)" → `compile-preview` (model sungguhan mengusulkan profil) → recruiter menyunting profil → `import-approved` → `approve` → unggah 12 CV sipil → skrining dengan Jev sungguhan.
+Dijalankan pada API dan worker terpisah (port 8199, database `cv_screening_test`, vault sementara), bukan pada layanan produksi. Alur: buat lowongan dari templat "Civil Engineer (Struktur & Pelaksana)" → `compile-preview` (model sungguhan mengusulkan profil) → recruiter menyunting profil → `import-approved` → `approve` → unggah 12 CV sipil → screening dengan Jev sungguhan.
 
 - **Profil tersimpan dan terbaca ulang:** R2 membawa profil lengkap (benih + usulan), `source` menjadi `edited`. Penyuntingan dihormati: `quantity surveyor` yang dihapus tidak kembali dari taksonomi. Kata yang diselipkan `Laki-laki <b>` dibuang pembersih di server.
 - **R2 pada alur API: 12/12 cocok dengan label**, walau `quantity surveyor` sudah dihapus (aturan kata bidang dan judul lain cukup).

@@ -11,6 +11,7 @@ import {
   Plus,
 } from 'lucide-react'
 import type { WorkflowStep } from '../types'
+import brandMark from '../assets/brand-mark.svg'
 
 export interface TopbarProps {
   currentStep?: WorkflowStep
@@ -74,18 +75,22 @@ export const Topbar: React.FC<TopbarProps> = ({
 
   return (
     <header className="h-[44px] border-b border-[#D5DFD9] bg-[#FCFDFC] px-3 sm:px-4 flex items-center justify-between shrink-0 z-30 gap-2">
-      {/* Left: Brand Monogram + Job Popover Selector + Workspace Indicator */}
+      {/* Left: Brand + Job Popover Selector + Workspace Indicator */}
       <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
         <div className="flex items-center space-x-2 shrink-0">
-          <div className="w-7 h-7 rounded-lg bg-[#1B4938] flex items-center justify-center text-[#FCFDFC] font-bold text-xs shadow-tactile-sm shrink-0 ring-1 ring-[#1B4938]/20">
-            <span className="font-mono text-[11px] tracking-tight">AI</span>
-          </div>
+          <img
+            src={brandMark}
+            alt="Logo AI CV Screening"
+            width={28}
+            height={28}
+            className="w-7 h-7 shrink-0"
+          />
           <div className="hidden lg:flex flex-col shrink-0">
             <span className="font-bold text-xs text-[#13221C] tracking-tight leading-none">
               AI CV Screening
             </span>
             <span className="font-mono text-[9px] text-[#2D4439] tracking-wider uppercase font-semibold leading-none mt-0.5">
-              Deterministic Verifier
+              Screening Berbasis Bukti
             </span>
           </div>
         </div>

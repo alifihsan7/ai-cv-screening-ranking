@@ -1670,7 +1670,7 @@ export default function App() {
         showToast('Screening CV berhasil diselesaikan.', 'success')
         setCurrentStep('workbench')
       } else {
-        showToast('Skrining offline: Golden sample tetap aktif.', 'info')
+        showToast('Screening offline: Golden sample tetap aktif.', 'info')
         setCurrentStep('workbench')
       }
     } catch (e: any) {
