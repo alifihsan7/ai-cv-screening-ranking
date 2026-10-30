@@ -314,8 +314,8 @@ async function run() {
   </div>
 
   <div class="cover-footer">
-    <span>© 2026 Alif Ihsan. Seluruh hak cipta dilindungi undang-undang.</span>
     <span>Klasifikasi: Dokumen Resmi Pengguna (Enterprise Release)</span>
+    <span>AI CV Screening & Candidate Ranking Platform</span>
   </div>
 </div>
 
