@@ -85,6 +85,50 @@ const normalizeCategory = (cat: string) => {
   return cat
 }
 
+interface RoleProfileData {
+  titles?: string[]
+  domain_terms?: string[]
+  source?: string
+}
+
+const PROFILE_SOURCE_LABEL: Record<string, string> = {
+  taxonomy: 'Dari kamus sistem',
+  'taxonomy+llm_proposal': 'Kamus sistem + usulan model',
+}
+
+/** Read-only: which job titles and field words count as relevant experience for this vacancy. */
+function RoleProfilePanel({ profile }: { profile: RoleProfileData }) {
+  const titles = profile.titles ?? []
+  const terms = profile.domain_terms ?? []
+  if (titles.length === 0 && terms.length === 0) return null
+  return (
+    <div className="mt-2 rounded-lg border border-[#D5DFD9] bg-[#F5F8F6] p-2.5 space-y-1.5" data-testid="role-profile">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[11px] font-semibold text-[#13221C]">Pekerjaan yang dihitung relevan</p>
+        <span className="text-[10px] text-[#2D4439] bg-[#E2E9E5] rounded px-1.5 py-0.5">
+          {PROFILE_SOURCE_LABEL[profile.source ?? ''] ?? 'Disetujui recruiter'}
+        </span>
+      </div>
+      {titles.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {titles.map((t) => (
+            <span key={t} className="text-[10px] text-[#13221C] bg-[#FCFDFC] border border-[#D5DFD9] rounded-full px-2 py-0.5">
+              {t}
+            </span>
+          ))}
+        </div>
+      )}
+      {terms.length > 0 && (
+        <details className="text-[10px] text-[#2D4439]">
+          <summary className="cursor-pointer">{terms.length} kata bidang (pekerjaan dengan minimal 2 kata ini dihitung)</summary>
+          <p className="mt-1 leading-relaxed">{terms.join(', ')}</p>
+        </details>
+      )}
+      <p className="text-[10px] text-[#2D4439] italic">Daftar ini terkunci bersama versi kriteria. Penyuntingan menyusul.</p>
+    </div>
+  )
+}
+
 export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
   jobTitle,
   setJobTitle,
@@ -608,6 +652,7 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
                         Sumber: &quot;{r.source_text}&quot;
                       </p>
                     )}
+                    {r.params?.role_profile && <RoleProfilePanel profile={r.params.role_profile} />}
                   </div>
                 </div>
               )
