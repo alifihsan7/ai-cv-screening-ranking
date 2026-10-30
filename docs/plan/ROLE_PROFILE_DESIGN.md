@@ -44,3 +44,21 @@ Jalur Jev yang ada sudah terukur (golden 150/150, hold-out 115 sampai 117). Meng
 5. **Tes baru lulus:** penurunan keluarga dengan batas kata (kasus "bidang"), aturan relevansi, pengecualian organisasi, pembersih usulan model, dan jalur kompilasi dengan model yang gagal.
 
 **Batas kejujuran:** set sipil dibuat setelah melihat kegagalan pada CV nyata bidang yang sama, jadi ia **set pengembangan, bukan hold-out**. Ia membuktikan bahwa cacat yang ditemukan hilang, bukan bahwa profesi lain akan terbaca; itu perlu set bidang kedua (langkah 4).
+
+## 6. Hasil langkah 1 (diukur 30 Oktober 2026)
+
+| Kriteria | Hasil |
+|---|---|
+| 1. Perangkat lunak tidak bergeser | **Terpenuhi.** Ekstraksi 66 CV sintetis: 0 berbeda. Aturan murni di lima set: 0 sel berubah. Live (Jev asli): golden 150/150 dan hold-out 3 117/120, sama seperti sebelumnya. Penurunan keluarga yang diterima untuk JD-01 dan JD-02 tidak berubah |
+| 2. Set sipil, R2 | **Terpenuhi, dengan catatan di bawah.** Alur produksi: R2 **4/12 → 12/12** (aturan murni 7/12 → 12/12), tidak ada STRONG palsu pada perangkat lunak, pemasaran, atau akuntan proyek. R1 12/12 sebelum dan sesudah (tidak rusak sejak awal). Total 16/24 → 24/24 |
+| 3. Uji asap HR (JD-02, I1, R1) | **Terpenuhi.** Alur produksi dengan Jev: NOT_DEMONSTRATED, 0 bulan → **STRONG, 76 bulan**. Lowongan HR golden kita sendiri rusak di produksi sebelum perubahan ini |
+| 4. 13 CV nyata | R2 dari **13 N → 3 STRONG, 3 PARTIAL, 6 N**. Daftar entri yang dinilai relevan dan bukan relevan (hanya judul) diberikan ke pemilik untuk ditinjau; tidak masuk repo |
+| 5. Tes baru | **Terpenuhi.** 17 tes baru; suite 454 lulus, 3 dilewati |
+
+### Catatan yang membatasi klaim
+
+- **Set sipil sebagian melingkar.** Ia ditulis setelah melihat kegagalan, dan judul benih (`pelaksana lapangan`, `pengawas lapangan`, `quantity surveyor`, `drafter`) serta kosakata bulletnya berasal dari pengamatan yang sama. Ablasi: tanpa satu pun judul benih hasilnya tetap 12/12 (aturan kata bidang cukup), tetapi dengan hanya tiga kata bidang turun menjadi 4/12. Jadi hasil ini membuktikan **mekanisme** (organisasi dikecualikan, magang 50%, tumpang tindih digabung, judul profesi lain menolak, usulan model masuk), **bukan** kemampuan membaca kosakata bidang yang belum diduga.
+- **Pada CV nyata, kosakata adalah batasnya.** Entri seperti "Balai Geoteknik, Terowongan, dan Struktur" (C-0026) dan "Junior Engineer" di proyek kilang (C-0022) dinilai bukan relevan karena kata di bulletnya (geoteknik, terowongan, piping) tidak ada di profil. Itu tepat jenis kasus yang dijawab oleh (a) usulan model yang disimpan di `params.role_profile` dan (b) pertanyaan relevansi Jev untuk entri ambigu, yang dengan sengaja belum dikerjakan di langkah ini dan kini punya bukti kebutuhan.
+- **Lowongan yang tidak punya keluarga di taksonomi** (mis. akuntansi) tetap jatuh ke cadangan perangkat lunak bila model gagal mengusulkan profil. Mekanisme usulan sudah ada dan teruji dengan model palsu, tetapi **belum dijalankan terhadap model sungguhan** pada JD sipil di langkah ini.
+- Kriteria selain R1 dan R2 pada lowongan sipil tidak diperiksa (R7 sertifikasi bernilai N di hampir semua kandidat; belum diselidiki).
+

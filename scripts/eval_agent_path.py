@@ -160,7 +160,9 @@ def accuracy(states: dict[str, dict[str, str]], expected: dict[str, dict[str, li
     per_kind: dict[str, list[int]] = {}
     for cid, per_req in states.items():
         for rid, got in per_req.items():
-            exp = expected[cid][rid]
+            exp = expected[cid].get(rid)
+            if exp is None:  # a set may label only some criteria
+                continue
             total += 1
             hit = got in exp
             ok += hit
@@ -303,7 +305,7 @@ async def main_async() -> int:
     for cid, per_req in agent_states.items():
         for rid, got in per_req.items():
             base = rule_states[cid][rid]
-            if got != base:
+            if got != base and rid in expected[cid]:  # unlabelled criteria are not part of the comparison
                 exp = expected[cid][rid]
                 tag = "FIXED" if got in exp and base not in exp else "BROKE" if base in exp and got not in exp else "neutral"
                 changes.append({"cv": cid, "req": rid, "kind": kinds[rid], "rules": base, "agent": got, "expected": "/".join(exp), "effect": tag})

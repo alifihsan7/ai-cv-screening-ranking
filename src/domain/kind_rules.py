@@ -12,6 +12,12 @@ from typesafe_sdk import AsyncTypeSafeClient
 
 from src.domain.domain_guard import is_headcount_only, names_non_technical_team
 from src.domain.retrieval import extract_granular_evidence_quote
+from src.domain.role_profile import (
+    infer_accepted_families,
+    is_relevant_experience,
+    resolve_role_profile,
+    uses_profile_path,
+)
 from src.domain.taxonomy import get_taxonomy
 from src.domain.text_match import match_skill
 from src.domain.verifier import (
@@ -175,18 +181,12 @@ async def eval_experience_duration_async(
     if not as_of:
         as_of = date.today().isoformat()
     params = req.get("params", {})
-    accepted_rfs = [rf.lower() for rf in params.get("accepted_role_families", [])]
     desc_text = ((req.get("description") or "") + " " + (req.get("source_text") or "")).lower()
-
-    if not accepted_rfs:
-        concepts = [c.lower() for c in req.get("concepts", [])]
-        tax = get_taxonomy()
-        for rf_name, rf_entry in tax.role_families.items():
-            if any(term in desc_text for term in rf_entry.domain_terms) or any(rf_name in c for c in concepts):
-                accepted_rfs.append(rf_name)
-                accepted_rfs.extend(rf_entry.related)
-        if not accepted_rfs:
-            accepted_rfs = ["backend", "fullstack"]
+    accepted_rfs = infer_accepted_families(req)
+    # A vacancy outside software is judged against its own role profile, not against the software role list
+    role_profile = resolve_role_profile(req, accepted_rfs) if uses_profile_path(accepted_rfs, params) else None
+    if role_profile is not None:
+        accepted_rfs = ["relevant"]
 
     min_months = params.get("min_months")
     if min_months is None:
@@ -203,7 +203,12 @@ async def eval_experience_duration_async(
     req_id = str(req.get("requirement_id") or req.get("id") or "EXPERIENCE_DURATION")
 
     classified_experiences: list[tuple[dict[str, Any], str, float]]
-    if use_jev:
+    if role_profile is not None:
+        use_jev = False  # relevance comes from the vacancy's own profile; no software role classification
+        classified_experiences = [
+            (e, "relevant" if is_relevant_experience(role_profile, e) else "other", 0.95) for e in experiences
+        ]
+    elif use_jev:
         async def _classify(exp_item: dict[str, Any], cl: AsyncTypeSafeClient | None) -> tuple[dict[str, Any], str, float]:
             title = exp_item.get("title", "")
             bullets = exp_item.get("bullets", [])
@@ -322,6 +327,8 @@ async def eval_experience_duration_async(
         state = "NOT_DEMONSTRATED"
 
     metrics = {"backend_months": total_months}
+    if role_profile is not None:
+        metrics["total_months"] = total_months
     confidence = 0.95
     return state, confidence, metrics, evidence, flags
 
@@ -335,18 +342,12 @@ def _eval_experience_duration_sync(
     if not as_of:
         as_of = date.today().isoformat()
     params = req.get("params", {})
-    accepted_rfs = [rf.lower() for rf in params.get("accepted_role_families", [])]
     desc_text = ((req.get("description") or "") + " " + (req.get("source_text") or "")).lower()
-
-    if not accepted_rfs:
-        concepts = [c.lower() for c in req.get("concepts", [])]
-        tax = get_taxonomy()
-        for rf_name, rf_entry in tax.role_families.items():
-            if any(term in desc_text for term in rf_entry.domain_terms) or any(rf_name in c for c in concepts):
-                accepted_rfs.append(rf_name)
-                accepted_rfs.extend(rf_entry.related)
-        if not accepted_rfs:
-            accepted_rfs = ["backend", "fullstack"]
+    accepted_rfs = infer_accepted_families(req)
+    # A vacancy outside software is judged against its own role profile, not against the software role list
+    role_profile = resolve_role_profile(req, accepted_rfs) if uses_profile_path(accepted_rfs, params) else None
+    if role_profile is not None:
+        accepted_rfs = ["relevant"]
 
     min_months = params.get("min_months")
     if min_months is None:
@@ -365,7 +366,10 @@ def _eval_experience_duration_sync(
     for exp in experiences:
         title = exp.get("title", "")
         bullet_text = " ".join(b.get("text", "") for b in exp.get("bullets", []) if isinstance(b, dict))
-        rf = classify_role_family(title, bullet_text)
+        if role_profile is not None:
+            rf = "relevant" if is_relevant_experience(role_profile, exp) else "other"
+        else:
+            rf = classify_role_family(title, bullet_text)
         if not is_role_family_accepted(rf, accepted_rfs):
             continue
 
@@ -422,6 +426,8 @@ def _eval_experience_duration_sync(
         state = "NOT_DEMONSTRATED"
 
     metrics = {"backend_months": total_months}
+    if role_profile is not None:
+        metrics["total_months"] = total_months
     confidence = 0.95
     return state, confidence, metrics, evidence, flags
 
