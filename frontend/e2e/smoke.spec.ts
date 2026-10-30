@@ -492,7 +492,7 @@ test.describe('AI CV Screener E2E Smoke Test Suite', () => {
     await expect(inspectorDialog).toHaveClass(/translate-x-full/);
   });
 
-  test('10. Studio Kriteria menampilkan profil peran (hanya-baca) untuk kriteria pengalaman', async ({ page }) => {
+  test('10. Studio Kriteria menampilkan profil peran dan membiarkan recruiter menyuntingnya', async ({ page }) => {
     await page.route('**/api/v1/requirements/compile-preview', async (route) => {
       await route.fulfill({
         status: 200,
@@ -529,7 +529,15 @@ test.describe('AI CV Screener E2E Smoke Test Suite', () => {
     await expect(panel.getByText('Pekerjaan yang dihitung relevan')).toBeVisible();
     await expect(panel.getByText('pelaksana lapangan')).toBeVisible();
     await expect(panel.getByText('Kamus sistem + usulan model')).toBeVisible();
-    await expect(panel.getByText(/3 kata bidang/)).toBeVisible();
+    await expect(panel.getByText('bekisting')).toBeVisible();
+
+    // recruiter edits: remove one title, add one field word
+    await panel.getByRole('button', { name: 'Hapus quantity surveyor' }).click();
+    await expect(panel.getByText('quantity surveyor')).toHaveCount(0);
+    await panel.getByLabel(/Kata bidang/).fill('  Tiang Pancang ');
+    await panel.getByLabel(/Kata bidang/).press('Enter');
+    await expect(panel.getByText('tiang pancang')).toBeVisible();
+    await expect(panel.getByText('Disunting recruiter')).toBeVisible();
     await panel.screenshot({ path: 'test-results/role-profile-panel.png' });
   });
 });

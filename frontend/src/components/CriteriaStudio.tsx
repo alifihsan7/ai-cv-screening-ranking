@@ -94,37 +94,95 @@ interface RoleProfileData {
 const PROFILE_SOURCE_LABEL: Record<string, string> = {
   taxonomy: 'Dari kamus sistem',
   'taxonomy+llm_proposal': 'Kamus sistem + usulan model',
+  edited: 'Disunting recruiter',
 }
 
-/** Read-only: which job titles and field words count as relevant experience for this vacancy. */
-function RoleProfilePanel({ profile }: { profile: RoleProfileData }) {
+const MAX_PROFILE_ITEM_LENGTH = 40
+
+function normalizeProfileItem(raw: string): string {
+  return raw.trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+function ProfileChipEditor({
+  label,
+  items,
+  onChange,
+  placeholder,
+}: {
+  label: string
+  items: string[]
+  onChange: (items: string[]) => void
+  placeholder: string
+}) {
+  const [draft, setDraft] = useState('')
+  const add = () => {
+    const item = normalizeProfileItem(draft)
+    if (!item || item.length > MAX_PROFILE_ITEM_LENGTH || items.includes(item)) return
+    onChange([...items, item])
+    setDraft('')
+  }
+  return (
+    <div className="space-y-1">
+      <p className="text-[10px] font-semibold text-[#2D4439]">{label}</p>
+      <div className="flex flex-wrap gap-1">
+        {items.map((t) => (
+          <span key={t} className="inline-flex items-center gap-1 text-[10px] text-[#13221C] bg-[#FCFDFC] border border-[#D5DFD9] rounded-full pl-2 pr-1 py-0.5">
+            {t}
+            <button
+              type="button"
+              aria-label={`Hapus ${t}`}
+              onClick={() => onChange(items.filter((x) => x !== t))}
+              className="w-3.5 h-3.5 leading-none rounded-full hover:bg-[#FCEBEB] hover:text-[#8C1819] cursor-pointer"
+            >
+              ×
+            </button>
+          </span>
+        ))}
+      </div>
+      <input
+        type="text"
+        value={draft}
+        maxLength={MAX_PROFILE_ITEM_LENGTH}
+        placeholder={placeholder}
+        aria-label={label}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            add()
+          }
+        }}
+        className="w-full text-[11px] text-[#13221C] bg-[#FCFDFC] border border-[#D5DFD9] focus:border-[#1B4938] px-2 py-1 rounded-md focus:outline-none"
+      />
+    </div>
+  )
+}
+
+/** Which job titles and field words count as relevant experience for this vacancy; the recruiter can edit them until approval. */
+function RoleProfilePanel({ profile, onChange }: { profile: RoleProfileData; onChange: (next: RoleProfileData) => void }) {
   const titles = profile.titles ?? []
   const terms = profile.domain_terms ?? []
-  if (titles.length === 0 && terms.length === 0) return null
   return (
-    <div className="mt-2 rounded-lg border border-[#D5DFD9] bg-[#F5F8F6] p-2.5 space-y-1.5" data-testid="role-profile">
+    <div className="mt-2 rounded-lg border border-[#D5DFD9] bg-[#F5F8F6] p-2.5 space-y-2" data-testid="role-profile">
       <div className="flex items-center justify-between gap-2">
         <p className="text-[11px] font-semibold text-[#13221C]">Pekerjaan yang dihitung relevan</p>
         <span className="text-[10px] text-[#2D4439] bg-[#E2E9E5] rounded px-1.5 py-0.5">
           {PROFILE_SOURCE_LABEL[profile.source ?? ''] ?? 'Disetujui recruiter'}
         </span>
       </div>
-      {titles.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {titles.map((t) => (
-            <span key={t} className="text-[10px] text-[#13221C] bg-[#FCFDFC] border border-[#D5DFD9] rounded-full px-2 py-0.5">
-              {t}
-            </span>
-          ))}
-        </div>
-      )}
-      {terms.length > 0 && (
-        <details className="text-[10px] text-[#2D4439]">
-          <summary className="cursor-pointer">{terms.length} kata bidang (pekerjaan dengan minimal 2 kata ini dihitung)</summary>
-          <p className="mt-1 leading-relaxed">{terms.join(', ')}</p>
-        </details>
-      )}
-      <p className="text-[10px] text-[#2D4439] italic">Daftar ini terkunci bersama versi kriteria. Penyuntingan menyusul.</p>
+      <ProfileChipEditor
+        label="Judul jabatan"
+        items={titles}
+        placeholder="Tambah judul jabatan, tekan Enter"
+        onChange={(next) => onChange({ ...profile, titles: next })}
+      />
+      <ProfileChipEditor
+        label="Kata bidang (pekerjaan dengan minimal 2 kata ini dihitung)"
+        items={terms}
+        placeholder="Tambah kata bidang, tekan Enter"
+        onChange={(next) => onChange({ ...profile, domain_terms: next })}
+      />
+      <p className="text-[10px] text-[#2D4439] italic">Daftar ini terkunci bersama versi kriteria saat disetujui.</p>
     </div>
   )
 }
@@ -652,7 +710,16 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
                         Sumber: &quot;{r.source_text}&quot;
                       </p>
                     )}
-                    {r.params?.role_profile && <RoleProfilePanel profile={r.params.role_profile} />}
+                    {r.params?.role_profile && (
+                      <RoleProfilePanel
+                        profile={r.params.role_profile}
+                        onChange={(next) =>
+                          handleUpdateRequirement(r.requirement_id, {
+                            params: { ...r.params, role_profile: { ...next, source: 'edited' } },
+                          })
+                        }
+                      />
+                    )}
                   </div>
                 </div>
               )
