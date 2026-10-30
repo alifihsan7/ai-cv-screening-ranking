@@ -77,12 +77,25 @@ def test_a_title_from_another_profession_is_not_rescued_by_field_words():
     assert not is_relevant_experience(profile, developer)
 
 
-def test_an_approved_profile_extends_the_taxonomy_seed():
-    req = {**CIVIL_R2, "params": {"role_profile": {"titles": ["koordinator geoteknik"], "domain_terms": ["terowongan", "geoteknik"]}}}
+def test_an_approved_profile_is_used_exactly_as_stored():
+    req = {**CIVIL_R2, "params": {"role_profile": {"titles": ["koordinator geoteknik"], "domain_terms": ["terowongan", "geoteknik"], "source": "approved"}}}
     profile = resolve_role_profile(req, ["civil_engineering"])
-    assert "koordinator geoteknik" in profile.titles and "pondasi" in profile.domain_terms and profile.source == "taxonomy+approved"
+    assert profile.titles == ("koordinator geoteknik",) and profile.domain_terms == ("terowongan", "geoteknik")
     assert is_relevant_experience(profile, _job("Koordinator Geoteknik", "2024-05", "2024-12", []))
     assert is_relevant_experience(profile, _job("Balai Teknik", "2024-05", "2024-12", ["Survei geoteknik untuk terowongan."]))
+
+
+def test_removing_a_word_from_an_approved_profile_is_respected():
+    # the taxonomy has "site engineer"; the recruiter removed it, so it must not come back at evaluation time
+    req = {**CIVIL_R2, "params": {"role_profile": {"titles": ["pelaksana lapangan"], "domain_terms": ["pondasi"]}}}
+    profile = resolve_role_profile(req, ["civil_engineering"])
+    assert not is_relevant_experience(profile, _job("Site Engineer", "2022-01", "2023-01", []))
+    assert is_relevant_experience(profile, _job("Pelaksana Lapangan", "2022-01", "2023-01", []))
+
+
+def test_without_a_stored_profile_the_taxonomy_seed_is_used():
+    profile = resolve_role_profile(CIVIL_R2, ["civil_engineering"])
+    assert profile.source == "taxonomy" and "site engineer" in profile.titles
 
 
 def test_months_are_merged_internships_count_half_and_organizations_count_nothing():
@@ -147,7 +160,11 @@ def test_the_compiler_stores_a_cleaned_proposal_for_a_civil_vacancy():
     gw = _Gateway({"titles": ["Pelaksana Lapangan", "pengawas pekerjaan"], "domain_terms": ["pondasi", "kurva s"]})
     reqs = [{**CIVIL_R2, "params": {}}, {"kind": "SKILL", "description": "AutoCAD", "params": {}}]
     asyncio.run(attach_role_profiles(reqs, "teks lowongan sipil", gw))
-    assert reqs[0]["params"]["role_profile"] == {"titles": ["pelaksana lapangan", "pengawas pekerjaan"], "domain_terms": ["pondasi", "kurva s"], "source": "llm_proposal"}
+    stored = reqs[0]["params"]["role_profile"]
+    assert stored["source"] == "taxonomy+llm_proposal"
+    assert "pengawas pekerjaan" in stored["titles"] and "site engineer" in stored["titles"]  # proposal AND taxonomy seed
+    assert "kurva s" in stored["domain_terms"] and "pondasi" in stored["domain_terms"]
+    assert len(stored["titles"]) == len(set(stored["titles"]))  # no duplicates
     assert "role_profile" not in reqs[1]["params"]
     assert gw.calls == 1
 
@@ -159,11 +176,12 @@ def test_the_compiler_does_not_ask_the_model_for_a_software_vacancy():
     assert "role_profile" not in reqs[0]["params"] and gw.calls == 0
 
 
-def test_a_failing_model_leaves_the_taxonomy_seed_in_charge():
+def test_a_failing_model_still_stores_the_taxonomy_seed_for_the_recruiter_to_see():
     gw = _Gateway(fail=True)
     reqs = [{**CIVIL_R2, "params": {}}]
     asyncio.run(attach_role_profiles(reqs, "teks", gw))
-    assert reqs[0]["params"] == {}
+    assert reqs[0]["params"]["role_profile"]["source"] == "taxonomy"
+    assert "site engineer" in reqs[0]["params"]["role_profile"]["titles"]
     assert asyncio.run(propose_role_profile("teks", gw)) == {"titles": [], "domain_terms": []}
 
 

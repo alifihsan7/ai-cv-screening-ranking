@@ -17,7 +17,7 @@ from typesafe_sdk import (
 
 from src.domain.pii import sanitize_contact_pii
 from src.domain.policy_linter import lint_text
-from src.domain.role_profile import infer_accepted_families, sanitize_proposal, uses_profile_path
+from src.domain.role_profile import infer_accepted_families, sanitize_proposal, seed_profile, uses_profile_path
 from src.domain.verifier import TypeSafeUnconfiguredError, classify_role_family_jev
 from src.infrastructure.config import settings
 from src.infrastructure.gateway import gateway
@@ -95,10 +95,11 @@ async def propose_role_profile(jd_text: str, gateway: Any, tenant_id: Any = None
 
 
 async def attach_role_profiles(requirements: list[dict[str, Any]], jd_text: str, gateway: Any, tenant_id: Any = None) -> None:
-    """Stores a proposed role profile in `params.role_profile` of each EXPERIENCE_DURATION criterion outside software.
+    """Stores the COMPLETE role profile (taxonomy seed + the model's proposal) in `params.role_profile`.
 
-    Software vacancies are left alone (their role list is the taxonomy's and the existing path is measured).
-    The recruiter sees and approves the profile together with the criteria; once approved it is frozen with them.
+    Only EXPERIENCE_DURATION criteria outside software get one; software vacancies keep the measured software path.
+    The recruiter sees the whole list in the criteria step and approves it; an approved profile is used exactly as
+    stored and frozen with the criteria version (see `resolve_role_profile`).
     """
     proposal: dict[str, list[str]] | None = None
     for r in requirements:
@@ -107,12 +108,22 @@ async def attach_role_profiles(requirements: list[dict[str, Any]], jd_text: str,
         params = r.get("params")
         if not isinstance(params, dict):
             params = r["params"] = {}
-        if params.get("role_profile") or not uses_profile_path(infer_accepted_families(r), params):
+        accepted = infer_accepted_families(r)
+        if params.get("role_profile") or not uses_profile_path(accepted, params):
             continue
         if proposal is None:
             proposal = await propose_role_profile(jd_text, gateway, tenant_id)
-        if proposal["titles"] or proposal["domain_terms"]:
-            params["role_profile"] = {**proposal, "source": "llm_proposal"}
+        seed = seed_profile(accepted)
+        titles = list(dict.fromkeys([*seed.titles, *proposal["titles"]]))
+        terms = list(dict.fromkeys([*seed.domain_terms, *proposal["domain_terms"]]))
+        if titles or terms:
+            proposed = bool(proposal["titles"] or proposal["domain_terms"])
+            params["role_profile"] = {
+                "titles": titles,
+                "domain_terms": terms,
+                "source": "taxonomy+llm_proposal" if proposed else "taxonomy",
+            }
+
 
 def determine_importance(line: str, default: str = "STRONG_PREFERENCE") -> str:
     lower = line.lower()

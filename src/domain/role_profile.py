@@ -94,8 +94,8 @@ def _dedupe(items: list[str]) -> tuple[str, ...]:
     return tuple(seen)
 
 
-def resolve_role_profile(req: dict[str, Any], accepted: list[str]) -> RoleProfile:
-    """Taxonomy seed for the accepted families, plus the approved `params.role_profile` (titles and domain_terms)."""
+def seed_profile(accepted: list[str]) -> RoleProfile:
+    """Titles and field words the taxonomy holds for the accepted non-software families."""
     tax = get_taxonomy()
     families = [f for f in dict.fromkeys(accepted) if f in tax.role_families and f not in GENERIC_FAMILIES and f not in SOFTWARE_FAMILIES]
     titles: list[str] = []
@@ -103,11 +103,23 @@ def resolve_role_profile(req: dict[str, Any], accepted: list[str]) -> RoleProfil
     for f in families:
         titles += list(tax.role_families[f].titles)
         terms += list(tax.role_families[f].domain_terms)
+    return RoleProfile(tuple(families), _dedupe(titles), _dedupe(terms), "taxonomy")
+
+
+def resolve_role_profile(req: dict[str, Any], accepted: list[str]) -> RoleProfile:
+    """The profile this criterion is judged by.
+
+    A profile stored in `params.role_profile` is the one the recruiter approved, and it is used exactly as stored: it
+    is frozen with the criteria version, so removing a word from it must not bring the taxonomy's word back, and a
+    later change of the taxonomy must not change an approved criterion. Without one, the taxonomy seed is used.
+    """
+    seed = seed_profile(accepted)
     carried = (req.get("params") or {}).get("role_profile") or {}
-    titles += [str(t) for t in carried.get("titles", [])]
-    terms += [str(t) for t in carried.get("domain_terms", [])]
-    source = "taxonomy+approved" if carried else "taxonomy"
-    return RoleProfile(tuple(families), _dedupe(titles), _dedupe(terms), source)
+    titles = [str(t) for t in carried.get("titles", [])]
+    terms = [str(t) for t in carried.get("domain_terms", [])]
+    if not titles and not terms:
+        return seed
+    return RoleProfile(seed.families, _dedupe(titles), _dedupe(terms), str(carried.get("source") or "approved"))
 
 
 def _title_belongs_elsewhere(title_lower: str, profile: RoleProfile) -> bool:
