@@ -1,16 +1,44 @@
-# AI CV Screening
+# AI CV Screening & Candidate Ranking Platform
 
-*Automated CV screening and candidate ranking system with evidence-grounded verification.*
+*Enterprise-grade automated CV screening and candidate ranking system with evidence-grounded verification and mathematical determinism.*
 
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB.svg?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16%20%2B%20pgvector-4169E1.svg?style=flat-square&logo=postgresql&logoColor=white)](https://github.com/pgvector/pgvector)
+[![TypeSafe Jev](https://img.shields.io/badge/TypeSafe%20Jev-System%20One%20(v1.14)-1B4938.svg?style=flat-square)](https://typesafe.ai/)
 [![Vite + React](https://img.shields.io/badge/Vite-React%2019%20TS-646CFF.svg?style=flat-square&logo=vite&logoColor=white)](https://vitejs.dev/)
-[![Mypy Strict](https://img.shields.io/badge/mypy-strict%20(94%20files)-2A6DB2.svg?style=flat-square)](https://mypy-lang.org/)
-[![Ruff Clean](https://img.shields.io/badge/ruff-clean-D7FF64.svg?style=flat-square&logo=ruff&logoColor=black)](https://docs.astral.sh/ruff/)
 [![Accessibility](https://img.shields.io/badge/accessibility-WCAG%20AAA-brightgreen.svg?style=flat-square)](https://www.w3.org/WAI/standards-guidelines/wcag/)
-[![Benchmark](https://img.shields.io/badge/Golden%20Dataset-NDCG%4010%201.000-success.svg?style=flat-square)](docs/spec/golden_dataset/)
+[![Tests](https://img.shields.io/badge/tests-460%20passed%20(100%25)-success.svg?style=flat-square)](tests/)
 [![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg?style=flat-square)](LICENSE)
+
+---
+
+## 📸 Antarmuka Pengguna (Workbench & Inspector)
+
+| Tahap 1: Setup Lowongan & Template | Tahap 2: Studio Kriteria & Pembobotan |
+|---|---|
+| ![Setup Lowongan](docs/images/01_landing_job_setup.png) | ![Studio Kriteria](docs/images/02_criteria_studio.png) |
+
+| Tahap 3: Unggah Berkas & Sanitasi | Tahap 4: Workbench Seleksi & Roster |
+|---|---|
+| ![Unggah Berkas](docs/images/03_upload_cv.png) | ![Workbench Roster](docs/images/04_workbench_roster.png) |
+
+| Tab 1: Matriks Evaluasi & Bukti | Tab 2: Audit Perhitungan Skor |
+|---|---|
+| ![Evaluasi Forensik](docs/images/05_inspector_evaluation.png) | ![Perhitungan Skor](docs/images/06_inspector_scoring.png) |
+
+| Tab 3: Jejak Penalaran ReAct | Tab 4: Grounding Naskah CV Asli |
+|---|---|
+| ![Jejak Penalaran](docs/images/07_inspector_trajectory.png) | ![Grounding Teks](docs/images/08_inspector_grounding.png) |
+
+---
+
+## 📚 Dokumentasi Resmi
+
+* 📖 **[Buku Panduan Pengguna & Recruiter (User Guide)](docs/USER_AND_RECRUITER_GUIDE.md)**: Panduan operasional visual langkah demi langkah untuk tim HR dan Hiring Manager.
+* 🏛️ **[Spesifikasi Arsitektur Sistem (Technical Architecture Spec)](docs/TECHNICAL_ARCHITECTURE_SPEC.md)**: Blueprint rekayasa, topologi server, dan integrasi Dual-Engine AI (9Router + TypeSafe Jev).
+
+---
 
 ---
 
@@ -45,8 +73,9 @@
 Unlike conventional heuristic parsers or opaque generative chatbots, AI CV Screening implements a decoupled, evidence-grounded architecture:
 1. **Mathematical Determinism**: Scoring calculations are 100% deterministic (`scorer.py`). Generative models and verifiers are strictly prohibited from generating raw numerical scores.
 2. **Code-Level Verbatim Grounding**: Every qualification claim requires exact verbatim substring quotes from the applicant's raw CV text. If a quote cannot be verified verbatim at length $\ge 5$, the claim is unconditionally repudiated (`GROUNDING_FAIL`).
-3. **Adversarial Resilience**: Binary-level PDF inspection detects invisible zero-point typography, white-on-white text overlays, and zero-width Unicode injection vectors before files reach parsing pipelines.
-4. **Human-in-the-Loop Sovereignty**: Recruiters and hiring managers retain final decision authority via structured band recommendations (Band A, B, C, R) and real-time forensic reasoning inspection.
+3. **Dual-Engine AI Synergy**: 9Router local AI gateway for structured Job Description parsing + TypeSafe Jev System One (`api.typesafe.ai`) for micro-verification with permanent telemetry in PostgreSQL (`jev_calls`).
+4. **Adversarial Resilience**: Binary-level PDF inspection detects invisible zero-point typography, white-on-white text overlays, and zero-width Unicode injection vectors before files reach parsing pipelines.
+5. **Human-in-the-Loop Sovereignty**: Recruiters and hiring managers retain final decision authority via structured band recommendations (Band A, B, C, R), interactive 4-tab candidate inspection, persistent HM notes, and Excel/CSV export.
 
 ---
 
@@ -158,20 +187,23 @@ Modern candidates frequently employ prompt injection or SEO-style "keyword stuff
 - **Zero-Width Unicode Cleansing**: Strips non-rendering Unicode sequences (`U+200B`, `U+200C`, `U+200D`, `U+FEFF`, `U+2060`) across document payloads.
 - **Prompt Injection Neutralization**: Treats all extracted document content as passive text data within isolated evaluation contexts.
 
-### 4. Executive Decision Studio (Tactile Light UI)
+### 4. Executive Decision Studio (Tactile Light UI & 4-Tab Inspector)
 The frontend workbench (`frontend/`) delivers a bespoke, non-generic recruiter experience designed under strict ergonomic and accessibility principles:
-- **Nordic Pine & Chalk Sage Palette**: High-contrast, calming tactile light mode designed for sustained cognitive focus without eye fatigue.
+- **Nordic Pine & Slate Palette**: High-contrast, calming tactile light mode designed for sustained cognitive focus without eye fatigue.
 - **Progressive 4-Step Funnel**:
-  1. *Job Description Specification*: Define role criteria, weights, and must-have constraints.
-  2. *CV Ingestion & Pipeline Status*: Batch drag-and-drop upload with real-time processing indicators.
-  3. *Screening & Verification*: Execution monitoring with streaming status.
+  1. *Job Description Specification*: Define role criteria, weights, and must-have constraints with smart-switch templates.
+  2. *Studio Kriteria & Pembobotan*: Unifikasi tri-tier kriteria dan referensi taksonomi industri.
+  3. *CV Ingestion & Pipeline Status*: Batch drag-and-drop upload with real-time processing indicators.
   4. *Executive Dossier Workbench*: Deep-dive candidate comparison.
 - **Master-Detail Dual Pane Workbench**:
-  - **Left Roster (38% width)**: Sorted candidate roster with dynamic score badges, recommendation bands (Band A/B/C/R), and quick-filter controls.
-  - **Right Canvas (62% width)**: Candidate dossier, score category radars, must-have compliance checklist, and expandable verbatim quotes.
-- **Slide-Over Forensic Audit Drawer (`[D]`)**:
-  - On-demand drawer triggered via keyboard shortcut `[D]` or UI toggle.
-  - Exposes the raw autonomous ReAct trajectory, tool calls, verifier confidence scores, and verbatim grounding validation statuses.
+  - **Left Roster (38% width)**: Sorted candidate roster with dynamic score badges, recommendation bands (Band A/B/C/R), hiring manager note preview chips, and 1-click UTF-8 BOM CSV export.
+  - **Right Canvas (62% width)**: Candidate inspector with 4 interactive tabs:
+    * **Tab Evaluasi**: Status pemenuhan kriteria (`STRONG`, `PARTIAL`, `UNPROVEN`) dengan kutipan bukti.
+    * **Tab Perhitungan Skor**: Transparansi audit rumus $\sum W \times V$, perbandingan skor mentah vs band capping, dan kontribusi kategori.
+    * **Tab Jejak Penalaran**: Jejak langkah observasi penalaran ReAct saat membedah dokumen pelamar.
+    * **Tab Kutipan CV**: Penyorot interaktif naskah asli pelamar berdasarkan koordinat karakter.
+- **Hiring Manager Decisions & Notes**:
+  - Segmented control keputusan (`Shortlist`, `Hold`, `Tolak`) dan textarea catatan persisten per kandidat (`localStorage`).
 - **Accessibility**: Zero unstyled components, strict keyboard navigation, and WCAG AAA compliance.
 
 ### 5. Golden Dataset Benchmark & Scorer Parity
