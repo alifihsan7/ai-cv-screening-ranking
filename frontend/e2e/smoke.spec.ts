@@ -491,4 +491,45 @@ test.describe('AI CV Screener E2E Smoke Test Suite', () => {
     await closeBtn.click();
     await expect(inspectorDialog).toHaveClass(/translate-x-full/);
   });
+
+  test('10. Studio Kriteria menampilkan profil peran (hanya-baca) untuk kriteria pengalaman', async ({ page }) => {
+    await page.route('**/api/v1/requirements/compile-preview', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          requirements: [
+            {
+              requirement_id: 'R2',
+              kind: 'EXPERIENCE_DURATION',
+              description: 'Pengalaman kerja minimal 1 tahun di konstruksi sipil',
+              source_text: 'minimal 1 tahun di konstruksi sipil',
+              importance: 'MUST_HAVE',
+              weight: 20,
+              concepts: [],
+              params: {
+                role_profile: {
+                  titles: ['pelaksana lapangan', 'quantity surveyor'],
+                  domain_terms: ['pondasi', 'bekisting', 'kurva s'],
+                  source: 'taxonomy+llm_proposal',
+                },
+              },
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.goto('/');
+    await page.getByRole('button', { name: /Senior Backend Engineer/i }).click();
+    await page.getByRole('button', { name: /Ekstrak (Ulang|Kriteria AI)/i }).click();
+
+    const panel = page.getByTestId('role-profile');
+    await expect(panel).toBeVisible({ timeout: 15000 });
+    await expect(panel.getByText('Pekerjaan yang dihitung relevan')).toBeVisible();
+    await expect(panel.getByText('pelaksana lapangan')).toBeVisible();
+    await expect(panel.getByText('Kamus sistem + usulan model')).toBeVisible();
+    await expect(panel.getByText(/3 kata bidang/)).toBeVisible();
+    await panel.screenshot({ path: 'test-results/role-profile-panel.png' });
+  });
 });
