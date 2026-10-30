@@ -19,6 +19,17 @@ if cv_extractor_src not in sys.path:
 # Set test environment before importing application
 os.environ.setdefault("APP_ENV", "test")
 
+# Auto-load TEST_DATABASE_URL from .env if not already present in environment
+if not os.environ.get("TEST_DATABASE_URL"):
+    env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
+    if os.path.exists(env_path):
+        with open(env_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("TEST_DATABASE_URL=") and not line.startswith("#"):
+                    os.environ["TEST_DATABASE_URL"] = line.split("=", 1)[1].strip().strip('"').strip("'")
+                    break
+
 test_db_url = os.environ.get("TEST_DATABASE_URL")
 if not test_db_url:
     raise RuntimeError("Set TEST_DATABASE_URL ke database TES (bukan production).")
