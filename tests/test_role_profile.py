@@ -173,3 +173,10 @@ def test_protected_attributes_proposed_by_the_model_are_dropped():
     assert "pelaksana lapangan" in proposal["titles"] and "pondasi" in proposal["domain_terms"]
     assert "pria berpenampilan menarik" not in proposal["titles"]
     assert "wanita muda" not in proposal["domain_terms"]
+
+
+def test_a_proposed_phrase_with_brackets_or_slashes_is_split_into_matchable_parts():
+    raw = {"titles": [], "domain_terms": ["rencana anggaran biaya (rab)", "bill of quantities (boq)", "ska / skt", "as-built drawing"]}
+    assert sanitize_proposal(raw)["domain_terms"] == [
+        "rencana anggaran biaya", "rab", "bill of quantities", "boq", "ska", "skt", "as-built drawing",
+    ]

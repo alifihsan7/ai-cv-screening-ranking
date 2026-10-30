@@ -152,11 +152,13 @@ def sanitize_proposal(raw: Any) -> dict[str, list[str]]:
         for it in items:
             if not isinstance(it, str):
                 continue
-            phrase = re.sub(r"\s+", " ", it.strip().lower())
-            if not phrase or len(phrase) > MAX_TERM_LENGTH or phrase in _TOO_GENERIC or not re.search(r"[a-z]", phrase):
+            if re.search(r"[<>{}\[\]\\]|https?://", it):
                 continue
-            if re.search(r"[<>{}\[\]\\]|https?://", phrase):
-                continue
-            cleaned.append(phrase)
+            # "rencana anggaran biaya (rab)" and "ska / skt" can never match CV text as written: split them up
+            for part in re.split(r"\s*[()/]\s*|\s+atau\s+", it.strip().lower()):
+                phrase = re.sub(r"\s+", " ", part).strip(" ,;.")
+                if not phrase or len(phrase) > MAX_TERM_LENGTH or phrase in _TOO_GENERIC or not re.search(r"[a-z]{2}", phrase):
+                    continue
+                cleaned.append(phrase)
         out[key] = list(_dedupe(cleaned))[:MAX_PROPOSED_TERMS]
     return out
