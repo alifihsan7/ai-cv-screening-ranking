@@ -448,80 +448,155 @@ async function run() {
 <div class="chapter">
   <div class="chapter-header">
     <div class="chapter-num">Bab 3</div>
-    <h1>Spesifikasi Dual-Engine AI (9Router & TypeSafe Jev)</h1>
+    <h1>Spesifikasi & Mekanisme Kerja TypeSafe Jev System One</h1>
   </div>
 
-  <h2>3.1 Pemisahan Domain Engine AI</h2>
+  <h2>3.1 Hakikat Model System One vs Model Generatif (LLM)</h2>
+  <p>
+    Untuk memahami cara kerja <strong>TypeSafe Jev</strong>, penting untuk membedakan antara model generatif konvensional (<em>System Two Thinking</em>) dan model keputusan bertipe (<em>System One Sensing</em>):
+  </p>
+  <ul>
+    <li><strong>Model Generatif (LLM)</strong>: Memprediksi token teks berikutnya secara autoregresif (menghasilkan paragraf, penalaran panjang, dan obrolan bebas). Pendekatan ini rentan halusinasi, fluktuasi format JSON, dan berlatensi tinggi.</li>
+    <li><strong>TypeSafe Jev (System One)</strong>: Model persepsi semantik deterministik yang <em>tidak menghasilkan teks bebas (0 output tokens)</em>. Jev mengevaluasi sekumpulan fakta terstruktur (<em>State</em>) terhadap pertanyaan formal tertutup, lalu langsung mengembalikan tipe data pemrograman konkret (<em>Typed Decision</em>) beserta probabilitas keyakinan yang terkalibrasi secara matematis.</li>
+  </ul>
+
+  <h2>3.2 Tiga Primitif Komputasi Jev (The Jev Primitives Trio)</h2>
+  <p>
+    Dalam arsitektur platform ini, Jev dipanggil menggunakan tiga primitif resmi dari <code class="inline-code">typesafe-sdk</code>:
+  </p>
+
   <table class="data-table">
     <thead>
       <tr>
-        <th style="width: 25%;">Parameter Teknis</th>
-        <th style="width: 37%;">Local AI Gateway (9Router)</th>
-        <th style="width: 38%;">TypeSafe Jev System One</th>
+        <th style="width: 15%;">Primitif</th>
+        <th style="width: 25%;">Tipe Kembalian</th>
+        <th style="width: 30%;">Kasus Penggunaan dalam Evaluasi CV</th>
+        <th style="width: 30%;">Logika Mapping Keputusan</th>
       </tr>
     </thead>
     <tbody>
       <tr>
-        <td><strong>Lokasi & Endpoint</strong></td>
-        <td>Loopback lokal (<code class="inline-code">http://127.0.0.1:20128/v1</code>)</td>
-        <td>Cloud SDK (<code class="inline-code">https://api.typesafe.ai</code>)</td>
+        <td><code class="inline-code">CHOICE</code></td>
+        <td>Label Kategori Tertutup (Enum) + Confidence Score</td>
+        <td>
+          1. <strong>Klasifikasi Peran (Role Family)</strong>: Menentukan taksonomi pengalaman kandidat (<code class="inline-code">BACKEND</code>, <code class="inline-code">DATA_AI</code>, dll).<br>
+          2. <strong>Polaritas Peran (Role Polarity)</strong>: Membedakan apakah kandidat pelaksana langsung (<code class="inline-code">CANDIDATE_DID_IT</code>) atau hanya pihak ketiga (<code class="inline-code">OTHERS_DID_IT</code>).
+        </td>
+        <td>
+          <code class="inline-code">CANDIDATE_DID_IT</code> → STRONG<br>
+          <code class="inline-code">OTHERS_DID_IT</code> / <code class="inline-code">ASPIRATIONAL</code> → PARTIAL<br>
+          <code class="inline-code">NOT_STATED</code> / <code class="inline-code">NEGATED</code> → UNPROVEN
+        </td>
       </tr>
       <tr>
-        <td><strong>Model Aktif</strong></td>
-        <td><code class="inline-code">ag/gemini-3.8-flash-high</code></td>
-        <td><code class="inline-code">jev-1.14.0</code> (via <code class="inline-code">typesafe-sdk 0.7.5</code>)</td>
+        <td><code class="inline-code">NOUL</code></td>
+        <td>Probabilitas Kontinu [0.0 s/d 1.0]</td>
+        <td>
+          <strong>Gating Kualifikasi Keras</strong>: Mengukur kepastian pemenuhan syarat mutlak (misal: "Memiliki sertifikasi AWS Solutions Architect aktif").
+        </td>
+        <td>
+          Probabilitas ≥ 0.70 → STRONG<br>
+          0.35 ≤ Probabilitas &lt; 0.70 → PARTIAL<br>
+          Probabilitas &lt; 0.35 → UNPROVEN
+        </td>
       </tr>
       <tr>
-        <td><strong>Mekanisme Autentikasi</strong></td>
-        <td><code class="inline-code">Authorization: Bearer [REDACTED]</code></td>
-        <td><code class="inline-code">Authorization: Bearer [REDACTED]</code></td>
-      </tr>
-      <tr>
-        <td><strong>Domain Tugas</strong></td>
-        <td>Persepsi Makro: Kompilasi JD ke JSON Schema terstruktur dan ekstraksi tri-tier kriteria.</td>
-        <td>Verifikasi Mikro: Verifikasi biner klaim kualifikasi CV dan klasifikasi peran (<code class="inline-code">role_family</code>).</td>
-      </tr>
-      <tr>
-        <td><strong>Primitif Komputasi</strong></td>
-        <td>Structured JSON Completion Prompting</td>
-        <td>Primitif SDK Resmi: <code class="inline-code">NOUL</code>, <code class="inline-code">SCORE</code>, <code class="inline-code">CHOICE</code></td>
-      </tr>
-      <tr>
-        <td><strong>Audit Trail</strong></td>
-        <td>Log rotasi aplikasi standar</td>
-        <td>Tabel relasional permanen <code class="inline-code">jev_calls</code> (latensi ms, token, confidence)</td>
+        <td><code class="inline-code">SCORE</code></td>
+        <td>Skor Diskrit Ordinal (0, 1, 2, 3)</td>
+        <td>
+          <strong>Tingkat Kemahiran Pengalaman (Seniority Tier)</strong>: Mengukur kedalaman teknis kandidat dari bukti proyek riil.
+        </td>
+        <td>
+          Score = 0: Tidak ada bukti (UNPROVEN)<br>
+          Score = 1: Pemahaman dasar / akademis (PARTIAL)<br>
+          Score = 2: Praktisi produksi terbukti (STRONG)<br>
+          Score = 3: Arsitek / Timbalan Teknis (STRONG)
+        </td>
       </tr>
     </tbody>
   </table>
 
-  <h2>3.2 Skema Tabel Audit Telemetri (<code class="inline-code">jev_calls</code>)</h2>
+  <h2>3.3 Protokol Payload Interaksi Jev (State & Question Contract)</h2>
   <p>
-    Setiap interaksi dengan TypeSafe Jev System One dicatat secara transparan ke basis data untuk menjamin akuntabilitas audit:
+    Teks lengkap CV <strong>tidak pernah dikirim utuh</strong> ke Jev demi menjaga kerahasiaan dan efisiensi latensi. Sistem hanya mengirim potongan bukti relevan (*candidate chunks*) beserta kriteria yang diuji:
+  </p>
+  <pre class="diagram-box">
+# Contoh Rekayasa State & Question pada typesafe-sdk
+state = {
+    "criterion": "Pengalaman minimal 3 tahun membangun API terdistribusi dengan Golang atau Rust",
+    "evidence_sections": {
+        "chunk_0": "WORK_EXPERIENCE",
+        "chunk_1": "PROJECTS"
+    },
+    "evidence_chunks": {
+        "chunk_0": "Senior Software Engineer di PT Fintek: Merancang microservice auth menggunakan Golang, throughput 15k req/sec selama 2022-2025.",
+        "chunk_1": "Membangun hobby bot discord menggunakan Rust."
+    }
+}
+
+# Jev mengevaluasi chunk secara paralel dalam 1 panggilan tunggal via POST /v1/systemone:
+questions = {
+    "chunk_0": Choice(
+        instructions="Tentukan pemenuhan bukti kandidat: STRONG jika terbukti di produksi nyata, PARTIAL jika sekadar hobi/dasar, NOT_DEMONSTRATED jika nihil.",
+        criteria={"STRONG": "Terbukti produksi nyata", "PARTIAL": "Hobi/teori", "NOT_DEMONSTRATED": "Tidak ada"}
+    )
+}
+# Output Jev: ChoiceAnswer(choice='STRONG', confidence=0.9421) -> Diproses deterministik oleh Python!
+  </pre>
+
+  <h2>3.4 Perbedaan Mendasar: 9Router vs TypeSafe Jev</h2>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width: 25%;">Dimensi Arsitektur</th>
+        <th style="width: 37%;">Local AI Gateway (9Router :20128)</th>
+        <th style="width: 38%;">TypeSafe Jev System One (Cloud SDK)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Kategori Model</strong></td>
+        <td>Model Generatif Makro (<code class="inline-code">ag/gemini-3.8-flash-high</code>)</td>
+        <td>Model Keputusan Bertipe System One (<code class="inline-code">jev-1.14.0</code>)</td>
+      </tr>
+      <tr>
+        <td><strong>Output Komputasi</strong></td>
+        <td>Teks JSON terstruktur bebas (menghasilkan output tokens)</td>
+        <td>Tipe Data Terprogram Murni (0 output tokens, hanya enum & confidence)</td>
+      </tr>
+      <tr>
+        <td><strong>Fungsi Utama</strong></td>
+        <td>Parsing deskripsi pekerjaan (JD), ekstraksi kriteria, tri-tiering (Must/Pref/Nice).</td>
+        <td>Verifikasi biner bukti CV, polaritas kepemilikan peran, klasifikasi taksonomi peran.</td>
+      </tr>
+      <tr>
+        <td><strong>Jejak Audit Basis Data</strong></td>
+        <td>Log rotasi aplikasi standar</td>
+        <td>Tabel permanen <code class="inline-code">jev_calls</code> (mencatat latensi ms, token, keputusan, grounding valid)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>3.5 Invarian Grounding Verbatim & Tabel Audit Telemetri (<code class="inline-code">jev_calls</code>)</h2>
+  <p>
+    Karena Jev mengembalikan keputusan semantik, sistem memberlakukan fungsi audit Python <code class="inline-code">verify_grounding()</code>: kutipan yang dijadikan dasar keputusan wajib memiliki kecocokan substring eksak (NFKC) pada dokumen asli CV pelamar. Setiap pemanggilan dicatat ke basis data:
   </p>
   <pre class="diagram-box">
 CREATE TABLE jev_calls (
     id              BIGSERIAL PRIMARY KEY,
     call_timestamp  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    run_id          UUID,
-    candidate_id    UUID,
-    criterion_id    UUID,
-    primitive_type  VARCHAR(32) NOT NULL,    -- NOUL, SCORE, CHOICE
+    candidate_id    UUID NOT NULL,
+    criterion_id    UUID NOT NULL,
+    primitive_type  VARCHAR(32) NOT NULL,    -- CHOICE, NOUL, SCORE
     model           VARCHAR(64) NOT NULL,    -- jev-1.14.0
-    latency_ms      INTEGER NOT NULL,
-    input_tokens    INTEGER,
-    output_tokens   INTEGER,
-    decision_value  VARCHAR(64),             -- STRONG, PARTIAL, UNPROVEN
-    confidence      NUMERIC(5,4),            -- 0.0000 - 1.0000
-    grounding_valid BOOLEAN DEFAULT TRUE     -- Validasi offset karakter verbatim
+    latency_ms      NUMERIC(8,2) NOT NULL,   -- Rata-rata 120-250 ms
+    input_tokens    INTEGER DEFAULT 0,
+    output_tokens   INTEGER DEFAULT 0,       -- Selalu 0 pada System One!
+    decision_value  VARCHAR(64) NOT NULL,    -- STRONG, PARTIAL, UNPROVEN
+    confidence      NUMERIC(5,4) NOT NULL,   -- 0.0000 s/d 1.0000
+    grounding_valid BOOLEAN DEFAULT TRUE     -- Wajib valid secara verbatim
 );
-CREATE INDEX idx_jev_calls_candidate ON jev_calls(candidate_id);
-CREATE INDEX idx_jev_calls_timestamp ON jev_calls(call_timestamp DESC);
   </pre>
-
-  <h2>3.3 Ambang Batas Keyakinan (Confidence Thresholding)</h2>
-  <p>
-    Sistem menerapkan parameter <code class="inline-code">VERIFIER_MIN_CONFIDENCE = 0.60</code>. Jika verifikasi Jev menghasilkan nilai confidence di bawah ambang 0.60, sistem secara konservatif mempertahankan hasil evaluasi aturan dasar dengan memberikan penanda audit <code class="inline-code">JEV_LOW_CONFIDENCE</code>.
-  </p>
 </div>
 
 <!-- BAB 4 -->

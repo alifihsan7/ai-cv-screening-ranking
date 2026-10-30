@@ -80,16 +80,51 @@ $$\text{Arsitektur Sistem} = \underbrace{\mathcal{M}_{\text{Persepsi Mikro}}}_{\
 
 ---
 
-### 3. Pemisahan Peran Dua Engine AI
+### 3. Spesifikasi & Mekanisme Kerja TypeSafe Jev System One
+
+#### 3.1 Hakikat Model System One vs Model Generatif (LLM)
+Untuk memahami bagaimana TypeSafe Jev bekerja di dalam platform, penting membedakan dua paradigma komputasi:
+* **Model Generatif (LLM / System Two)**: Menghasilkan token kata demi kata secara autoregresif. Menulis penjelasan panjang, rentan halusinasi, fluktuatif terhadap format JSON, dan memiliki latensi tinggi (1.500–5.000 ms).
+* **TypeSafe Jev (System One)**: Model keputusan terprogram (*programmable semantic sensing*) yang **tidak menghasilkan teks bebas sama sekali (0 output tokens)**. Jev mengevaluasi sekumpulan fakta teks (*State*) terhadap pertanyaan formal tertutup, lalu langsung mengembalikan tipe data primitif pemrograman (`Choice`, `Noul`, `Score`) beserta probabilitas terkalibrasi secara instan (100–250 ms).
+
+#### 3.2 Tiga Primitif Komputasi Jev (The Jev Primitives Trio)
+1. **`CHOICE` (Klasifikasi Diskrit & Polaritas)**:
+   * **Role Family**: Menentukan rumpun peran pekerjaan kandidat (`BACKEND`, `FRONTEND`, `DATA_AI`, `DEVOPS_SRE`, dll) berdasarkan judul dan tanggung jawab.
+   * **Role Polarity**: Memvalidasi kepemilikan peran, apakah kandidat adalah pelaksana langsung (`CANDIDATE_DID_IT`), hanya membantu tim (`OTHERS_DID_IT`), sekadar minat masa depan (`ASPIRATIONAL`), atau tidak disebutkan (`NOT_STATED`).
+2. **`NOUL` (Probabilitas Kontinu 0.0 – 1.0)**:
+   * Mengukur kepastian pemenuhan syarat mutlak (*hard gating*) dengan ambang batas terkalibrasi ($\ge 0.70 \rightarrow \text{STRONG}$, $0.35 - 0.69 \rightarrow \text{PARTIAL}$, $< 0.35 \rightarrow \text{UNPROVEN}$).
+3. **`SCORE` (Tingkat Kemahiran Ordinal 0, 1, 2, 3)**:
+   * Mengukur kedalaman kemahiran teknis (0: Nihil, 1: Dasar/Teori, 2: Praktisi Produksi, 3: Arsitek/Lead).
+
+#### 3.3 Protokol Payload (State & Question Contract)
+Teks lengkap CV tidak pernah dikirim utuh ke Jev. Sistem hanya mengekstrak potongan bukti relevan (*candidate chunks*) dan mengirimkannya dalam format state:
+```python
+state = {
+    "criterion": "Pengalaman minimal 3 tahun membangun API terdistribusi dengan Golang",
+    "evidence_sections": {"chunk_0": "WORK_EXPERIENCE"},
+    "evidence_chunks": {"chunk_0": "Senior SWE di Fintek: Merancang microservice auth Golang throughput 15k req/s (2022-2025)."}
+}
+questions = {
+    "chunk_0": Choice(
+        instructions="Tentukan pemenuhan bukti kandidat: STRONG jika di produksi nyata, PARTIAL jika hobi, NOT_DEMONSTRATED jika nihil.",
+        criteria={"STRONG": "Terbukti produksi nyata", "PARTIAL": "Hobi/teori", "NOT_DEMONSTRATED": "Tidak ada"}
+    )
+}
+```
+
+#### 3.4 Matriks Pemisahan Peran: 9Router vs TypeSafe Jev
 
 | Aspek | LLM Gateway (9Router Lokal) | TypeSafe Jev System One |
 |---|---|---|
 | **Lokasi Hosting** | Local Loopback (`127.0.0.1:20128/v1`) | Cloud Remote (`api.typesafe.ai`) |
 | **Model Aktif** | `ag/gemini-3.8-flash-high` | `jev-1.14.0` (via `typesafe-sdk 0.7.5`) |
 | **Metode Autentikasi** | `Authorization: Bearer <LLM_GATEWAY_KEY>` | `Authorization: Bearer <TYPESAFE_API_KEY>` |
-| **Peran Utama** | Kompilasi teks bebas JD menjadi kriteria terstruktur | Verifikasi biner bukti CV (`NOUL`) & penilaian mikro |
-| **Karakteristik** | Menghasilkan JSON Schema kontrak | Deterministik, terkalibrasi matematis, anti-halusinasi |
-| **Pencatatan Audit** | Standard logging | Tabel permanen `jev_calls` (latensi, confidence, input-output) |
+| **Peran Utama** | Kompilasi teks bebas JD menjadi kriteria terstruktur | Verifikasi mikro bukti CV & klasifikasi peran |
+| **Karakteristik Output**| Menghasilkan JSON Schema teks bebas | Tipe data terprogram murni (0 output tokens) |
+| **Pencatatan Audit** | Standard log rotasi | Tabel permanen `jev_calls` (latensi, confidence, input-output) |
+
+#### 3.5 Invarian Grounding Verbatim & Tabel Audit Telemetri (`jev_calls`)
+Keputusan yang dikembalikan oleh Jev diikat oleh invarian kode Python `verify_grounding()`: kutipan bukti wajib merupakan *exact substring match* ternormalisasi NFKC dari dokumen asli. Setiap interaksi dicatat ke tabel `jev_calls` untuk auditabilitas penuh.
 
 ---
 
