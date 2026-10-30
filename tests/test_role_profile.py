@@ -198,3 +198,27 @@ def test_a_proposed_phrase_with_brackets_or_slashes_is_split_into_matchable_part
     assert sanitize_proposal(raw)["domain_terms"] == [
         "rencana anggaran biaya", "rab", "bill of quantities", "boq", "ska", "skt", "as-built drawing",
     ]
+
+
+def test_stored_profile_is_cleaned_and_policy_linted():
+    from src.domain.role_profile import clean_stored_role_profile
+
+    params = {"min_years": 1, "role_profile": {"titles": ["  Pelaksana Lapangan ", "pelaksana lapangan", "x" * 60, "<b>hack</b>"], "domain_terms": ["Pondasi", 5], "source": "edited"}}
+    out = clean_stored_role_profile(params)
+    assert out["min_years"] == 1
+    assert out["role_profile"] == {"titles": ["pelaksana lapangan"], "domain_terms": ["pondasi"], "source": "edited"}
+
+
+def test_a_profile_with_nothing_left_after_cleaning_is_dropped():
+    from src.domain.role_profile import clean_stored_role_profile
+
+    assert "role_profile" not in clean_stored_role_profile({"role_profile": {"titles": ["<x>"], "domain_terms": []}})
+    assert clean_stored_role_profile(None) == {}
+
+
+def test_stored_profile_drops_words_the_policy_linter_prohibits():
+    from src.domain.role_profile import clean_stored_role_profile
+
+    out = clean_stored_role_profile({"role_profile": {"titles": ["pelaksana lapangan", "tinggi badan minimal"], "domain_terms": ["suku jawa", "pondasi"]}})
+    assert out["role_profile"]["titles"] == ["pelaksana lapangan"]
+    assert out["role_profile"]["domain_terms"] == ["pondasi"]

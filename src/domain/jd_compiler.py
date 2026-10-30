@@ -17,7 +17,7 @@ from typesafe_sdk import (
 
 from src.domain.pii import sanitize_contact_pii
 from src.domain.policy_linter import lint_text
-from src.domain.role_profile import infer_accepted_families, sanitize_proposal, seed_profile, uses_profile_path
+from src.domain.role_profile import clean_proposal, infer_accepted_families, seed_profile, uses_profile_path
 from src.domain.verifier import TypeSafeUnconfiguredError, classify_role_family_jev
 from src.infrastructure.config import settings
 from src.infrastructure.gateway import gateway
@@ -73,7 +73,7 @@ ROLE_PROFILE_PROMPT = (
 async def propose_role_profile(jd_text: str, gateway: Any, tenant_id: Any = None) -> dict[str, list[str]]:
     """Asks the model for job titles and field words that count as relevant experience. Data only, never trusted.
 
-    The answer is cleaned (`sanitize_proposal`) and every phrase goes through the policy linter; a phrase that names a
+    The answer is cleaned (`clean_proposal`) and every phrase goes through the policy linter; a phrase that names a
     protected attribute is dropped. Any failure returns an empty proposal: the taxonomy seed is used instead.
     """
     try:
@@ -86,12 +86,7 @@ async def propose_role_profile(jd_text: str, gateway: Any, tenant_id: Any = None
     except Exception as e:
         logger.warning(f"Role profile proposal skipped: {e}")
         return {"titles": [], "domain_terms": []}
-    cleaned = sanitize_proposal(raw)
-    for key, items in cleaned.items():
-        cleaned[key] = [
-            it for it in items if not (lint_text(it)["prohibited_flags"] or lint_text(it)["admin_flags"])
-        ]
-    return cleaned
+    return clean_proposal(raw)
 
 
 async def attach_role_profiles(requirements: list[dict[str, Any]], jd_text: str, gateway: Any, tenant_id: Any = None) -> None:

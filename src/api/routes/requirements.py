@@ -19,6 +19,7 @@ from src.api.middleware.rate_limiter import check_rate_limit
 from src.domain.jd_compiler import JDCompilationError, compile_job_requirements
 from src.domain.models import User, UserRole
 from src.domain.policy_linter import lint_text
+from src.domain.role_profile import clean_stored_role_profile
 from src.domain.verifier import TypeSafeUnconfiguredError
 from src.infrastructure.config import settings
 from src.infrastructure.database import get_connection
@@ -214,7 +215,7 @@ async def import_approved_requirements(
                     r["importance"],
                     r["weight"],
                     r.get("concepts", []),
-                    json.dumps(r.get("params", {})),
+                    json.dumps(clean_stored_role_profile(r.get("params"))),
                     r.get("source_text"),
                     r.get("lint_flags", []),
                 ),
@@ -345,7 +346,7 @@ async def add_manual_requirement(
                 req.importance,
                 req.weight,
                 req.concepts,
-                json.dumps(req.params),
+                json.dumps(clean_stored_role_profile(req.params)),
                 req.source_text or req.description,
                 flags,
             ),

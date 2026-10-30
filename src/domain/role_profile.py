@@ -17,6 +17,7 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
+from src.domain.policy_linter import lint_text
 from src.domain.taxonomy import get_taxonomy
 
 SOFTWARE_FAMILIES = frozenset({"backend", "fullstack", "frontend", "devops", "qa", "data", "mobile", "sre", "devops_sre", "data_ai"})
@@ -173,4 +174,31 @@ def sanitize_proposal(raw: Any) -> dict[str, list[str]]:
                     continue
                 cleaned.append(phrase)
         out[key] = list(_dedupe(cleaned))[:MAX_PROPOSED_TERMS]
+    return out
+
+
+def clean_proposal(raw: Any) -> dict[str, list[str]]:
+    """`sanitize_proposal` plus the policy linter: a phrase naming a protected attribute is dropped."""
+    cleaned = sanitize_proposal(raw)
+    for key, items in cleaned.items():
+        cleaned[key] = [it for it in items if not (lint_text(it)["prohibited_flags"] or lint_text(it)["admin_flags"])]
+    return cleaned
+
+
+def clean_stored_role_profile(params: dict[str, Any] | None) -> dict[str, Any]:
+    """Params about to be saved, with `role_profile` cleaned the same way a model proposal is.
+
+    The recruiter may type words into the profile, and the profile is frozen with the criteria version, so what is
+    stored must pass the same checks as what a model proposes. Other params are returned untouched.
+    """
+    out = dict(params or {})
+    profile = out.get("role_profile")
+    if not isinstance(profile, dict):
+        out.pop("role_profile", None)
+        return out
+    cleaned = clean_proposal(profile)
+    if not (cleaned["titles"] or cleaned["domain_terms"]):
+        out.pop("role_profile")  # an empty profile would switch a software vacancy to the profile path
+        return out
+    out["role_profile"] = {**cleaned, "source": str(profile.get("source") or "edited")}
     return out
