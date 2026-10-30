@@ -2451,6 +2451,7 @@ export default function App() {
                   onClose={handleCloseInspector}
                   candidate={selectedCandidate}
                   requirements={requirements}
+                  categoryWeights={categoryWeights}
                   blindMode={blindMode}
                   onDecision={handleDecision}
                   onRevealCandidate={handleRevealCandidate}

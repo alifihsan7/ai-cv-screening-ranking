@@ -41,6 +41,7 @@ export interface CandidateInspectorProps {
   onClose: () => void
   candidate: CandidateDetail | null
   requirements: Requirement[]
+  categoryWeights?: Record<string, number>
   blindMode: boolean
   onDecision: (
     cv_id: string,
@@ -78,6 +79,7 @@ export const CandidateInspector: React.FC<CandidateInspectorProps> = ({
   onClose,
   candidate,
   requirements,
+  categoryWeights,
   blindMode,
   onDecision,
   onRevealCandidate,
@@ -413,6 +415,7 @@ PENDIDIKAN & LATAR BELAKANG:
       .filter(([, data]) => data.maxWeight > 0)
       .map(([key, data]) => {
         const pct = data.maxWeight > 0 ? (data.earnedPoints / data.maxWeight) * 100 : 0
+        const assignedWeight = categoryWeights?.[key] ?? data.maxWeight
         return {
           key,
           label: data.label,
@@ -420,8 +423,13 @@ PENDIDIKAN & LATAR BELAKANG:
           earnedPoints: Number(data.earnedPoints.toFixed(1)),
           reqCount: data.reqCount,
           percentage: Number(pct.toFixed(0)),
+          assignedWeight,
         }
       })
+
+    const hasCategoryWeighting = Boolean(
+      categoryWeights && Object.keys(categoryWeights).length > 0 && Math.abs(rawScore - totalCalculatedPoints) > 0.05
+    )
 
     return {
       rawScore,
@@ -433,8 +441,9 @@ PENDIDIKAN & LATAR BELAKANG:
       totalWeight,
       totalCalculatedPoints: Number(totalCalculatedPoints.toFixed(1)),
       categories,
+      hasCategoryWeighting,
     }
-  }, [candidate, requirements])
+  }, [candidate, requirements, categoryWeights])
 
   // Guard: all hooks have been declared unconditionally above. Return null if no candidate.
   if (!candidate) return null
@@ -1396,7 +1405,7 @@ PENDIDIKAN & LATAR BELAKANG:
                           {scoringCalculations.rawScore.toFixed(1)}
                         </div>
                         <div className="text-[9px] text-[#2D4439]/70 font-mono">
-                          ∑ (W × V)
+                          {scoringCalculations.hasCategoryWeighting ? 'Normalisasi Kategori' : '∑ (W × V)'}
                         </div>
                       </div>
 
@@ -1448,7 +1457,9 @@ PENDIDIKAN & LATAR BELAKANG:
                     <div className="p-2 rounded-xl bg-[#EBF6EF] border border-[#BBE5CD] text-xs text-[#124B2E] flex items-center space-x-2">
                       <ShieldCheck className="w-4 h-4 shrink-0 text-[#124B2E]" />
                       <div className="text-[11px] font-medium">
-                        Kualifikasi utuh tanpa penalti band capping. Skor akhir identik dengan hasil akumulasi matriks.
+                        {scoringCalculations.hasCategoryWeighting
+                          ? `Kualifikasi utuh tanpa penalti band capping. Skor akhir identik dengan hasil normalisasi bobot kategori (${scoringCalculations.rawScore.toFixed(1)}).`
+                          : 'Kualifikasi utuh tanpa penalti band capping. Skor akhir identik dengan hasil akumulasi matriks.'}
                       </div>
                     </div>
                   )}
@@ -1606,7 +1617,7 @@ PENDIDIKAN & LATAR BELAKANG:
                     <tfoot className="bg-[#F7FAF8] border-t-2 border-[#D5DFD9] font-mono text-xs">
                       <tr>
                         <td colSpan={3} className="py-2 px-3 font-bold text-[#13221C] text-right">
-                          Total Akumulasi Matriks (Skor Mentah):
+                          Total Poin Linier Kriteria:
                         </td>
                         <td className="py-2 px-3 font-bold text-[#13221C] text-right">
                           {scoringCalculations.totalWeight}%
@@ -1618,6 +1629,16 @@ PENDIDIKAN & LATAR BELAKANG:
                           {scoringCalculations.totalCalculatedPoints.toFixed(1)} pts
                         </td>
                       </tr>
+                      {scoringCalculations.hasCategoryWeighting && (
+                        <tr className="bg-[#F2F5F3] text-[#13221C] border-t border-[#D5DFD9]">
+                          <td colSpan={5} className="py-1.5 px-3 text-right font-semibold text-[11px]">
+                            Skor Mentah (Normalisasi 4 Pilar Kategori):
+                          </td>
+                          <td className="py-1.5 px-3 text-right font-bold text-[11px] text-[#1B4938]">
+                            {scoringCalculations.rawScore.toFixed(1)}
+                          </td>
+                        </tr>
+                      )}
                       {scoringCalculations.isCapped && (
                         <tr className="text-[#7A3E02] bg-[#FEF6E8]/70">
                           <td colSpan={5} className="py-1.5 px-3 text-right font-semibold">
