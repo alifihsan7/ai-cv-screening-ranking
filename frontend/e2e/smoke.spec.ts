@@ -524,21 +524,9 @@ test.describe('AI CV Screener E2E Smoke Test Suite', () => {
     await page.getByRole('button', { name: /Senior Backend Engineer/i }).click();
     await page.getByRole('button', { name: /Ekstrak (Ulang|Kriteria AI)/i }).click();
 
-    const panel = page.getByTestId('role-profile');
-    await expect(panel).toBeVisible({ timeout: 15000 });
-    await expect(panel.getByText('Pekerjaan yang dihitung relevan')).toBeVisible();
-    await expect(panel.getByText('pelaksana lapangan')).toBeVisible();
-    await expect(panel.getByText('Kamus sistem + usulan model')).toBeVisible();
-    await expect(panel.getByText('bekisting')).toBeVisible();
-
-    // recruiter edits: remove one title, add one field word
-    await panel.getByRole('button', { name: 'Hapus quantity surveyor' }).click();
-    await expect(panel.getByText('quantity surveyor')).toHaveCount(0);
-    await panel.getByLabel(/Kata bidang/).fill('  Tiang Pancang ');
-    await panel.getByLabel(/Kata bidang/).press('Enter');
-    await expect(panel.getByText('tiang pancang')).toBeVisible();
-    await expect(panel.getByText('Disunting recruiter')).toBeVisible();
-    await panel.screenshot({ path: 'test-results/role-profile-panel.png' });
+    // Verifikasi bahwa panel role-profile teknis (kamus kata bidang) sudah disembunyikan total dari UI recruiter
+    await expect(page.getByTestId('role-profile')).toHaveCount(0);
+    await expect(page.getByText('Pekerjaan yang dihitung relevan')).toHaveCount(0);
   });
 
   test('11. Pemilihan template peran saat lowongan memiliki CV otomatis membuat lowongan baru tanpa menimpa data lowongan lama', async ({ page }) => {
