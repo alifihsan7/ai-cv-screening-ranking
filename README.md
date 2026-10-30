@@ -13,26 +13,6 @@
 
 ---
 
-## 📸 Antarmuka Pengguna (Workbench & Inspector)
-
-| Tahap 1: Setup Lowongan & Template | Tahap 2: Studio Kriteria & Pembobotan |
-|---|---|
-| ![Setup Lowongan](docs/images/01_landing_job_setup.png) | ![Studio Kriteria](docs/images/02_criteria_studio.png) |
-
-| Tahap 3: Unggah Berkas & Sanitasi | Tahap 4: Workbench Seleksi & Roster |
-|---|---|
-| ![Unggah Berkas](docs/images/03_upload_cv.png) | ![Workbench Roster](docs/images/04_workbench_roster.png) |
-
-| Tab 1: Matriks Evaluasi & Bukti | Tab 2: Audit Perhitungan Skor |
-|---|---|
-| ![Evaluasi Forensik](docs/images/05_inspector_evaluation.png) | ![Perhitungan Skor](docs/images/06_inspector_scoring.png) |
-
-| Tab 3: Jejak Penalaran ReAct | Tab 4: Grounding Naskah CV Asli |
-|---|---|
-| ![Jejak Penalaran](docs/images/07_inspector_trajectory.png) | ![Grounding Teks](docs/images/08_inspector_grounding.png) |
-
----
-
 ## 📚 Dokumentasi Resmi
 
 * 📕 **[Buku Panduan Pengguna / User Manual (PDF Lengkap Bergambar)](docs/BUKU_PANDUAN_PENGGUNA_AI_CV_SCREENING.pdf)**: Dokumen operasional cetak siap distribusi dengan tangkapan layar antarmuka asli resolusi tinggi, tabel alur kerja, dan panduan audit forensik.
