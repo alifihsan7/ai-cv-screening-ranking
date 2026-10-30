@@ -71,3 +71,26 @@ Dijalankan pada API dan worker terpisah (port 8199, database `cv_screening_test`
 - **R2 pada alur API: 12/12 cocok dengan label**, walau `quantity surveyor` sudah dihapus (aturan kata bidang dan judul lain cukup).
 - Batas: ini set pengembangan sipil yang sama dengan §6 (sebagian melingkar), satu lowongan, satu kali jalan. Yang diperiksa adalah **jalur data** (profil disunting → disimpan → dipakai), bukan kemampuan membaca profesi baru. Kriteria selain R2 tidak diperiksa.
 
+## 8. Langkah 4: pertanyaan relevansi Jev untuk entri ambigu (rancangan dan kriteria penerimaan, ditulis sebelum kode)
+
+Ditulis 30 Oktober 2026. Bukti kebutuhan: pada CV nyata, aturan kosakata melewatkan entri seperti "Balai Geoteknik, Terowongan, dan Struktur" dan "Junior Engineer" di proyek kilang (§6).
+
+**Rancangan.**
+- **Hanya menambah, tidak pernah mengurangi.** Aturan di §2 tetap yang pertama. Jev hanya ditanya tentang entri yang aturan nilai *tidak relevan*, dan hanya bila entri itu **ambigu**: bukan organisasi/kepanitiaan, judulnya bukan milik profesi lain (`_title_belongs_elsewhere`), dan memuat tepat **1** kata bidang (atau judulnya kosong/generik). Entri yang jelas relevan atau jelas bukan tidak pernah menyentuh Jev.
+- **Pertanyaan tertutup** (CHOICE): `RELEVAN`, `BERDEKATAN`, `TIDAK`, dengan keadaan berisi deskripsi kriteria, profil lowongan, dan judul serta bullet satu entri (teks CV tetap data, bukan instruksi; tanpa PII).
+- **Hanya `RELEVAN` dengan keyakinan ≥ 0,80 yang dihitung.** `BERDEKATAN` tidak dihitung tetapi memberi flag `ENTRY_NEEDS_REVIEW` agar recruiter melihatnya (tanpa penolakan otomatis, aturan emas #6). `TIDAK` dan keyakinan rendah: tidak dihitung, tanpa flag.
+- Skor tetap dihitung kode dari bulan; Jev tidak menghasilkan angka (aturan emas #1). Setiap panggilan dicatat di `jev_calls`.
+- Berlaku hanya di **jalur profil** (non-perangkat-lunak atau `params.role_profile` ada). Jalur perangkat lunak tidak disentuh.
+- Bila Jev tidak terkonfigurasi atau gagal: entri tetap *tidak relevan* (aturan murni), tanpa kesalahan fatal; hasil sama dengan sekarang.
+
+**Kriteria penerimaan (sebelum pengukuran).**
+1. **Perangkat lunak tidak bergeser:** aturan murni lima set 0 sel berubah; ekstraksi sama.
+2. **Set sipil (pengembangan):** R2 tetap 12/12 pada alur produksi; **tidak ada STRONG palsu** pada CV di luar bidang. Jev tidak boleh mengubah satu pun label yang sudah benar.
+3. **Jev tidak pernah mengubah entri yang aturan nilai relevan** (diuji dengan klien palsu yang selalu menjawab TIDAK: hasil identik dengan aturan murni).
+4. **Biaya:** jumlah panggilan Jev per CV dilaporkan; hanya entri ambigu yang dipanggil (diuji dengan klien palsu yang menghitung panggilan: nol panggilan untuk entri jelas, organisasi, dan judul profesi lain).
+5. **Kestabilan:** dua kali jalan pada 13 CV nyata dilaporkan jumlah entri yang berbalik keputusan; bila ada, itu dicatat sebagai batas (menunggu cache Tahap 4), bukan disembunyikan.
+6. **CV nyata:** daftar entri yang berubah dari tidak relevan menjadi dihitung (hanya judul) diberikan ke pemilik untuk ditinjau satu per satu; ketepatannya dilaporkan dari tinjauan itu, bukan dari tebakan saya.
+7. **Tes baru:** jawaban RELEVAN/BERDEKATAN/TIDAK, ambang keyakinan, kegagalan klien, dan butir 3 dan 4 di atas.
+
+**Batas yang sudah diketahui.** Jev tidak deterministik di sekitar keyakinan 0,6; ambang 0,80 mengurangi tetapi tidak menghilangkan balikan. Tanpa cache (Tahap 4), aturan emas #7 (hasil identik) hanya terpenuhi penuh untuk entri yang tidak ambigu.
+
