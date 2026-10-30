@@ -115,9 +115,22 @@ civil_engineering:
     - teknik sipil
     - civil engineer
     - site engineer
+    - site manager
+    - site supervisor
     - project manager sipil
     - surveyor
+    - quantity surveyor
+    - estimator
+    - drafter
     - drafter sipil
+    - juru gambar
+    - pelaksana lapangan
+    - pelaksana proyek
+    - pelaksana pekerjaan
+    - pengawas lapangan
+    - pengawas proyek
+    - supervisor lapangan
+    - mandor
   domain_terms:
     - sipil
     - civil
@@ -129,8 +142,28 @@ civil_engineering:
     - infrastruktur
     - rab
     - struktur
-  related:
-    - engineering
+    - pondasi
+    - beton
+    - beton bertulang
+    - tulangan
+    - bekisting
+    - galian
+    - timbunan
+    - drainase
+    - perkerasan
+    - jembatan
+    - boq
+    - bill of quantity
+    - kurva s
+    - opname
+    - subkontraktor
+    - shop drawing
+    - as built
+    - tiang pancang
+    - pekerjaan tanah
+    - sap2000
+    - etabs
+  related: []
 
 hr:
   titles:

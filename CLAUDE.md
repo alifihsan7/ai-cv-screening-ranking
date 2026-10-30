@@ -201,7 +201,7 @@ Sesuai dokumen spesifikasi `docs/spec/02_SCORING_RUBRIC_SPEC.md` dan `07_IMPLEME
 
 ## 6. ROADMAP PENGERJAAN UNTUK CLAUDE CODE
 
-> **Status terkini (2026-10-29)**: rincian dan angka ada di `docs/plan/CHECKPOINT_2026-10-29.md` dan `docs/eval/BENCHMARK_RESULTS_2026-10-29.md`.
+> **Status terkini (2026-10-30)**: pekerjaan profil peran lowongan ada di `docs/plan/CHECKPOINT_2026-10-30.md`. Sebelumnya (2026-10-29): rincian dan angka ada di `docs/plan/CHECKPOINT_2026-10-29.md` dan `docs/eval/BENCHMARK_RESULTS_2026-10-29.md`.
 > - **Phase 1** selesai di `src/` (lihat 4.B).
 > - **Phase 2** sebagian: model Pydantic ada (`EvaluationResult`, `CandidateProfileDomain`, dan lainnya) dan `response_model` terpasang di sebagian route; **belum** strict: `disallow_untyped_defs = false`, 9 error mypy, dan sekitar 105 temuan ruff tersisa.
 > - **Phase 3** ada: `ScreeningAgentState`, `ReasoningStep`, registry tool (`src/domain/tools/`), dan provider verifier. Nama kelas sebenarnya `JevTypeSafeVerifierProvider` dan `LLMGatewayVerifierProvider` (bukan `JevTypeSafeVerifier`/`LLMVerifier`). `ScreeningAgent` adalah alur bertahap tetap, bukan agent otonom; penggantian nama kode ditunda.

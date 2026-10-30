@@ -1,0 +1,214 @@
+{
+  "job_id": "JD-CIVIL",
+  "as_of": "2026-10-01",
+  "requirement_set": "docs/eval/civil_set/job_descriptions/JD-CIVIL_requirements.approved.json",
+  "authoring": "Only R1 and R2 are labelled, from docs/spec/02_SCORING_RUBRIC_SPEC.md section 4.2, before the system was run on these CVs. Written by the assistant that worked on the system; needs human review. This is a development set (written after seeing the failure in the same field), not a hold-out.",
+  "reference_ranking": [
+    "C01",
+    "C02",
+    "C03",
+    "C09",
+    "C10",
+    "C12",
+    "C04",
+    "C05",
+    "C06",
+    "C07",
+    "C08",
+    "C11"
+  ],
+  "candidates": [
+    {
+      "cv_id": "C01",
+      "file": "cvs/core/C01_docx_para_id.docx",
+      "format": "docx_para",
+      "language": "id",
+      "relevance_grade": 3,
+      "expected_states": {
+        "R1": [
+          "STRONG"
+        ],
+        "R2": [
+          "STRONG"
+        ]
+      },
+      "note": "Site Engineer sejak Januari 2021 = 70 bulan; judul 'site engineer' ada di taksonomi lama."
+    },
+    {
+      "cv_id": "C02",
+      "file": "cvs/core/C02_pdf_single_id.pdf",
+      "format": "pdf_single",
+      "language": "id",
+      "relevance_grade": 3,
+      "expected_states": {
+        "R1": [
+          "STRONG"
+        ],
+        "R2": [
+          "STRONG"
+        ]
+      },
+      "note": "Tanggal hanya tahun: 2022 – 2024 = Jul 2022 sampai Jun 2024 = 24 bulan. Judul 'pelaksana lapangan' tidak ada di taksonomi lama."
+    },
+    {
+      "cv_id": "C03",
+      "file": "cvs/core/C03_pdf_inline_id.pdf",
+      "format": "pdf_inline",
+      "language": "id",
+      "relevance_grade": 3,
+      "expected_states": {
+        "R1": [
+          "STRONG"
+        ],
+        "R2": [
+          "STRONG"
+        ]
+      },
+      "note": "Maret 2025 sampai Oktober 2026 = 20 bulan. 'Quantity surveyor' tidak ada di taksonomi lama."
+    },
+    {
+      "cv_id": "C04",
+      "file": "cvs/core/C04_docx_table3_id.docx",
+      "format": "docx_table3",
+      "language": "id",
+      "relevance_grade": 2,
+      "expected_states": {
+        "R1": [
+          "STRONG"
+        ],
+        "R2": [
+          "PARTIAL"
+        ]
+      },
+      "note": "Juni 2025 sampai Maret 2026 = 10 bulan < 12 = PARTIAL."
+    },
+    {
+      "cv_id": "C05",
+      "file": "cvs/core/C05_pdf_prose_id.pdf",
+      "format": "pdf_prose",
+      "language": "id",
+      "relevance_grade": 2,
+      "expected_states": {
+        "R1": [
+          "STRONG"
+        ],
+        "R2": [
+          "PARTIAL"
+        ]
+      },
+      "note": "Magang 3 bulan dihitung 50% = 1,5 bulan = PARTIAL (lowongan terbuka untuk fresh graduate dengan magang)."
+    },
+    {
+      "cv_id": "C06",
+      "file": "cvs/core/C06_pdf_single_id.pdf",
+      "format": "pdf_single",
+      "language": "id",
+      "relevance_grade": 1,
+      "expected_states": {
+        "R1": [
+          "STRONG"
+        ],
+        "R2": [
+          "NOT_DEMONSTRATED"
+        ]
+      },
+      "note": "Hanya organisasi mahasiswa (Himpunan Mahasiswa Teknik Sipil): bukan pengalaman kerja = NOT_DEMONSTRATED."
+    },
+    {
+      "cv_id": "C07",
+      "file": "cvs/core/C07_pdf_single_en.pdf",
+      "format": "pdf_single",
+      "language": "en",
+      "relevance_grade": 0,
+      "expected_states": {
+        "R1": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R2": [
+          "NOT_DEMONSTRATED"
+        ]
+      },
+      "note": "Insinyur perangkat lunak: di luar bidang = NOT_DEMONSTRATED untuk durasi dan pendidikan."
+    },
+    {
+      "cv_id": "C08",
+      "file": "cvs/core/C08_docx_table2_id.docx",
+      "format": "docx_table2",
+      "language": "id",
+      "relevance_grade": 0,
+      "expected_states": {
+        "R1": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R2": [
+          "NOT_DEMONSTRATED"
+        ]
+      },
+      "note": "Pemasaran: di luar bidang."
+    },
+    {
+      "cv_id": "C09",
+      "file": "cvs/core/C09_docx_para_id.docx",
+      "format": "docx_para",
+      "language": "id",
+      "relevance_grade": 3,
+      "expected_states": {
+        "R1": [
+          "STRONG"
+        ],
+        "R2": [
+          "STRONG"
+        ]
+      },
+      "note": "Judul 'Staff Teknik' ambigu; bulletnya (tulangan, bekisting, beton bertulang, pondasi, proyek gedung) menunjukkan pekerjaan sipil. Januari 2023 sampai Juni 2025 = 30 bulan."
+    },
+    {
+      "cv_id": "C10",
+      "file": "cvs/core/C10_pdf_inline_id.pdf",
+      "format": "pdf_inline",
+      "language": "id",
+      "relevance_grade": 3,
+      "expected_states": {
+        "R1": [
+          "STRONG"
+        ],
+        "R2": [
+          "STRONG"
+        ]
+      },
+      "note": "Maret 2024 sampai Oktober 2026 = 32 bulan; 'pengawas lapangan' tidak ada di taksonomi lama."
+    },
+    {
+      "cv_id": "C11",
+      "file": "cvs/core/C11_docx_para_id.docx",
+      "format": "docx_para",
+      "language": "id",
+      "relevance_grade": 0,
+      "expected_states": {
+        "R1": [
+          "NOT_DEMONSTRATED"
+        ],
+        "R2": [
+          "NOT_DEMONSTRATED"
+        ]
+      },
+      "note": "JEBAKAN PRESISI: akuntan di kontraktor. Isinya menyebut konstruksi, gedung, jalan, proyek, tetapi pekerjaannya akuntansi, bukan pekerjaan sipil = NOT_DEMONSTRATED."
+    },
+    {
+      "cv_id": "C12",
+      "file": "cvs/core/C12_pdf_prose_id.pdf",
+      "format": "pdf_prose",
+      "language": "id",
+      "relevance_grade": 3,
+      "expected_states": {
+        "R1": [
+          "STRONG"
+        ],
+        "R2": [
+          "STRONG"
+        ]
+      },
+      "note": "Dua pekerjaan tumpang tindih sepenuhnya: Jan 2024 sampai Des 2025 = 24 bulan, tidak dijumlahkan dua kali."
+    }
+  ]
+}

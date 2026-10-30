@@ -1,0 +1,134 @@
+{
+  "job_id": "JD-CIVIL",
+  "requirement_set_version": 1,
+  "status": "APPROVED",
+  "note": "Kriteria lowongan 'Civil Engineer (Struktur & Pelaksana)' sebagaimana dikompilasi dan disetujui di aplikasi.",
+  "category_weights": {
+    "EXPERIENCE": 40,
+    "HARD_SKILLS": 30,
+    "EDUCATION_CERT": 15,
+    "ACHIEVEMENT": 15
+  },
+  "requirements": [
+    {
+      "requirement_id": "R1",
+      "category": "EDUCATION_CERT",
+      "kind": "EDUCATION",
+      "importance": "MUST_HAVE",
+      "weight": 20,
+      "description": "Pendidikan minimal D3 atau S1 Teknik Sipil (Civil Engineering) dari universitas terakreditasi.",
+      "concepts": [
+        "education:d3_teknik_sipil",
+        "education:s1_teknik_sipil",
+        "domain:civil_engineering"
+      ],
+      "params": {}
+    },
+    {
+      "requirement_id": "R2",
+      "category": "EXPERIENCE",
+      "kind": "EXPERIENCE_DURATION",
+      "importance": "MUST_HAVE",
+      "weight": 20,
+      "description": "Pengalaman kerja minimal 1-3 tahun di bidang konstruksi sipil, pengawasan proyek, atau kontraktor pelaksana (terbuka untuk fresh graduate dengan pengalaman magang proyek).",
+      "concepts": [
+        "role_family:civil_engineer",
+        "experience:site_supervision",
+        "experience:contractor",
+        "experience:internship"
+      ],
+      "params": {}
+    },
+    {
+      "requirement_id": "R3",
+      "category": "HARD_SKILLS",
+      "kind": "SKILL",
+      "importance": "MUST_HAVE",
+      "weight": 20,
+      "description": "Pemahaman teknis mendalam mengenai pekerjaan tanah, pondasi, struktur beton bertulang, sistem drainase, dan pekerjaan finishing konstruksi.",
+      "concepts": [
+        "skill:earthwork",
+        "skill:foundation",
+        "skill:reinforced_concrete",
+        "skill:drainage_system",
+        "skill:finishing_works"
+      ],
+      "params": {}
+    },
+    {
+      "requirement_id": "R4",
+      "category": "HARD_SKILLS",
+      "kind": "SKILL",
+      "importance": "MUST_HAVE",
+      "weight": 15,
+      "description": "Kemampuan membaca gambar teknik serta mengoperasikan software AutoCAD untuk evaluasi dan penyesuaian Shop Drawing maupun As-Built Drawing.",
+      "concepts": [
+        "skill:autocad",
+        "skill:shop_drawing",
+        "skill:as_built_drawing",
+        "skill:technical_drawing"
+      ],
+      "params": {}
+    },
+    {
+      "requirement_id": "R5",
+      "category": "EXPERIENCE",
+      "kind": "RESPONSIBILITY",
+      "importance": "STRONG_PREFERENCE",
+      "weight": 10,
+      "description": "Mampu mengoordinasikan mandor, tenaga kerja, subkontraktor, serta melakukan opname progres fisik mingguan dan bulanan di lapangan.",
+      "concepts": [
+        "skill:site_supervision",
+        "skill:labor_management",
+        "skill:subcontractor_coordination",
+        "skill:progress_opname"
+      ],
+      "params": {}
+    },
+    {
+      "requirement_id": "R6",
+      "category": "HARD_SKILLS",
+      "kind": "SKILL",
+      "importance": "NICE_TO_HAVE",
+      "weight": 8,
+      "description": "Kemampuan menyusun dan mengontrol Rencana Anggaran Biaya (RAB), Bill of Quantities (BoQ), dan kurva S menggunakan Microsoft Excel atau Microsoft Project.",
+      "concepts": [
+        "skill:rab",
+        "skill:boq",
+        "skill:kurva_s",
+        "tool:ms_excel",
+        "tool:ms_project"
+      ],
+      "params": {}
+    },
+    {
+      "requirement_id": "R7",
+      "category": "EDUCATION_CERT",
+      "kind": "CERTIFICATION",
+      "importance": "NICE_TO_HAVE",
+      "weight": 7,
+      "description": "Kepemilikan sertifikasi keahlian profesi konstruksi (SKA / SKT) atau sertifikasi K3 Konstruksi / Ahli K3 Umum.",
+      "concepts": [
+        "certification:ska",
+        "certification:skt",
+        "certification:k3_konstruksi",
+        "certification:ahli_k3_umum"
+      ],
+      "params": {}
+    },
+    {
+      "requirement_id": "R8",
+      "category": "EXPERIENCE",
+      "kind": "RESPONSIBILITY",
+      "importance": "NICE_TO_HAVE",
+      "weight": 5,
+      "description": "Pengalaman lapangan pada jenis proyek spesifik seperti fasilitas lapangan olahraga, gedung bertingkat, atau konstruksi kolam renang.",
+      "concepts": [
+        "project:sports_facility",
+        "project:high_rise_building",
+        "project:swimming_pool"
+      ],
+      "params": {}
+    }
+  ]
+}

@@ -4,7 +4,7 @@
 |---|---|
 | [`spec/`](spec/) | Spesifikasi produk. Inti (milik Muhammad Rifqi Setiawan): `00` sampai `09`, [`DECISIONS.md`](spec/DECISIONS.md) (keputusan D1 sampai D22), [`02_SCORING_RUBRIC_SPEC.md`](spec/02_SCORING_RUBRIC_SPEC.md) (aturan skor). Dokumen arsitektur dan perbandingan (milik Alif Ihsan) memuat catatan status karena sebagian klaimnya berbeda dari sistem yang terukur. `golden_dataset/` adalah wasit, label tidak boleh diubah |
 | [`eval/`](eval/README.md) | Set uji tambahan, hasil ukur ([`BENCHMARK_RESULTS_2026-10-29.md`](eval/BENCHMARK_RESULTS_2026-10-29.md) adalah acuan), dan aturan pakainya |
-| [`plan/`](plan/) | Keadaan terkini ([`CHECKPOINT_2026-10-29.md`](plan/CHECKPOINT_2026-10-29.md)) dan rencana perbaikan Jev |
+| [`plan/`](plan/) | Keadaan terkini ([`CHECKPOINT_2026-10-30.md`](plan/CHECKPOINT_2026-10-30.md), sebelumnya [`CHECKPOINT_2026-10-29.md`](plan/CHECKPOINT_2026-10-29.md)) dan rencana perbaikan Jev |
 | [`research/`](research/) | Riset dan latar belakang arsitektur; bukan acuan implementasi |
 | [`archive/`](archive/README.md) | Catatan perencanaan lama yang disimpan untuk riwayat |
 | [`DEPLOYMENT_AND_RUNBOOK.md`](DEPLOYMENT_AND_RUNBOOK.md) | Deploy, backup, restart, pemrosesan ulang, dan pembersihan data pribadi |
