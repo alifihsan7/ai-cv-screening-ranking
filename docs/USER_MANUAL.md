@@ -1,20 +1,18 @@
 # BUKU PANDUAN PENGGUNA (USER MANUAL)
 ## PLATFORM SELEKSI & PEMERINGKATAN CV BERBASIS BUKTI
-**Sistem Cerdas Seleksi Pelamar Kerja Tanpa Halusinasi AI**
 
 ---
 
 ### Informasi Dokumen
 * **Nama Sistem**: AI CV Screening & Candidate Ranking Platform
 * **Akses Aplikasi**: `https://screening.alifihsan.my.id`
-* **Sasaran Pengguna**: Tim Rekrutmen (Recruiter), Human Resources (HR), Hiring Manager, dan Pimpinan Penilai Kualifikasi Teknis
-* **Versi Rilis**: 2.1 (Production Release)
+* **Arsitektur Inti**: Dual-Engine AI (9Router Local Gateway + TypeSafe Jev System One)
 
 ---
 
 ## DAFTAR ISI
 1. [Pendahuluan & Konsep Utama](#1-pendahuluan--konsep-utama)
-2. [Akses Sistem & Tampilan Antarmuka](#2-akses-sistem--tampilan-antarmuka)
+2. [Akses Sistem](#2-akses-sistem)
 3. [Alur Operasional 4 Langkah Utama](#3-alur-operasional-4-langkah-utama)
    - [Langkah 1: Setup Lowongan Kerja & Template](#langkah-1-setup-lowongan-kerja--template)
    - [Langkah 2: Studio Kriteria & Pengaturan Bobot](#langkah-2-studio-kriteria--pengaturan-bobot)
@@ -35,22 +33,18 @@
 
 ## 1. PENDAHULUAN & KONSEP UTAMA
 
-### Mengapa Sistem Ini Berbeda?
-Banyak platform rekrutmen berbasis AI di pasaran menggunakan model generatif (seperti ChatGPT secara langsung) yang memiliki risiko fatal: **mengarang kutipan (halusinasi)**, memberi nilai angka acak tanpa dasar rumus yang jelas, atau tertipu oleh pelamar yang menyisipkan kata kunci tak terlihat di CV.
-
-Sistem ini menerapkan **3 Prinsip Baku Kepatuhan**:
-1. **Bukti Verbatim Mutlak**: Kualifikasi kandidat hanya diakui terbukti jika kalimat/frasa tersebut benar-benar tertulis kata-demi-kata (*exact substring*) di dalam dokumen CV pelamar.
-2. **Perhitungan Matematis Murni**: Skor kecocokan pelamar dihitung menggunakan rumus aritmatika Multi-Criteria Decision Analysis ($\sum \text{Bobot} \times \text{Nilai Pemenuhan}$). AI tidak berhak menentukan angka skor seenaknya.
+### Karakteristik Sistem
+Platform AI CV Screening memisahkan secara tegas antara persepsi pembacaan dokumen dan agregasi skor matematis melalui **3 Prinsip Baku Kepatuhan**:
+1. **Pencocokan Bukti Hibrida (Verbatim & Semantik)**: Kualifikasi pelamar diverifikasi melalui kombinasi pencocokan kata-demi-kata (*exact verbatim substring*) dan pencarian semantik (*dense vector embedding + Full-Text Search*) untuk mendeteksi variasi istilah atau sinonim kompetensi yang relevan pada dokumen pelamar.
+2. **Perhitungan Matematis Murni**: Skor kecocokan pelamar dihitung menggunakan rumus aritmatika Multi-Criteria Decision Analysis ($\sum \text{Bobot} \times \text{Nilai Pemenuhan}$). AI tidak berhak menentukan angka skor secara langsung.
 3. **Hard Band Capping (Hukuman Syarat Wajib)**: Jika pelamar tidak memenuhi syarat wajib (*MUST_HAVE*), nilai akhir kandidat dipotong secara otomatis ke batas maksimal tertentu (maksimal 74.0 untuk Band B, dan maksimal 49.0 untuk Band C). Ini menjamin pelamar tanpa syarat wajib tidak akan pernah lolos di peringkat atas.
 
 ---
 
-## 2. AKSES SISTEM & TAMPILAN ANTARMUKA
+## 2. AKSES SISTEM
 
 Buka peramban (Google Chrome, Firefox, Safari, atau Microsoft Edge), lalu kunjungi alamat web resmi:
 👉 **`https://screening.alifihsan.my.id`**
-
-Tampilan antarmuka menggunakan tema ramah mata (*Tactile Slate & Emerald*), dengan kontras tinggi standar WCAG AAA sehingga nyaman digunakan dalam durasi kerja panjang tanpa kelelahan mata.
 
 ---
 

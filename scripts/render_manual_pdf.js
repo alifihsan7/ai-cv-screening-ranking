@@ -283,9 +283,9 @@ async function run() {
 <!-- HALAMAN COVER -->
 <div class="cover">
   <div class="cover-header">
-    <span class="cover-badge">Dokumen Operasional Resmi • Versi 2.1</span>
+    <span class="cover-badge">Dokumen Operasional Resmi</span>
     <h1 class="cover-title">BUKU PANDUAN PENGGUNA<br>(USER MANUAL)</h1>
-    <div class="cover-subtitle">Platform Seleksi & Pemeringkatan CV Berbasis Bukti Tanpa Halusinasi AI</div>
+    <div class="cover-subtitle">Platform Seleksi & Pemeringkatan CV Berbasis Bukti</div>
   </div>
 
   <div class="cover-meta">
@@ -297,10 +297,6 @@ async function run() {
       <tr>
         <td class="label">URL Akses Web:</td>
         <td class="value"><strong>https://screening.alifihsan.my.id</strong></td>
-      </tr>
-      <tr>
-        <td class="label">Sasaran Pembaca:</td>
-        <td class="value">Recruiter, Human Resources (HR), Hiring Manager, Technical Assessor</td>
       </tr>
       <tr>
         <td class="label">Arsitektur Inti:</td>
@@ -330,19 +326,19 @@ async function run() {
     <h1>Pendahuluan & Konsep Utama</h1>
   </div>
 
-  <h2>1. Mengapa Sistem Ini Berbeda?</h2>
+  <h2>1. Karakteristik Sistem</h2>
   <p>
-    Mayoritas sistem seleksi CV modern di pasaran mengandalkan model bahasa generatif biasa (seperti ChatGPT atau Claude langsung) yang kerap mengalami tiga cacat kritis: <strong>mengarang bukti (halusinasi)</strong>, <strong>penilaian numerik acak tanpa formula transparan</strong>, dan <strong>kerentanan manipulasi pelamar</strong> (seperti penyisipan teks tersembunyi berwarna putih di CV).
+    Platform <strong>AI CV Screening</strong> dirancang untuk menyelesaikan kelemahan umum pada sistem penyaring CV konvensional yang kerap menghasilkan penilaian acak atau tidak dapat diverifikasi keabsahannya.
   </p>
   <p>
-    Platform <strong>AI CV Screening</strong> hadir dengan memisahkan secara tegas antara <em>persepsi pembacaan dokumen</em> dan <em>agregasi skor matematis</em> melalui tiga prinsip kepatuhan mutlak:
+    Sistem ini memisahkan secara tegas antara <em>persepsi pembacaan dokumen</em> dan <em>agregasi skor matematis</em> melalui tiga prinsip kepatuhan:
   </p>
 
   <div class="callout">
-    <div class="callout-title">Tiga Prinsip Baku Sistem (Zero-Hallucination Guardrails)</div>
+    <div class="callout-title">Tiga Prinsip Baku Sistem</div>
     <ol>
-      <li><strong>Bukti Verbatim Mutlak</strong>: Kualifikasi pelamar hanya diakui terbukti jika terdapat kutipan kalimat kata-demi-kata (<em>exact substring</em>) langsung dari dokumen CV aslinya.</li>
-      <li><strong>Aritmatika Deterministik</strong>: Skor akhir dihitung 100% menggunakan formula matematis bobot kriteria. Model AI dilarang keras mengeluarkan angka skor mentah.</li>
+      <li><strong>Pencocokan Bukti Hibrida (Verbatim & Semantik)</strong>: Kualifikasi pelamar diverifikasi melalui kombinasi pencocokan kata-demi-kata (<em>exact verbatim substring</em>) dan pencarian semantik (<em>dense vector embedding + Full-Text Search</em>) untuk mendeteksi variasi istilah atau sinonim kompetensi yang relevan pada dokumen pelamar.</li>
+      <li><strong>Aritmatika Deterministik</strong>: Skor akhir dihitung 100% menggunakan formula matematis bobot kriteria. Model AI dilarang keras mengeluarkan angka skor mentah secara langsung.</li>
       <li><strong>Hard Band Capping (Hukuman Syarat Wajib)</strong>: Kegagalan pelamar pada syarat wajib (<em>MUST_HAVE</em>) secara otomatis memotong batas skor maksimal kandidat (maksimal 74.0 untuk Band B, dan maksimal 49.0 untuk Band C).</li>
     </ol>
   </div>
@@ -353,9 +349,6 @@ async function run() {
   </p>
   <p style="text-align: center; font-size: 11pt; padding: 6pt; background: var(--slate-100); border-radius: 4pt;">
     <strong>https://screening.alifihsan.my.id</strong>
-  </p>
-  <p>
-    Antarmuka dirancang dengan tema <em>Tactile Slate & Emerald</em> yang bersih, bebas elemen visual mengganggu (<em>anti-slop</em>), serta memenuhi standar aksesibilitas kontras tinggi <strong>WCAG AAA</strong> agar nyaman digunakan dalam sesi rekrutmen panjang.
   </p>
 </div>
 
@@ -499,13 +492,13 @@ async function run() {
   </div>
 
   <p>
-    Klik tombol <strong>Inspeksi Bukti</strong> pada baris pelamar mana pun untuk membuka panel evaluasi mendalam.
+    Klik pada baris kandidat di tabel pelamar untuk membuka panel dialog inspeksi kualifikasi secara lengkap.
   </p>
 
   <h2>Tab 1: Matriks Evaluasi & Bukti Verbatim</h2>
   <div class="figure-card">
     <img src="${img5}" alt="Tab Evaluasi">
-    <div class="figure-caption"><strong>Gambar 2.1</strong>: Tab Evaluasi Kualifikasi dengan kutipan verbatim kata-demi-kata dari CV.</div>
+    <div class="figure-caption"><strong>Gambar 2.1</strong>: Tab Evaluasi Kualifikasi menampilkan status pemenuhan kriteria beserta rincian bukti kutipan.</div>
   </div>
   <p>
     Pada tab ini, setiap butir kualifikasi lowongan dinilai dengan salah satu dari 3 status kepatuhan:
@@ -519,7 +512,7 @@ async function run() {
   <h2 style="margin-top: 18pt;">Tab 2: Transparansi Perhitungan Skor & Band Capping</h2>
   <div class="figure-card">
     <img src="${img6}" alt="Tab Perhitungan Skor">
-    <div class="figure-caption"><strong>Gambar 2.2</strong>: Tab Perhitungan Skor memperlihatkan audit formula matematis dan pemotongan Band Capping.</div>
+    <div class="figure-caption"><strong>Gambar 2.2</strong>: Tab Perhitungan Skor menampilkan audit formula matematis, perbandingan skor mentah vs akhir, dan breakdown kategori.</div>
   </div>
   <p>
     Tab ini menjelaskan secara gamblang bagaimana angka skor akhir kandidat terbentuk:
@@ -544,19 +537,19 @@ async function run() {
   </p>
   <div class="figure-card">
     <img src="${img7}" alt="Tab Jejak Penalaran">
-    <div class="figure-caption"><strong>Gambar 2.3</strong>: Rekaman siklus penalaran otonom (Thought → Action → Observation).</div>
+    <div class="figure-caption"><strong>Gambar 2.3</strong>: Tab Jejak Penalaran menampilkan urutan observasi logika verifikasi langkah demi langkah.</div>
   </div>
   <p>
     Sistem bekerja secara bertahap dan mencatat setiap interaksinya: mulai dari memanggil alat pemilah pengalaman kerja, mengecek kamus taksonomi peran, hingga mengirimkan cuplikan teks ke mesin verifikator TypeSafe Jev System One.
   </p>
 
-  <h2 style="margin-top: 18pt;">Tab 4: Grounding Naskah Dokumen CV Asli</h2>
+  <h2>Tab 4: Grounding Naskah Dokumen CV Asli</h2>
   <p>
     Menghilangkan keraguan dengan menampilkan naskah utuh hasil konversi berkas pelamar:
   </p>
   <div class="figure-card">
     <img src="${img8}" alt="Tab Grounding Naskah Asli">
-    <div class="figure-caption"><strong>Gambar 2.4</strong>: Penyorot interaktif (Text Highlight) langsung pada naskah dokumen asli pelamar.</div>
+    <div class="figure-caption"><strong>Gambar 2.4</strong>: Tab Kutipan CV menampilkan penyorot interaktif naskah asli pelamar berdasarkan koordinat karakter dokumen.</div>
   </div>
   <p>
     Ketika Anda mengklik kutipan bukti di Tab 1, sistem secara otomatis melompat dan menyorot kalimat tersebut pada teks lengkap di Tab 4 berdasarkan koordinat karakter dokumen. Recruiter dapat langsung membaca konteks kalimat pendukungnya.
@@ -597,13 +590,6 @@ async function run() {
     <li>Sistem mengunduh berkas spreadsheet yang telah disematkan format khusus <strong>UTF-8 BOM</strong>.</li>
     <li>Berkas dapat langsung dibuka dengan rapi di <strong>Microsoft Excel</strong>, <strong>Google Sheets</strong>, atau diimpor ke sistem HRIS perusahaan tanpa masalah karakter rusak atau kolom yang berantakan.</li>
   </ol>
-
-  <div class="callout callout-warning" style="margin-top: 25pt;">
-    <div class="callout-title">Bantuan Teknis & Dukungan Pengguna</div>
-    <p>
-      Jika Anda menemui kendala dalam penggunaan platform atau memerlukan integrasi dengan portal rekrutmen internal perusahaan, silakan hubungi tim administrator teknis di: <strong>alifihsan077@gmail.com</strong>.
-    </p>
-  </div>
 </div>
 
 </body>
