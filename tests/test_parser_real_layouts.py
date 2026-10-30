@@ -259,3 +259,27 @@ Memimpin tim kecil untuk integrasi pembayaran."""
         ("Backend Engineer", "PT. Nusa Karya", "2020-03", "2023-05"),
         ("Tech Lead", "PT. Mitra Data", "2018-08", "2020-01"),
     ]
+
+
+CIVIL_JOB_WITH_FILLED_CIRCLE_BULLETS = """Asisten Engineer and Drafter
+PT. Supraharmonia Consultant
+Mei 2019 - Mei 2024
+● Melakukan perhitungan struktur gedung dengan SAP2000 dan ETABS.
+● Menyusun gambar kerja dan shop drawing proyek gedung bertingkat.
+■ Mengawasi pelaksanaan pekerjaan pondasi di lapangan.
+Staff Teknik
+PT. Puji Harta Konstruksi
+Oktober 2018 - Juli 2019
+◆ Membuat laporan progres mingguan proyek jalan."""
+
+
+@pytest.mark.parametrize("glyph", ["●", "■", "◆", "➤", "✓"])
+def test_solid_bullet_glyphs_are_bullets_not_organization_names(glyph: str):
+    text = CIVIL_JOB_WITH_FILLED_CIRCLE_BULLETS.replace("●", glyph).replace("■", glyph).replace("◆", glyph)
+    parsed = parse_experiences(text, text)
+    assert [(e["title"], e["organization"]) for e in parsed] == [
+        ("Asisten Engineer and Drafter", "PT. Supraharmonia Consultant"),
+        ("Staff Teknik", "PT. Puji Harta Konstruksi"),
+    ]
+    assert [len(e["bullets"]) for e in parsed] == [3, 1]
+    assert all(not b["text"].startswith(glyph) for e in parsed for b in e["bullets"])

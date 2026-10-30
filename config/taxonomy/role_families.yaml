@@ -129,8 +129,7 @@ civil_engineering:
     - infrastruktur
     - rab
     - struktur
-  related:
-    - engineering
+  related: []
 
 hr:
   titles:

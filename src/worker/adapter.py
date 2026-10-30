@@ -28,8 +28,8 @@ from src.infrastructure.logging import logger
 from src.worker.anchor import resolve_candidate_name_consensus
 from src.worker.boundary import isolate_document_boundaries
 from src.worker.docling_parser import parse_with_docling
-from src.worker.pdf_reading_order import page_text_in_reading_order
 from src.worker.docx_text import extract_docx_text
+from src.worker.pdf_reading_order import page_text_in_reading_order
 
 EMAIL_PATTERN = re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+")
 PHONE_PATTERN = re.compile(r"(?:\+62|62|08)[0-9\s\-]{8,15}")
@@ -89,6 +89,10 @@ PRESENT_SET = {
     "ongoing",
 }
 MONTHS_REGEX_STR = r"(?:jan(?:uari|uary)?|feb(?:ruari|ruary)?|mar(?:et|ch)?|apr(?:il)?|mei|may|jun(?:i|e)?|jul(?:i|y)?|agu(?:stus)?|aug(?:ust)?|sep(?:t(?:ember)?)?|okt(?:ober)?|oct(?:ober)?|nov(?:ember)?|des(?:ember)?|dec(?:ember)?)"
+
+# Characters CVs use to mark list items. Kept in one place: parsers used to carry their own, shorter lists, and a
+# "●" or "■" line was then read as a job title or organization.
+BULLET_GLYPHS = "•●■□◆◇▪▫·○◦►➢➤➔✓✔‣⁃∙❖☑"
 
 SECTION_BOUNDARY_REGEX = re.compile(
     r"^(?:prestasi(?:\s+dan\s+penghargaan)?|penghargaan|awards?|achievements?|"
@@ -230,7 +234,7 @@ class _FallbackExtractorService:
 
             matched_label = None
             if len(line) < 50:
-                clean_heading = line.lstrip("#*-•~ \t").strip()
+                clean_heading = line.lstrip("#*-~ \t" + BULLET_GLYPHS).strip()
                 for lbl, pat in heading_map:
                     if pat.match(clean_heading):
                         matched_label = lbl
@@ -502,7 +506,7 @@ def _split_inline_boundary(raw_text: str) -> tuple[list[str], str]:
     if not s:
         return [], ""
 
-    segments = [seg.strip() for seg in re.split(r"(?:[•*▪▫~\n]|;\s*|\.\s+(?=[A-Z0-9]))", s) if seg.strip()]
+    segments = [seg.strip() for seg in re.split(r"(?:[•●■◆➤✓✔*▪▫~\n]|;\s*|\.\s+(?=[A-Z0-9]))", s) if seg.strip()]
 
     def is_candidate_header(text: str) -> bool:
         t = text.strip("()-–—|:,• \t")
@@ -548,7 +552,7 @@ def _split_inline_boundary(raw_text: str) -> tuple[list[str], str]:
     return [s], ""
 
 
-_BULLET_START = ("•", "-", "*", "▪", "▫", "~", "·", "○", "◦", "►", "➢", "–")
+_BULLET_START = (*BULLET_GLYPHS, "-", "*", "~", "–")
 # "April , 2024" (a comma after the month) and "9 bulan" / "2 years 3 months" duration notes next to a date range
 _MONTH_COMMA_YEAR = re.compile(rf"\b({MONTHS_REGEX_STR})\s*,\s*(\d{{4}})\b", re.IGNORECASE)
 _DURATION_NOTE = re.compile(
@@ -658,7 +662,7 @@ def is_fragmented_text(text: str) -> bool:
 def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None = None) -> list[dict[str, Any]]:
     valid_lines = []
     for l in [line.strip() for line in section_text.splitlines() if line.strip()]:
-        l_clean = l.lstrip("#*-•~ \t").strip()
+        l_clean = l.lstrip("#*-~ \t" + BULLET_GLYPHS).strip()
         if len(l_clean) < 60 and SECTION_BOUNDARY_REGEX.match(l_clean):
             break
         valid_lines.append(l)
@@ -863,12 +867,12 @@ def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None =
         # Strategy 4: Fallback to next / previous candidate lines if still not resolved
         if not title:
             candidate_next = (
-                lines[idx + 1].strip("•-* \t")
+                lines[idx + 1].strip("-* \t" + BULLET_GLYPHS)
                 if (idx + 1 < len(lines) and not RANGE_REGEX.search(lines[idx + 1]))
                 else ""
             )
             candidate_prev = (
-                lines[idx - 1].strip("•-* \t") if (idx > 0 and not RANGE_REGEX.search(lines[idx - 1])) else ""
+                lines[idx - 1].strip("-* \t" + BULLET_GLYPHS) if (idx > 0 and not RANGE_REGEX.search(lines[idx - 1])) else ""
             )
 
             if candidate_next and (
@@ -988,7 +992,7 @@ def parse_experiences(section_text: str, full_doc_text: str, as_of: str | None =
         # Deduplicate & sanitize bullets
         bullets = []
         for bl in raw_bullets:
-            bl_clean = bl.lstrip("#*-•~ \t").strip()
+            bl_clean = bl.lstrip("#*-~ \t" + BULLET_GLYPHS).strip()
             if len(bl_clean) < 60 and SECTION_BOUNDARY_REGEX.match(bl_clean):
                 break
             if len(bl_clean) > 5 and not RANGE_REGEX.search(bl) and bl_clean != title and bl_clean != org:
@@ -1051,7 +1055,7 @@ def parse_certifications(ce_text: str, ed_text: str) -> list[str]:
         if len(parts) > 1:
             combined += "\n" + parts[1]
 
-    lines = [l.strip().lstrip("-•*~ ").strip() for l in combined.splitlines() if l.strip()]
+    lines = [l.strip().lstrip("-*~ " + BULLET_GLYPHS).strip() for l in combined.splitlines() if l.strip()]
     merged = []
     curr = ""
     for l in lines:
