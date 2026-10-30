@@ -35,8 +35,9 @@
 
 ## 📚 Dokumentasi Resmi
 
-* 📖 **[Buku Panduan Pengguna & Recruiter (User Guide)](docs/USER_AND_RECRUITER_GUIDE.md)**: Panduan operasional visual langkah demi langkah untuk tim HR dan Hiring Manager.
+* 📘 **[Buku Panduan Pengguna / User Manual](docs/USER_MANUAL.md)**: Panduan operasional visual lengkap dan sistematis untuk tim HR, Recruiter, dan Hiring Manager.
 * 🏛️ **[Spesifikasi Arsitektur Sistem (Technical Architecture Spec)](docs/TECHNICAL_ARCHITECTURE_SPEC.md)**: Blueprint rekayasa, topologi server, dan integrasi Dual-Engine AI (9Router + TypeSafe Jev).
+* 🛠️ **[Panduan Deployment & Runbook Operasional](docs/DEPLOYMENT_AND_RUNBOOK.md)**: Prosedur pemeliharaan layanan systemd, migrasi database, dan environment.
 
 ---
 
