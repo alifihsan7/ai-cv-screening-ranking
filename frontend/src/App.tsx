@@ -2070,6 +2070,7 @@ export default function App() {
     }
     if (!jobDescription.trim()) return
     setIsCompiling(true)
+    setApprovedSnapshot(null)
     try {
       const jId = currentJobId || (await ensureJobExists())
       if (jId) {

@@ -269,19 +269,8 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
   }
 
   const handleSaveAndContinue = () => {
-    if (!isLocked) {
-      if (showToast) {
-        if (requirements.length === 0) {
-          showToast('Kriteria lowongan masih kosong. Ekstraksi dari JD atau tambahkan kriteria terlebih dahulu!', 'warning')
-        } else {
-          showToast('Harap setujui kriteria terlebih dahulu sebelum lanjut ke tahap Unggah CV!', 'warning')
-        }
-      }
-      setShowUnapprovedWarning(true)
-      return
-    }
-    setShowUnapprovedWarning(false)
-    if (onNext) {
+    if (isLocked && onNext) {
+      setShowUnapprovedWarning(false)
       onNext()
     }
   }
@@ -326,6 +315,7 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
               <button
                 type="button"
                 onClick={handleApprovalClick}
+                disabled={isLocked || isCompiling}
                 title={
                   isLocked
                     ? `Kriteria telah disetujui & dikunci (v${criteriaVersion}). Lakukan perubahan pada kriteria atau bobot untuk membuka kunci.`
@@ -341,8 +331,8 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
                 }
                 className={
                   isLocked
-                    ? 'h-8 px-3 bg-[#EBF6EF] hover:bg-[#DDF0E4] border border-[#BBE5CD] text-[#124B2E] text-xs font-bold rounded-lg flex items-center space-x-1.5 cursor-pointer shadow-tactile-sm transition-all duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#124B2E]'
-                    : 'h-8 px-3 bg-[#1B4938] hover:bg-[#265B46] text-[#FCFDFC] text-xs font-bold rounded-lg flex items-center space-x-1.5 transition-all duration-150 cursor-pointer shadow-tactile-sm active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938]'
+                    ? 'h-8 px-3 bg-[#EBF6EF] border border-[#BBE5CD] text-[#124B2E] text-xs font-bold rounded-lg flex items-center space-x-1.5 cursor-not-allowed shadow-none opacity-90 transition-all duration-150'
+                    : 'h-8 px-3 bg-[#1B4938] hover:bg-[#265B46] text-[#FCFDFC] text-xs font-bold rounded-lg flex items-center space-x-1.5 transition-all duration-150 cursor-pointer shadow-tactile-sm active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] disabled:opacity-50'
                 }
               >
                 {isLocked ? (
@@ -915,12 +905,17 @@ export const CriteriaStudio: React.FC<CriteriaStudioProps> = ({
         <button
           type="button"
           onClick={handleSaveAndContinue}
+          disabled={!isLocked}
           title={
             !isLocked
-              ? 'Harap setujui kriteria terlebih dahulu sebelum lanjut ke tahap Unggah CV'
+              ? 'Setujui kriteria terlebih dahulu sebelum lanjut ke tahap Unggah CV'
               : 'Lanjut ke tahap Unggah Berkas CV'
           }
-          className="h-8 px-4 bg-[#1B4938] hover:bg-[#265B46] text-[#FCFDFC] text-xs font-bold rounded-lg transition-all flex items-center space-x-1.5 cursor-pointer shadow-tactile-sm active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938]"
+          className={
+            !isLocked
+              ? 'h-8 px-4 bg-[#E2E9E5] text-[#52665A] border border-[#D5DFD9] text-xs font-bold rounded-lg flex items-center space-x-1.5 cursor-not-allowed opacity-40 shadow-none transition-all'
+              : 'h-8 px-4 bg-[#1B4938] hover:bg-[#265B46] text-[#FCFDFC] text-xs font-bold rounded-lg transition-all flex items-center space-x-1.5 cursor-pointer opacity-100 shadow-tactile-sm active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938]'
+          }
         >
           <span>Simpan & Lanjut ke Unggah CV</span>
           <ChevronRight className="w-3.5 h-3.5" />
