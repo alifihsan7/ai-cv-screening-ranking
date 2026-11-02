@@ -951,4 +951,67 @@ test.describe('AI CV Screener E2E Smoke Test Suite', () => {
     await expect(page.getByText('Catatan HM:').first()).toBeVisible();
     await expect(page.getByText(/Kandidat sangat potensial, agendakan interview teknis/i).first()).toBeVisible();
   });
+
+  test('15. Quick Upload Dock Topbar dan Keyboard Power Navigation (J, K, S, H, X, B)', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+
+    // 1. Uji tombol [+ Unggah CV] di Topbar
+    const topbarUploadBtn = page.getByRole('button', { name: /\+ Unggah CV/i });
+    await expect(topbarUploadBtn).toBeVisible();
+    await topbarUploadBtn.click();
+
+    // Verifikasi Modal Upload Dock muncul
+    const uploadModal = page.getByRole('heading', { name: /Unggah Berkas Lamaran CV/i });
+    await expect(uploadModal).toBeVisible();
+
+    // Tutup dialog via tombol Escape atau X
+    await page.keyboard.press('Escape');
+    await expect(uploadModal).not.toBeVisible();
+
+    // 2. Preload data Golden Dataset dan buka Workbench
+    await page.getByRole('button', { name: /Golden Dataset/i }).click();
+    await page.getByRole('button', { name: /Workbench/i }).click();
+    await expect(page.getByRole('table')).toBeVisible();
+
+    // 3. Uji Hotkey 'B' untuk toggle Blind Mode
+    const blindBtn = page.getByTitle(/Pencegahan Bias Demografis/i);
+    await expect(blindBtn).toContainText('Blind: ON');
+    await page.keyboard.press('b');
+    await expect(blindBtn).toContainText('Blind: OFF');
+    await page.keyboard.press('b');
+    await expect(blindBtn).toContainText('Blind: ON');
+
+    // 4. Uji Hotkey 'J' dan 'K' untuk navigasi kandidat
+    // Klik row pertama agar terfokus
+    const firstRow = page.locator('tbody tr').first();
+    await firstRow.click();
+    const inspectorDialog = page.getByRole('dialog', { name: 'Panel Inspeksi Kandidat' });
+    await expect(inspectorDialog).toBeVisible();
+    await expect(inspectorDialog.getByText('#1')).toBeVisible();
+
+    // Tekan 'J' untuk pindah ke kandidat berikutnya (#2)
+    await page.keyboard.press('j');
+    await expect(inspectorDialog.getByText('#2')).toBeVisible();
+
+    // Tekan 'K' untuk kembali ke kandidat sebelumnya (#1)
+    await page.keyboard.press('k');
+    await expect(inspectorDialog.getByText('#1')).toBeVisible();
+
+    // 5. Uji Hotkeys Keputusan: 'S' (Shortlist), 'H' (Hold), 'X' (Tidak Lanjut)
+    // Tekan 'S' untuk Shortlist
+    await page.keyboard.press('s');
+    const activeShortlistBtn = inspectorDialog.getByRole('button', { name: /Shortlist/i }).first();
+    await expect(activeShortlistBtn).toHaveClass(/bg-\[#EBF6EF\]/);
+
+    // Tekan 'H' untuk Hold
+    await page.keyboard.press('h');
+    const activeHoldBtn = inspectorDialog.getByRole('button', { name: /Hold/i }).first();
+    await expect(activeHoldBtn).toHaveClass(/bg-\[#FEF6E8\]/);
+
+    // Tekan 'X' untuk Tidak Lanjut (Tolak)
+    await page.keyboard.press('x');
+    const activeRejectBtn = inspectorDialog.getByRole('button', { name: /Tolak/i }).first();
+    await expect(activeRejectBtn).toHaveClass(/bg-\[#FCEBEB\]/);
+  });
 });

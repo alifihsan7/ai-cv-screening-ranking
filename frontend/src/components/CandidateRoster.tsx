@@ -136,19 +136,27 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
     })
   }, [candidates, bandFilter, searchQuery, blindMode])
 
-  // Ergonomic keyboard navigation (ArrowUp / ArrowDown)
+  // Ergonomic keyboard navigation (ArrowUp / ArrowDown, J / K, S / H / X, B)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (
         document.activeElement?.tagName === 'INPUT' ||
-        document.activeElement?.tagName === 'TEXTAREA'
+        document.activeElement?.tagName === 'TEXTAREA' ||
+        (document.activeElement as HTMLElement)?.isContentEditable
       ) {
+        return
+      }
+
+      // Shortcut B: Toggle Blind Mode
+      if (e.key === 'b' || e.key === 'B') {
+        e.preventDefault()
+        onToggleBlindMode()
         return
       }
 
       if (filteredCandidates.length === 0) return
 
-      if (e.key === 'ArrowDown') {
+      if (e.key === 'ArrowDown' || e.key === 'j' || e.key === 'J') {
         e.preventDefault()
         const currentIndex = filteredCandidates.findIndex(
           (c) => c.cv_id === selectedCandidateId
@@ -159,7 +167,8 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
             : currentIndex + 1
         const nextCand = filteredCandidates[nextIndex]
         onSelectCandidate(nextCand)
-      } else if (e.key === 'ArrowUp') {
+        onOpenInspector(nextCand)
+      } else if (e.key === 'ArrowUp' || e.key === 'k' || e.key === 'K') {
         e.preventDefault()
         const currentIndex = filteredCandidates.findIndex(
           (c) => c.cv_id === selectedCandidateId
@@ -168,12 +177,24 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
           currentIndex <= 0 ? filteredCandidates.length - 1 : currentIndex - 1
         const prevCand = filteredCandidates[prevIndex]
         onSelectCandidate(prevCand)
+        onOpenInspector(prevCand)
+      } else if (selectedCandidateId) {
+        if (e.key === 's' || e.key === 'S') {
+          e.preventDefault()
+          onDecision(selectedCandidateId, 'SHORTLIST')
+        } else if (e.key === 'h' || e.key === 'H') {
+          e.preventDefault()
+          onDecision(selectedCandidateId, 'HOLD')
+        } else if (e.key === 'x' || e.key === 'X') {
+          e.preventDefault()
+          onDecision(selectedCandidateId, 'TIDAK_LANJUT')
+        }
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [filteredCandidates, selectedCandidateId, onSelectCandidate])
+  }, [filteredCandidates, selectedCandidateId, onSelectCandidate, onOpenInspector, onDecision, onToggleBlindMode])
 
   // Quick stats calculations
   const stats = useMemo(() => {
@@ -548,7 +569,7 @@ export const CandidateRoster: React.FC<CandidateRosterProps> = ({
                     }}
                     className={`transition-colors duration-150 cursor-pointer group ${
                       isSelected
-                        ? 'bg-[#EBF6EF]/80 ring-1 ring-inset ring-[#1B4938]/30 font-semibold'
+                        ? 'bg-[#EBF1EE] shadow-[inset_3px_0_0_0_#1B4938] font-semibold'
                         : 'hover:bg-[#F5F8F6] bg-[#FCFDFC]'
                     }`}
                   >

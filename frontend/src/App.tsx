@@ -1928,6 +1928,7 @@ export default function App() {
   const handleUploadFiles = handleUploadCvs
 
   const handleStartScreening = async () => {
+    setIsUploadModalOpen(false)
     stopPollingJobCvs()
     if (pollTimerRef.current) {
       clearInterval(pollTimerRef.current)
@@ -2297,6 +2298,7 @@ export default function App() {
         blindMode={blindMode}
         onToggleBlindMode={() => setBlindMode((prev) => !prev)}
         onLoadGoldenSample={handleLoadGoldenSample}
+        onOpenUpload={() => setIsUploadModalOpen(true)}
         currentJobId={currentJobId}
         currentJobTitle={currentJobTitle}
         availableJobs={availableJobs}

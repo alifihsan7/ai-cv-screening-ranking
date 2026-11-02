@@ -9,6 +9,7 @@ import {
   Pencil,
   Trash2,
   Plus,
+  Upload,
 } from 'lucide-react'
 import type { WorkflowStep } from '../types'
 import brandMark from '../assets/brand-mark.svg'
@@ -31,6 +32,7 @@ export interface TopbarProps {
   blindMode: boolean
   onToggleBlindMode: () => void
   onLoadGoldenSample?: () => void
+  onOpenUpload?: () => void
   isLoading?: boolean
 }
 
@@ -47,6 +49,7 @@ export const Topbar: React.FC<TopbarProps> = ({
   blindMode,
   onToggleBlindMode,
   onLoadGoldenSample,
+  onOpenUpload,
   isLoading = false,
 }) => {
   const [isJobSelectOpen, setIsJobSelectOpen] = useState(false)
@@ -210,6 +213,18 @@ export const Topbar: React.FC<TopbarProps> = ({
 
       {/* Right: Quick Actions & Tactile Blind Mode Switch */}
       <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0">
+        {onOpenUpload && (
+          <button
+            type="button"
+            onClick={onOpenUpload}
+            className="h-8 px-2.5 rounded-lg bg-[#FCFDFC] hover:bg-[#EBF1EE] hover:border-[#1B4938]/40 border border-[#D5DFD9] text-[#13221C] text-xs font-semibold flex items-center space-x-1.5 transition-all duration-150 cursor-pointer shadow-tactile-sm shrink-0 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4938] focus-visible:ring-offset-1 active:scale-[0.98]"
+            title="Unggah Berkas CV (PDF, DOCX, ZIP)"
+          >
+            <Upload className="w-3.5 h-3.5 text-[#1B4938] shrink-0" />
+            <span className="hidden sm:inline">+ Unggah CV</span>
+          </button>
+        )}
+
         {onLoadGoldenSample && (
           <button
             type="button"
